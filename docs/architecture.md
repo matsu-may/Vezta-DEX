@@ -1,0 +1,49 @@
+# Vezta DEX Architecture
+
+## Design intent
+
+The standalone project follows the useful separation in `vezta-tokenlaunchpad`: a browser frontend and a server API with an explicit boundary. It stays smaller because the first release consumes Uniswap contracts and does not deploy contracts or run a custom matching engine. Polygon is the sole executable chain in the first release; every token, pool, quote, transaction and position still carries `chainId` so later chains do not change identity rules.
+
+```text
+apps/web (Next.js, wallet UI) ──HTTP──> apps/api (validated DEX endpoints)
+       │                                      │
+       │ user signs and submits               ├──> Uniswap Trading/LP APIs
+       └──────────────────────────────────────└──> Polygon RPC / pool data source
+                                      │
+                               Uniswap contracts
+```
+
+## Proposed layout
+
+| Path | Responsibility |
+|---|---|
+| `apps/web/` | `/swap`, `/explore`, `/pools`, pool detail and positions; Polygon wallet connection; transaction preview, signing and receipt UI. |
+| `apps/api/` | Narrow HTTP endpoints for token/pool data, quotes and unsigned transaction preparation; input validation, Uniswap API keys, caching and rate limits. It never stores a private key or sends a user transaction. |
+| `packages/core/` | Chain-aware IDs and request/response schemas shared by web and API. Keep protocol-specific quote and LP adapters behind small interfaces. |
+| `docs/` | Roadmap, architecture, milestone specs, evidence and later implementation plans. |
+
+Next.js matches `vezta-fe`; a small TypeScript HTTP API can follow the Hono pattern already used by the independent token launchpad. The exact dependency versions belong to the scaffold implementation plan, not to this architecture note. A database and custom indexer are deferred until pool data needs cannot be met reliably by a chosen source.
+
+## Data and signing boundaries
+
+1. The server validates `chainId`, token addresses, integer amounts and supported route type before asking Uniswap for a quote or LP transaction. API credentials remain server-side. [Trading API integration](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide), [LP API integration](https://developers.uniswap.org/docs/liquidity/liquidity-provisioning-api/integration-guide).
+2. The browser checks that the wallet is on Polygon and that the returned `to`, spender, recipient, amount limits and expiry match the user's visible intent before requesting approval or a signature. A fresh quote is required after account, chain, tokens, amount or slippage changes.
+3. The wallet alone signs and submits. An API response or successful simulation is not a confirmed transaction; the UI waits for a receipt, then refreshes balances and positions.
+4. Pool lists and historical metrics may be indexed and delayed. Display their source and freshness. Read current chain/protocol state for transaction preparation. Pool identity includes `chainId`, Uniswap version, token pair, fee parameters and v4 hook address when applicable.
+5. For the initial AMM swap path, limit quoted protocols to supported Uniswap pools (`V3`/`V4` after pool research). UniswapX orders and cross-chain plans have different execution states and belong to later specs. [Swap routing](https://developers.uniswap.org/docs/trading/swapping-api/concepts/swap-routing).
+
+## Threats to address before writes
+
+| Scenario | Asset / impact | Control and verification | Owner |
+|---|---|---|---|
+| Lookalike token or wrong chain | User signs for the wrong asset | Curated `chainId + address` registry; on-chain decimals; display addresses; wrong-chain and duplicate-symbol tests | API + web |
+| Changed transaction target or recipient | Token approval or swap can move funds elsewhere | Validate allowed target/spender and intent-bound recipient/limits before wallet prompt; test tampered responses | API + web |
+| Stale quote or Permit2 signature | Unexpected execution or failed trade | Invalidate on input changes, enforce expiry, refresh before sign; test delayed approval and price moves | Web |
+| Stale pool or position index | Misleading liquidity, fee or balance display | Timestamp data, label estimates, refresh from chain after receipt; test index lag | API + web |
+| Public API key proxy abuse | Quota exhaustion and unavailable quotes | Keep key server-side; explicit endpoints, validation and rate limits; test malformed/high-volume requests | API |
+
+The table is an initial threat model. Each write milestone revisits it with the exact pool, router and wallet implementation; it is not a security certification.
+
+## Later integration with Vezta
+
+Keep product logic behind API and adapter interfaces so it can move to `vezta-be` without importing the standalone server into `vezta-fe`. When the DEX moves to the main site, reuse its auth and wallet providers and follow the backend OpenAPI → frontend Kubb generation flow. The standalone frontend is a development and release boundary, not a second permanent Vezta login.
