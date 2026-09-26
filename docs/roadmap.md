@@ -10,7 +10,7 @@ Build an independent `vezta-dex/` project using existing Uniswap liquidity on Po
 
 **Current implementation:** the [foundation plan](superpowers/plans/2026-09-27-foundation-and-discovery.md) is underway. The standalone read-only API and web routes exist; clean dependency installation, live runtime/browser checks, and CI execution remain to be verified. Milestone 0 and all write gates remain open.
 
-The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md) and [plan](superpowers/plans/2026-09-27-trading-api-swap.md) govern the next slice. Read-only QuoterV2 comparison and wallet-bound Trading API quote preview exist. Live API validation, wallet approval and submission remain pending the documented checks.
+The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget plan](superpowers/plans/2026-09-27-trading-api-rate-budget.md) and [wallet-flow plan](superpowers/plans/2026-09-27-trading-api-wallet.md) govern the next slices. Read-only QuoterV2 comparison, wallet-bound Trading API quote preview and a single-process 5 RPS limiter exist. The [live API probe](research/2026-09-27-trading-api-live-evidence.md) was blocked by local networking. Approval and submission remain pending its evidence gates.
 
 ## Delivery sequence
 

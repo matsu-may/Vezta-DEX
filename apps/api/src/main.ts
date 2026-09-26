@@ -5,6 +5,7 @@ import { PoolReader } from "./pools";
 import { handleRequest } from "./server";
 import { QuoteReader } from "./quote";
 import { TradingApiQuoteReader } from "./trading-api";
+import { TradingApiClient } from "./trading-client";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -18,7 +19,7 @@ const source = createPolygonPoolSource(rpcUrl);
 const reader = new PoolReader(source);
 const quotes = new QuoteReader(source);
 const trading = process.env.UNISWAP_API_KEY?.trim()
-  ? new TradingApiQuoteReader(process.env.UNISWAP_API_KEY)
+  ? new TradingApiQuoteReader(new TradingApiClient(process.env.UNISWAP_API_KEY))
   : undefined;
 createServer(async (request, response) => {
   try {

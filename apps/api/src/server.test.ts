@@ -4,6 +4,7 @@ import { PoolReader, type PoolChainSource } from "./pools";
 import { handleRequest } from "./server";
 import { QuoteReader } from "./quote";
 import { TradingApiQuoteReader } from "./trading-api";
+import { TradingApiClient } from "./trading-client";
 
 const POOL = "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9" as Address;
 const chain: PoolChainSource = {
@@ -55,14 +56,14 @@ describe("DEX HTTP handler", () => {
   });
 
   it("serves a wallet-bound Trading API quote without exposing upstream details", async () => {
-    const trading = new TradingApiQuoteReader("test-key", async () => Response.json({
+    const trading = new TradingApiQuoteReader(new TradingApiClient("test-key", async () => Response.json({
       requestId: "request-1",
       routing: "CLASSIC",
       quote: {
         input: { token: TOKENS.USDC.address, amount: "100000000" },
         output: { token: TOKENS.WETH.address, amount: "100000000000000000", minimumAmount: "99500000000000000", recipient: "0x1111111111111111111111111111111111111111" },
       },
-    }));
+    })));
     const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "100000000", slippageBps: 50 };
     const valid = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes, trading);
     expect(valid.status).toBe(200);
@@ -71,5 +72,15 @@ describe("DEX HTTP handler", () => {
     expect(invalid.status).toBe(400);
     const unavailable = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes);
     expect(unavailable.status).toBe(503);
+  });
+
+  it("hides the key and upstream body when Uniswap rate-limits a quote", async () => {
+    const trading = new TradingApiQuoteReader(new TradingApiClient("test-secret-key", async () => new Response("private upstream detail", { status: 429 })));
+    const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "100000000", slippageBps: 50 };
+    const response = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes, trading);
+    expect(response.status).toBe(503);
+    const text = await response.text();
+    expect(text).not.toContain("test-secret-key");
+    expect(text).not.toContain("private upstream detail");
   });
 });

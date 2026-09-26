@@ -6,8 +6,8 @@ import {
   type TradingQuoteSummary,
 } from "@vezta-dex/core";
 import { z } from "zod";
+import { TradingApiClient } from "./trading-client";
 
-const API_URL = "https://trade-api.gateway.uniswap.org/v1/quote";
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const positiveAmount = z.string().regex(/^[1-9]\d{0,77}$/);
 const responseSchema = z.object({
@@ -27,12 +27,9 @@ export class TradingApiUnavailableError extends Error {}
 
 export class TradingApiQuoteReader {
   constructor(
-    private readonly apiKey: string,
-    private readonly fetcher: typeof fetch = fetch,
+    private readonly client: TradingApiClient,
     private readonly now: () => number = Date.now,
-  ) {
-    if (!apiKey.trim()) throw new Error("UNISWAP_API_KEY is required");
-  }
+  ) {}
 
   async getQuote(intent: TradingIntent): Promise<TradingQuoteSummary> {
     try {
@@ -44,16 +41,7 @@ export class TradingApiQuoteReader {
 
     let response: Response;
     try {
-      response = await this.fetcher(API_URL, {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          "x-api-key": this.apiKey,
-          "x-universal-router-version": UNIVERSAL_ROUTER_VERSION,
-          "x-agent-info": JSON.stringify({ integration_name: "swap-integration", decision_origin: "human_mediated", version: "1.6.0" }),
-        },
-        body: JSON.stringify({
+      response = await this.client.post("/quote", {
           type: "EXACT_INPUT",
           amount: intent.amountIn,
           tokenInChainId: 137,
@@ -66,9 +54,7 @@ export class TradingApiQuoteReader {
           routingPreference: "BEST_PRICE",
           protocols: ["V2", "V3", "V4"],
           permitAmount: "EXACT",
-        }),
-        signal: AbortSignal.timeout(8_000),
-      });
+      }, "preview");
     } catch {
       throw new TradingApiUnavailableError("Trading API is unavailable");
     }

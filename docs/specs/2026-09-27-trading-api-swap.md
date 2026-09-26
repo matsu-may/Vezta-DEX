@@ -1,33 +1,62 @@
 # Polygon Uniswap Trading API Swap — Design Spec
 
-## Intent and boundary
+## Goal and release boundary
 
-Let a user preview and eventually sign an **exact-input** swap between native USDC and WETH on Polygon. The existing QuoterV2 preview reports one v3 0.05% pool and is indicative only. The executable route will come from Uniswap Trading API. The standalone backend never holds a private key or broadcasts a user's transaction. Main Vezta integration and cross-chain swaps remain outside this spec.
+The standalone DEX first previews an exact-input swap between native USDC and WETH on Polygon (`chainId: 137`). A later release may let the connected wallet approve, sign and submit a `CLASSIC` Uniswap route. The existing QuoterV2 v3 0.05% quote is indicative and cannot be executed. Main Vezta integration, LP writes, other chains and cross-chain swaps are separate work. The backend holds the Uniswap API key but never a wallet key. The wallet signs and broadcasts every transaction. No write control is enabled until the live evidence gates below pass.
 
-## Integration decision
+## Fixed identities and request contract
 
-The user selected **Uniswap Trading API** on 2026-09-27. Keep the API key on `apps/api` only. Pin `x-universal-router-version: 2.1.2` throughout the quote, approval and swap journey; the [current Polygon deployment](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains) lists its 2.1.2 Universal Router. Limit this first release to same-chain `CLASSIC` AMM routes with `protocols: [V2, V3, V4]`, `routingPreference: BEST_PRICE`, and exact input. Polygon has no UniswapX route in the current support table, but still reject every unrecognized routing type. Use `permitAmount: EXACT`. The [official integration guide](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide) and [Permit2 guide](https://developers.uniswap.org/docs/trading/swapping-api/concepts/permit2) govern the wallet flow. Live payload shape, route quality and API access still require verification with a real key before writes.
+| Item | Required value |
+|---|---|
+| Chain | Polygon `137` |
+| Tokens | Native USDC `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` (6 decimals); WETH `0x7ceb23fd6bc0add59e62ac25578270cff1b9f619` (18 decimals) |
+| Route | `CLASSIC`, exact input, V2/V3/V4, `BEST_PRICE` |
+| Router | Universal Router `2.1.2`, `0xDc264714F68d84CF29BC605589405E78bDBE7C9f` on Polygon |
+| Slippage | 10–300 bps; integer base units only |
+| Quote lifetime | 30 seconds from request start; refresh after approval |
 
-## Quote and signing flow
+Validate chain, token pair, account, integer amount and slippage before contacting Uniswap. `/quote` uses `permitAmount: EXACT`, `swapper` and `recipient` equal to the account, and the router-version header. Use that header on `/quote` and `/swap` where documented; do not assume `/check_approval` accepts it. Reject unknown routing, mismatched tokens/amount/recipient, missing minimum output, failed simulation or malformed response. Send only a bounded summary to the browser. Keep the key, raw upstream errors and sensitive payloads out of logs and client responses.
 
-1. The UI takes wallet address, token direction, decimal amount, and slippage. It converts input with the selected token's on-chain-verified decimals; it never uses floating point for calldata. The server accepts only chain `137`, the two curated token addresses, a positive capped base-unit amount, and a valid Polygon wallet address.
-2. The server calls Uniswap `/quote` with a server-side API key, fixed chain/token fields, exact input and explicit router version. It validates `CLASSIC`, input/output amounts, minimum amount, recipient, and route identity before returning a small read-only summary. A failed simulation or mismatched response is unavailable, not a tradeable quote. The existing QuoterV2 result remains labeled as a single-pool comparison.
-3. Before any write, the browser checks chain, account, tokens, route, router/spender, amounts, minimum output, and deadline against visible intent. The quote expires after 30 seconds and on account/chain/input/slippage change. The indicative v3 preview cannot be used for execution.
-4. Call `/check_approval` for the selected input token and exact amount. Validate any returned cancel/approval transaction before wallet submission. Wait for successful receipts, then request a fresh quote and require the user to review it again. If the new quote includes `permitData`, sign that exact EIP-712 payload and bind its signature to that quote only.
-5. Call `/swap` with that quote and its matching permit/signature, validate the returned transaction's sender, chain, target, value, calldata and quote lifetime, then simulate from the user's address before wallet submission. Show separate approval, permit, swap pending, confirmed, rejected, reverted and timeout states. Refresh balances only after a successful receipt.
+## API budget and availability
 
-## Release gates
+The supplied key is limited to **6 requests/second across every endpoint and process**. A single-process server dispatches at most **5 requests/second**, at least 200 ms apart, with a bounded queue. Pending approval/swap preparation gets priority over new previews; requests already in flight cannot be preempted. The UI does not poll quotes. Queue saturation returns a controlled unavailable response. HTTP 429 pauses *all* calls using the key according to `Retry-After` or a conservative fallback. Retry uses a fresh user intent; never automatically replay a signed request.
 
-Wallet writes default to disabled until the runtime is checked on Polygon with a funded test wallet. Test wrong chain, decimals, insufficient token and gas balance, stale quote, changed amount, rejected approval/signature, router target mismatch, simulation revert, delayed receipt, and slippage revert. Record actual transaction gas and quote comparison to the Uniswap app for several trade sizes before enabling. No wallet secret enters environment files or tests.
+An in-memory limiter protects only one process. Public multi-instance deployment or another key consumer requires a shared Redis limiter or centralized gateway, plus per-client abuse protection. Five RPS locally is not a global guarantee when replicas exist. Measure queue time and 429 counts without logging credentials or quote payloads.
 
-## Trust and failure review
+## Quote identity and server state
 
-| Scenario | Asset / impact | Trust assumption | Mitigation and verification | Owner |
-|---|---|---|---|---|
-| Fake token or wrong chain | User sells wrong asset | Registry, RPC, wallet chain | Match exact chain/address/decimals; wrong-chain tests | Core + web |
-| Altered quote or router target | Wrong spender or poor execution | API and browser payload | Reject mismatched API route or transaction; check the pinned Polygon router and simulate returned calldata; tamper tests | API + web |
-| Price moves after quote/approval | Output below expectation or revert | Pool state changes | 30-second quote age, fresh post-approval quote, `amountOutMinimum`, deadline; stale tests | API + web |
-| Insufficient balance/gas or rejected signature | Failed trade and confusing state | Wallet/RPC responses | Preflight balance and simulation, separate receipts; rejection/revert tests | Web |
-| Public RPC outage or bad data | No quote or misleading preview | RPC response and freshness | Timestamp and block number; visible unavailable state; compare independent source before launch | API + web |
+The future write path keeps the complete upstream quote in a **short-lived server-side store** keyed by an opaque random ID. Bind it to account, chain, token pair, amount, slippage, router version and creation time; expire at 30 seconds and consume at most once for `/swap`. The browser sends the ID, never a replacement raw quote. Bounded memory suffices for one process; replicas require a shared TTL store. After approval, invalidate the old quote, fetch a new one and require explicit review. Do not log Permit2 signatures or full quotes. The current read-only endpoint does **not** implement this store; it is required before writes.
 
-Unverified: live Trading API response and rate limits, reverse-direction depth, live router gas, wallet behavior, production RPC reliability, and any LP transaction path. These are blockers for enabling writes.
+## Wallet state machine
+
+| State | Entry and visible behavior | Exit / invalidation |
+|---|---|---|
+| Disconnected / wrong chain | Ask to connect or switch to Polygon | Verified account and chain |
+| Quote pending / unavailable | Loading or controlled error; no wallet prompt | Fresh validated quote |
+| Quote fresh | Show input, minimum output, route and age | Review, expiry or changed account/chain/token/amount/slippage |
+| Approval check / cancel required | Query allowance; explain any cancel transaction separately | Validated transaction or no approval needed |
+| Approval pending | Show wallet and receipt status | Confirmed receipt, rejection, revert or timeout |
+| New quote review | Fetch after approval and show changed output | User accepts a fresh quote |
+| Permit signing | Sign typed data from this quote only; single-use signature | Signature or rejection; invalidate on quote change |
+| Swap preparation / simulation | Validate calldata and simulate from wallet account | Valid transaction or visible failure |
+| Swap pending | Show hash and explorer link | Confirmed receipt, reverted receipt or timeout |
+| Confirmed / failed | Refresh balances only after confirmation | New intent |
+
+Rejection, revert and timeout are different outcomes. Timeout is not proof of failure: keep checking the transaction hash. Any input/account/chain change during a wallet prompt invalidates the intent and requires a new quote.
+
+## Approval and transaction validation
+
+`permitAmount: EXACT` scopes the Permit2 signature requested from the quote. It **does not prove** that ERC20 approval to Permit2 is exact or short lived. Inspect live `/check_approval` and calldata, including cancel-first flows, before offering approval. Do not silently submit unlimited or long-lived approval. If required, stop and agree on policy and user wording before enabling wallet writes.
+
+For every returned wallet transaction, verify Polygon chain, sender/account, target against the official router or approved spender, nonempty calldata, and value `0` for ERC20 input. Decode approval calldata and enforce token, spender and amount policy. Bind `/swap` to the saved quote and matching Permit2 signature; never reuse a signature with another quote. Verify deadline and minimum output against visible intent, simulate from the wallet account, and inspect final receipt status. Simulation success is not confirmation.
+
+## Verification gates
+
+1. Run the read-only smoke script with a key in ignored `apps/api/.env`; record sanitized status, routing and field names in both directions. Validate actual API errors without exceeding 6 RPS. Outbound sockets are blocked here, so this gate is **open**.
+2. Test decimal precision, wrong chain/token/account, stale quote, queue saturation, 429 pause, mismatched router/spender, replayed permit, insufficient token/gas, rejection, revert and delayed receipt.
+3. With a disposable funded Polygon wallet, browser-check a small real approval and swap. Record transaction hashes, gas, receipt status and quoted-versus-executed amount. Never record a secret or signature.
+4. Compare representative sizes and both directions with the Uniswap app. Enable writes only after these checks and independent code review.
+
+## Sources and unknowns
+
+Use the official [integration guide](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide), [Permit2 guide](https://developers.uniswap.org/docs/trading/swapping-api/concepts/permit2), [supported chains](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains), [approval API](https://developers.uniswap.org/docs/api-reference/check_approval), and [API errors](https://developers.uniswap.org/docs/trading/swapping-api/common-errors). Live response shape, approval amount, reverse-direction depth, gas, wallet behavior and production RPC reliability remain unverified.

@@ -8,13 +8,13 @@
 
 **Tech Stack:** TypeScript, viem, React/Next.js, Vitest; existing `packages/core` registry and API/web structure.
 
-**Spec:** [Trading API swap design](../../specs/2026-09-27-trading-api-swap.md).
+**Spec:** [Trading API swap design](../../specs/2026-09-27-trading-api-swap.md). Detailed follow-ons: [rate budget](2026-09-27-trading-api-rate-budget.md) and [wallet flow](2026-09-27-trading-api-wallet.md).
 
 ## Global Constraints
 
 - Polygon `137`, native USDC `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359`, WETH `0x7ceb23fd6bc0add59e62ac25578270cff1b9f619`.
-- Trading API `CLASSIC` across V2/V3/V4, Universal Router `2.1.2` on Polygon `0xDc264714F68d84CF29BC605589405E78bDBE7C9f`; keep that version consistent on quote, approval and swap requests.
-- Exact input, integer base units, `slippageBps` 10–300, quote age at most 30 seconds. No infinite approvals or server-side signing.
+- Trading API `CLASSIC` across V2/V3/V4, Universal Router `2.1.2` on Polygon `0xDc264714F68d84CF29BC605589405E78bDBE7C9f`; use the version header on quote and swap requests where documented.
+- Exact input, integer base units, `slippageBps` 10–300, quote age at most 30 seconds. Inspect ERC20 approval calldata before deciding allowance policy; no server-side signing.
 - Swap writes remain gated until live wallet, gas, slippage and receipt tests complete.
 
 ## Review Focus
@@ -66,11 +66,13 @@
 - [ ] With a real API key, verify live `CLASSIC` quote shape, fees, quote age, errors and both directions against Uniswap's app.
 - [ ] Browser-check account and chain changes on an installed wallet.
 
+The standalone API now has a read-only smoke script and a 5 RPS local scheduler. The smoke attempt could not reach the network; see [live evidence](../../research/2026-09-27-trading-api-live-evidence.md). Implement the detailed [rate-budget plan](2026-09-27-trading-api-rate-budget.md) and [wallet plan](2026-09-27-trading-api-wallet.md) for remaining work.
+
 ### Task 5: Approval, Permit2 and unsigned swap preparation
 
 **Files:** `apps/api/src/`, `apps/web/lib/`, `apps/web/components/`, and focused tests. Do not enable the write control before Task 6.
 
-- [ ] Inspect live `/check_approval` calldata, including cancellation cases and allowance amount, before deciding how approval is presented.
+- [ ] Inspect live `/check_approval` calldata, including cancellation cases and allowance amount, before deciding how approval is presented. Stop for a product decision if an unlimited or long-lived approval is required.
 - [ ] Bind Permit2 typed-data signature to the exact fresh quote; reject stale signatures or changed accounts.
 - [ ] Request `/swap` with the matching quote and signature; validate router `to`, `from`, chain, value, calldata and deadline, then simulate from the wallet.
 - [ ] Test wrong chain, insufficient token/gas balance, approval and signature rejection, slippage revert, delayed receipt and reverted receipt.

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOKENS, type TradingIntent } from "@vezta-dex/core";
 import { TradingApiQuoteReader } from "./trading-api";
+import { TradingApiClient } from "./trading-client";
 
 const intent: TradingIntent = {
   chainId: 137,
@@ -31,7 +32,7 @@ function apiResponse(changes: Record<string, unknown> = {}) {
 describe("Trading API quote reader", () => {
   it("posts a bounded exact-input Polygon request without exposing the key", async () => {
     const fetcher = vi.fn(async () => Response.json(apiResponse())) as unknown as typeof fetch;
-    const result = await new TradingApiQuoteReader("test-key", fetcher, () => Date.parse("2026-09-27T00:00:00Z")).getQuote(intent);
+    const result = await new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher), () => Date.parse("2026-09-27T00:00:00Z")).getQuote(intent);
     const [url, options] = vi.mocked(fetcher).mock.calls[0];
     expect(String(url)).toBe("https://trade-api.gateway.uniswap.org/v1/quote");
     expect(options?.headers).toMatchObject({ "x-api-key": "test-key", "x-universal-router-version": "2.1.2" });
@@ -57,13 +58,13 @@ describe("Trading API quote reader", () => {
     ];
     for (const body of bad) {
       const fetcher = vi.fn(async () => Response.json(body)) as unknown as typeof fetch;
-      await expect(new TradingApiQuoteReader("test-key", fetcher).getQuote(intent)).rejects.toThrow();
+      await expect(new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher)).getQuote(intent)).rejects.toThrow();
     }
   });
 
   it("rejects malformed input before calling the API and hides upstream errors", async () => {
     const fetcher = vi.fn(async () => new Response("secret upstream detail", { status: 401 })) as unknown as typeof fetch;
-    const reader = new TradingApiQuoteReader("test-key", fetcher);
+    const reader = new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher));
     await expect(reader.getQuote({ ...intent, chainId: 1 })).rejects.toThrow();
     expect(fetcher).not.toHaveBeenCalled();
     await expect(reader.getQuote(intent)).rejects.toThrow("Trading API is unavailable");
