@@ -1,7 +1,8 @@
 import { createPublicClient, http, type Address } from "viem";
 import { polygon } from "viem/chains";
-import { POLYGON_CHAIN_ID, TOKENS, V3_FACTORY } from "@vezta-dex/core";
+import { POLYGON_CHAIN_ID, TOKENS, V3_FACTORY, V3_QUOTER } from "@vezta-dex/core";
 import type { PoolChainSource } from "./pools";
+import type { QuoteChainSource } from "./quote";
 
 const factoryAbi = [{
   type: "function",
@@ -21,7 +22,30 @@ const poolAbi = [
   { type: "function", name: "liquidity", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] },
 ] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource {
+const quoterAbi = [{
+  type: "function",
+  name: "quoteExactInputSingle",
+  stateMutability: "nonpayable",
+  inputs: [{
+    name: "params",
+    type: "tuple",
+    components: [
+      { name: "tokenIn", type: "address" },
+      { name: "tokenOut", type: "address" },
+      { name: "amountIn", type: "uint256" },
+      { name: "fee", type: "uint24" },
+      { name: "sqrtPriceLimitX96", type: "uint160" },
+    ],
+  }],
+  outputs: [
+    { name: "amountOut", type: "uint256" },
+    { name: "sqrtPriceX96After", type: "uint160" },
+    { name: "initializedTicksCrossed", type: "uint32" },
+    { name: "gasEstimate", type: "uint256" },
+  ],
+}] as const;
+
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -51,6 +75,16 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource {
         client.readContract({ address, abi: poolAbi, functionName: "liquidity", blockNumber }),
       ]);
       return { token0, token1, liquidity };
+    },
+    async quoteExactInput(tokenIn, tokenOut, amountIn, feeTier, blockNumber) {
+      const { result } = await client.simulateContract({
+        address: V3_QUOTER,
+        abi: quoterAbi,
+        functionName: "quoteExactInputSingle",
+        args: [{ tokenIn, tokenOut, amountIn, fee: feeTier, sqrtPriceLimitX96: 0n }],
+        blockNumber,
+      });
+      return { amountOut: result[0], gasEstimate: result[3] };
     },
   };
 }

@@ -2,7 +2,7 @@
 
 Standalone development project for Vezta's Uniswap spot trading and liquidity experience. The first chain is Polygon. Native USDC/WETH v3 pools are the read-only starting set; no pool is approved for live trading yet.
 
-Start with [the roadmap](docs/roadmap.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [the first-slice spec](docs/specs/2026-09-27-foundation-and-pool-discovery.md). The current app implements that first read-only slice: `apps/api` reads the Uniswap v3 factory and pool contracts through Polygon RPC; `apps/web` renders `/explore`, `/pools`, and `/pools/[poolId]`; `packages/core` holds chain-aware IDs and the curated token registry.
+Start with [the roadmap](docs/roadmap.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [the first-slice spec](docs/specs/2026-09-27-foundation-and-pool-discovery.md). The current app implements read-only pool discovery and a single-pool swap preview: `apps/api` reads the Uniswap v3 factory, pools and QuoterV2 through Polygon RPC; `apps/web` renders `/explore`, `/pools`, pool detail and `/swap`; `packages/core` holds chain-aware IDs, the curated token registry and quote arithmetic.
 
 ## Local setup
 
@@ -24,6 +24,6 @@ pnpm lint       # ESLint/Next rules
 pnpm build      # Production Next.js build
 ```
 
-Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. Volume, APR, position earnings, swap and LP actions remain unavailable until their live-data and transaction checks pass. An authenticated Uniswap API key will be held by the API when those later slices are built; never put it in `NEXT_PUBLIC_*` variables.
+Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. `/swap` previews exact-input quotes for the researched 0.05% pool; it does **not** search other routes or allow wallet execution yet. Volume, APR, position earnings and LP actions remain unavailable until their live-data and transaction checks pass. If a hosted Uniswap API is added later, its key belongs on the API server, never in `NEXT_PUBLIC_*` variables.
 
 The DEX is developed independently first. Integration into `vezta.io/swap`, `/explore`, and `/pools` is a later milestone, after the standalone product passes its own checks.

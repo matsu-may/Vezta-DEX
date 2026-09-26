@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TOKENS, poolKey } from "@vezta-dex/core";
+import { TOKENS, V3_POOL_500, poolKey } from "@vezta-dex/core";
 import { createDexApi, isStale, DexApiError } from "./api";
 
 const pool = {
@@ -53,5 +53,18 @@ describe("DEX API client", () => {
     expect(isStale("2026-09-26T19:29:00.000Z", now)).toBe(false);
     expect(isStale("2026-09-26T19:26:59.000Z", now)).toBe(true);
     expect(isStale("bad timestamp", now)).toBe(true);
+  });
+
+  it("accepts a fresh quote for the exact amount and rejects a changed amount", async () => {
+    const quote = {
+      chainId: 137, protocol: "v3", pool: V3_POOL_500, feeTier: 500,
+      tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address,
+      amountIn: "100000000", amountOut: "37220700433119377", quoterGasEstimate: "117644",
+      blockNumber: "94497119", observedAt: "2026-09-26T19:26:59.000Z", source: "polygon-rpc",
+    };
+    const api = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote }));
+    const intent = { chainId: 137, tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "100000000", slippageBps: 50 };
+    expect((await api.getQuote(intent, Date.parse("2026-09-26T19:27:10.000Z"))).amountOut).toBe(quote.amountOut);
+    await expect(api.getQuote({ ...intent, amountIn: "200000000" }, Date.parse("2026-09-26T19:27:10.000Z"))).rejects.toThrow("Invalid DEX API response");
   });
 });

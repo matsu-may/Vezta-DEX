@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { TOKENS, poolKey, type Address } from "@vezta-dex/core";
 import { PoolReader, type PoolChainSource } from "./pools";
 import { handleRequest } from "./server";
+import { QuoteReader } from "./quote";
 
 const POOL = "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9" as Address;
 const chain: PoolChainSource = {
@@ -10,6 +11,11 @@ const chain: PoolChainSource = {
   getPoolState: async () => ({ token0: TOKENS.USDC.address, token1: TOKENS.WETH.address, liquidity: 10n }),
 };
 const reader = new PoolReader(chain);
+const quotes = new QuoteReader({
+  getBlock: chain.getBlock,
+  getPoolAddress: async () => POOL,
+  quoteExactInput: async () => ({ amountOut: 37220700433119377n, gasEstimate: 117644n }),
+});
 
 describe("DEX HTTP handler", () => {
   it("serves curated tokens without an RPC call", async () => {
@@ -37,5 +43,13 @@ describe("DEX HTTP handler", () => {
     const response = await handleRequest(new Request("http://localhost/api/v1/pools"), broken);
     expect(response.status).toBe(503);
     expect(await response.text()).not.toContain("secret RPC URL");
+  });
+
+  it("returns a fixed-pool exact-input quote and rejects bridged USDC", async () => {
+    const valid = await handleRequest(new Request(`http://localhost/api/v1/quote?chainId=137&tokenIn=${TOKENS.USDC.address}&amountIn=100000000`), reader, quotes);
+    expect(valid.status).toBe(200);
+    expect((await valid.json()).quote.amountOut).toBe("37220700433119377");
+    const invalid = await handleRequest(new Request("http://localhost/api/v1/quote?chainId=137&tokenIn=0x2791bca1f2de4661ed88a30c99a7a9449aa84174&amountIn=100000000"), reader, quotes);
+    expect(invalid.status).toBe(400);
   });
 });

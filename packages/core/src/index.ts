@@ -84,3 +84,14 @@ export function parsePoolKey(value: string): {
   poolKey(POLYGON_CHAIN_ID, protocol, reference);
   return { chainId: POLYGON_CHAIN_ID, protocol, reference: reference.toLowerCase() as Address };
 }
+
+export {
+  V3_POOL_500,
+  V3_QUOTER,
+  V3_SWAP_ROUTER,
+  minimumOutput,
+  parseExactInput,
+  validateSwapQuote,
+  type SwapIntent,
+  type SwapQuote,
+} from "./swap";

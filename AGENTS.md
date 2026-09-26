@@ -2,7 +2,7 @@
 
 ## Project Structure
 
-This is a standalone DEX project, separate from `vezta-fe` and `vezta-be`. `packages/core/src/` owns Polygon token and pool identities; `apps/api/src/` reads Uniswap v3 contracts and serves validated JSON; `apps/web/app/` renders `/explore`, `/pools`, and pool detail. Tests sit beside the code as `*.test.ts` or `*.test.tsx`. Research and implementation plans live in `docs/`.
+This is a standalone DEX project, separate from `vezta-fe` and `vezta-be`. `packages/core/src/` owns Polygon token and pool identities; `apps/api/src/` reads Uniswap v3 contracts and serves validated JSON; `apps/web/app/` renders `/explore`, `/pools`, pool detail, and a read-only `/swap` preview. Tests sit beside the code as `*.test.ts` or `*.test.tsx`. Research and implementation plans live in `docs/`.
 
 ## Development Commands
 
@@ -14,7 +14,7 @@ Use strict TypeScript and two-space indentation. Name files in kebab case and Re
 
 ## Testing and Change Review
 
-Write a failing test before behavior changes, then run the full suite, typecheck, lint, and build. Test malformed IDs, wrong chain, token order, missing pools, provider failure, stale data, and transaction payload validation when writes are added. Browser checks are required for responsive changes. A passing unit suite does not establish a safe live swap or LP action: complete the gates in `docs/roadmap.md` first.
+Write a failing test before behavior changes, then run the full suite, typecheck, lint, and build. Test malformed IDs, wrong chain, token order, missing pools, provider failure, stale data, and transaction payload validation when writes are added. Browser checks are required for responsive changes. Wallet writes require the execution-route decision in `docs/specs/2026-09-27-single-pool-swap.md` and live gates in `docs/roadmap.md`.
 
 ## Commits and Pull Requests
 

@@ -1,4 +1,4 @@
-import { TOKENS, parsePoolKey, poolKey, type Address, type PoolRecord, type TokenRecord } from "@vezta-dex/core";
+import { TOKENS, parsePoolKey, poolKey, validateSwapQuote, type Address, type PoolRecord, type SwapIntent, type SwapQuote, type TokenRecord } from "@vezta-dex/core";
 import { z } from "zod";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as Address);
@@ -38,6 +38,20 @@ const poolSchema = z.object({
   } catch {
     return false;
   }
+});
+const quoteSchema = z.object({
+  chainId: z.literal(137),
+  protocol: z.literal("v3"),
+  pool: address,
+  feeTier: z.literal(500),
+  tokenIn: address,
+  tokenOut: address,
+  amountIn: z.string().regex(/^[1-9]\d*$/),
+  amountOut: z.string().regex(/^[1-9]\d*$/),
+  quoterGasEstimate: z.string().regex(/^\d+$/),
+  blockNumber: z.string().regex(/^\d+$/),
+  observedAt: z.string(),
+  source: z.literal("polygon-rpc"),
 });
 
 export class DexApiError extends Error {
@@ -98,6 +112,21 @@ export function createDexApi(
       const body = await request(`/api/v1/pools/${encodeURIComponent(key)}`, z.object({ pool: poolSchema }));
       if (body.pool.id !== key) throw new DexApiError("Invalid DEX API response", 502);
       return body.pool;
+    },
+    async getQuote(intent: SwapIntent, now = Date.now()): Promise<SwapQuote> {
+      const query = new URLSearchParams({
+        chainId: String(intent.chainId),
+        tokenIn: intent.tokenIn,
+        amountIn: intent.amountIn,
+      });
+      const body = await request(`/api/v1/quote?${query}`, z.object({ quote: quoteSchema }));
+      try {
+        validateSwapQuote(body.quote, intent, now);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("expired")) throw new DexApiError("Quote expired", 409);
+        throw new DexApiError("Invalid DEX API response", 502);
+      }
+      return body.quote;
     },
   };
 }
