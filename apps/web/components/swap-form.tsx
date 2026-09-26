@@ -10,6 +10,7 @@ import {
   validateSwapQuote,
   type SwapQuote,
 } from "@vezta-dex/core";
+import { TradingQuotePanel } from "./trading-quote-panel";
 
 type Direction = "USDC" | "WETH";
 
@@ -87,7 +88,7 @@ export function SwapForm() {
   return (
     <div className="swap-layout">
       <form className="section-card swap-card" onSubmit={preview}>
-        <div className="section-heading"><div><div className="eyebrow">QUOTE</div><h2>Swap preview</h2></div><span className="network-pill"><span className="network-dot" /> Polygon</span></div>
+        <div className="section-heading"><div><div className="eyebrow">SWAP DETAILS</div><h2>Set your trade</h2></div><span className="network-pill"><span className="network-dot" /> Polygon</span></div>
         <label className="form-label" htmlFor="swap-direction">You sell</label>
         <select id="swap-direction" className="field" value={direction} onChange={(event) => { setDirection(event.target.value as Direction); invalidate(); }}>
           <option value="USDC">USDC (native) → WETH</option>
@@ -104,8 +105,10 @@ export function SwapForm() {
         {error && <p className="form-error" role="alert">{error}</p>}
       </form>
 
+      <TradingQuotePanel direction={direction} amount={amount} slippageBps={slippageBps} />
+
       <section className="section-card quote-card" aria-live="polite" aria-label="Swap quote">
-        <div className="eyebrow">TRADE DETAILS</div><h2>Single-pool route</h2>
+        <div className="eyebrow">INDICATIVE COMPARISON</div><h2>One v3 pool</h2>
         {quote ? <div className="quote-details">
           <div><span>Estimated received</span><strong>{formatUnits(BigInt(quote.amountOut), outputToken.decimals)} {outputToken.symbol}</strong></div>
           <div><span>Minimum received</span><strong>{formatUnits(minimumOutput(BigInt(quote.amountOut), slippageBps), outputToken.decimals)} {outputToken.symbol}</strong></div>
@@ -114,7 +117,7 @@ export function SwapForm() {
           <div><span>Observed</span><strong>{quote.observedAt} · block {quote.blockNumber}</strong></div>
           <p className="data-caveat">Quoter simulation gas: {quote.quoterGasEstimate} units. This is not a wallet transaction gas estimate. The quote expires 30 seconds after its block timestamp.</p>
         </div> : <div className="quote-placeholder">Enter an amount to request a current on-chain quote. No wallet connection is needed for a preview.</div>}
-        <div className="write-gate">Wallet execution stays disabled until live Polygon approval, swap, gas and receipt checks are recorded.</div>
+        <div className="write-gate">This single-pool comparison cannot be used to execute a swap. Wallet execution stays disabled until live Trading API approval, swap, gas and receipt checks are recorded.</div>
       </section>
     </div>
   );

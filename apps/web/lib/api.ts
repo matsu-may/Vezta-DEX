@@ -1,4 +1,4 @@
-import { TOKENS, parsePoolKey, poolKey, validateSwapQuote, type Address, type PoolRecord, type SwapIntent, type SwapQuote, type TokenRecord } from "@vezta-dex/core";
+import { TOKENS, parsePoolKey, poolKey, validateSwapQuote, validateTradingIntent, validateTradingQuoteSummary, type Address, type PoolRecord, type SwapIntent, type SwapQuote, type TokenRecord, type TradingIntent, type TradingQuoteSummary } from "@vezta-dex/core";
 import { z } from "zod";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as Address);
@@ -53,6 +53,21 @@ const quoteSchema = z.object({
   observedAt: z.string(),
   source: z.literal("polygon-rpc"),
 });
+const tradingQuoteSchema = z.object({
+  chainId: z.literal(137),
+  swapper: address,
+  tokenIn: address,
+  tokenOut: address,
+  amountIn: z.string().regex(/^[1-9]\d*$/),
+  amountOut: z.string().regex(/^[1-9]\d{0,77}$/),
+  minimumAmountOut: z.string().regex(/^[1-9]\d{0,77}$/),
+  slippageBps: z.number().int().min(10).max(300),
+  routing: z.literal("CLASSIC"),
+  routerVersion: z.literal("2.1.2"),
+  requestId: z.string().min(1).max(256),
+  quotedAt: z.string(),
+  source: z.literal("uniswap-trading-api"),
+});
 
 export class DexApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -70,12 +85,13 @@ export function createDexApi(
   baseUrl = process.env.DEX_API_URL ?? "http://127.0.0.1:3021",
   fetcher: typeof fetch = fetch,
 ) {
-  async function request<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+  async function request<T>(path: string, schema: z.ZodType<T>, init?: RequestInit): Promise<T> {
     let response: Response;
     try {
       response = await fetcher(new URL(path, baseUrl), {
         cache: "no-store",
-        headers: { Accept: "application/json" },
+        ...init,
+        headers: { Accept: "application/json", ...init?.headers },
       });
     } catch {
       throw new DexApiError("DEX API is unavailable", 503);
@@ -122,6 +138,25 @@ export function createDexApi(
       const body = await request(`/api/v1/quote?${query}`, z.object({ quote: quoteSchema }));
       try {
         validateSwapQuote(body.quote, intent, now);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("expired")) throw new DexApiError("Quote expired", 409);
+        throw new DexApiError("Invalid DEX API response", 502);
+      }
+      return body.quote;
+    },
+    async getTradingQuote(intent: TradingIntent, now = Date.now()): Promise<TradingQuoteSummary> {
+      try {
+        validateTradingIntent(intent);
+      } catch {
+        throw new DexApiError("Invalid Trading API intent", 400);
+      }
+      const body = await request("/api/v1/trading-quote", z.object({ quote: tradingQuoteSchema }), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(intent),
+      });
+      try {
+        validateTradingQuoteSummary(body.quote, intent, now);
       } catch (error) {
         if (error instanceof Error && error.message.includes("expired")) throw new DexApiError("Quote expired", 409);
         throw new DexApiError("Invalid DEX API response", 502);

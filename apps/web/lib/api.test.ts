@@ -67,4 +67,28 @@ describe("DEX API client", () => {
     expect((await api.getQuote(intent, Date.parse("2026-09-26T19:27:10.000Z"))).amountOut).toBe(quote.amountOut);
     await expect(api.getQuote({ ...intent, amountIn: "200000000" }, Date.parse("2026-09-26T19:27:10.000Z"))).rejects.toThrow("Invalid DEX API response");
   });
+
+  it("validates a wallet-bound Trading API quote from the DEX server", async () => {
+    const intent = {
+      chainId: 137,
+      swapper: "0x1111111111111111111111111111111111111111" as const,
+      tokenIn: TOKENS.USDC.address,
+      tokenOut: TOKENS.WETH.address,
+      amountIn: "100000000",
+      slippageBps: 50,
+    };
+    const quote = {
+      ...intent,
+      amountOut: "100000000000000000",
+      minimumAmountOut: "99500000000000000",
+      routing: "CLASSIC",
+      routerVersion: "2.1.2",
+      requestId: "request-1",
+      quotedAt: "2026-09-27T00:00:00.000Z",
+      source: "uniswap-trading-api",
+    };
+    const api = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote }));
+    expect((await api.getTradingQuote(intent, Date.parse("2026-09-27T00:00:10.000Z"))).amountOut).toBe(quote.amountOut);
+    await expect(api.getTradingQuote({ ...intent, swapper: "0x2222222222222222222222222222222222222222" }, Date.parse("2026-09-27T00:00:10.000Z"))).rejects.toThrow();
+  });
 });

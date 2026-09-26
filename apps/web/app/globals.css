@@ -68,7 +68,11 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
 .identity-list code { font-size: 13px; }
 .site-footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px max(24px, calc((100vw - 1440px) / 2)); border-top: 1px solid var(--line); color: #7e897f; font-size: 11px; }
 .swap-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: start; gap: 18px; }
-.swap-card, .quote-card { min-height: 470px; }
+.swap-card, .trading-card { min-height: 470px; }
+.quote-card { grid-column: 1 / -1; }
+.trading-card .section-heading { margin-bottom: 12px; }
+.routed-details { margin-top: 28px; }
+.routed-placeholder { margin-top: 28px; }
 .form-label { display: block; margin: 19px 0 8px; color: #cbd3c9; font-size: 12px; font-weight: 700; }
 .field { width: 100%; padding: 14px 15px; border: 1px solid #3b453b; border-radius: 9px; background: #0c100d; color: var(--text); font: inherit; }
 .field:focus { outline: 2px solid var(--accent); outline-offset: 1px; }

@@ -2,11 +2,11 @@
 
 ## Project Structure
 
-This is a standalone DEX project, separate from `vezta-fe` and `vezta-be`. `packages/core/src/` owns Polygon token and pool identities; `apps/api/src/` reads Uniswap v3 contracts and serves validated JSON; `apps/web/app/` renders `/explore`, `/pools`, pool detail, and a read-only `/swap` preview. Tests sit beside the code as `*.test.ts` or `*.test.tsx`. Research and implementation plans live in `docs/`.
+This is a standalone DEX project, separate from `vezta-fe` and `vezta-be`. `packages/core/src/` owns Polygon token and pool identities; `apps/api/src/` reads Uniswap v3 contracts and proxies validated Trading API quotes; `apps/web/app/` renders `/explore`, `/pools`, pool detail, and a read-only `/swap` preview. Tests sit beside the code as `*.test.ts` or `*.test.tsx`. Research and implementation plans live in `docs/`.
 
 ## Development Commands
 
-Use Node 24 and pnpm 10.33.2. `pnpm install` installs the workspace; `pnpm dev` runs the API on port 3021 and Next.js on port 3020. Set `POLYGON_RPC_URL` in `apps/api/.env` and `DEX_API_URL` in `apps/web/.env.local` using the examples. `pnpm test` runs Vitest, `pnpm typecheck` checks all packages, `pnpm lint` runs ESLint, and `pnpm build` builds the web app.
+Use Node 24 and pnpm 10.33.2. `pnpm install` installs the workspace; `pnpm dev` runs the API on port 3021 and Next.js on port 3020. Set `POLYGON_RPC_URL` and server-only `UNISWAP_API_KEY` in `apps/api/.env`, and `DEX_API_URL` in `apps/web/.env.local` using the examples. `pnpm test` runs Vitest, `pnpm typecheck` checks all packages, `pnpm lint` runs ESLint, and `pnpm build` builds the web app.
 
 ## Code and Data Rules
 
@@ -14,7 +14,7 @@ Use strict TypeScript and two-space indentation. Name files in kebab case and Re
 
 ## Testing and Change Review
 
-Write a failing test before behavior changes, then run the full suite, typecheck, lint, and build. Test malformed IDs, wrong chain, token order, missing pools, provider failure, stale data, and transaction payload validation when writes are added. Browser checks are required for responsive changes. Wallet writes require the execution-route decision in `docs/specs/2026-09-27-single-pool-swap.md` and live gates in `docs/roadmap.md`.
+Write a failing test before behavior changes, then run the full suite, typecheck, lint, and build. Test malformed IDs, wrong chain, token order, missing pools, provider failure, stale data, and transaction payload validation when writes are added. Browser checks are required for responsive changes. Wallet writes require live Trading API, approval, Permit2 and receipt gates in `docs/specs/2026-09-27-trading-api-swap.md` and `docs/roadmap.md`.
 
 ## Commits and Pull Requests
 

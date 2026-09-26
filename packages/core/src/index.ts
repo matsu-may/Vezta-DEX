@@ -95,3 +95,12 @@ export {
   type SwapIntent,
   type SwapQuote,
 } from "./swap";
+
+export {
+  POLYGON_UNIVERSAL_ROUTER_212,
+  UNIVERSAL_ROUTER_VERSION,
+  validateTradingIntent,
+  validateTradingQuoteSummary,
+  type TradingIntent,
+  type TradingQuoteSummary,
+} from "./trading";

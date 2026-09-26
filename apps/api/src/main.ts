@@ -1,8 +1,13 @@
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { createPolygonPoolSource } from "./chain";
 import { PoolReader } from "./pools";
 import { handleRequest } from "./server";
 import { QuoteReader } from "./quote";
+import { TradingApiQuoteReader } from "./trading-api";
+
+const envFile = new URL("../.env", import.meta.url);
+if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const rpcUrl = process.env.POLYGON_RPC_URL ?? "https://polygon-bor-rpc.publicnode.com";
 const port = Number(process.env.PORT ?? "3021");
@@ -12,11 +17,34 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invali
 const source = createPolygonPoolSource(rpcUrl);
 const reader = new PoolReader(source);
 const quotes = new QuoteReader(source);
+const trading = process.env.UNISWAP_API_KEY?.trim()
+  ? new TradingApiQuoteReader(process.env.UNISWAP_API_KEY)
+  : undefined;
 createServer(async (request, response) => {
-  const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
-  const result = await handleRequest(new Request(url, { method: request.method }), reader, quotes);
-  response.writeHead(result.status, Object.fromEntries(result.headers));
-  response.end(Buffer.from(await result.arrayBuffer()));
+  try {
+    const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    let body: string | undefined;
+    if (request.method === "POST") {
+      const chunks: Buffer[] = [];
+      let length = 0;
+      for await (const chunk of request) {
+        length += chunk.length;
+        if (length > 4_096) {
+          response.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          response.end(JSON.stringify({ error: "Request too large" }));
+          return;
+        }
+        chunks.push(Buffer.from(chunk));
+      }
+      body = Buffer.concat(chunks).toString("utf8");
+    }
+    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading);
+    response.writeHead(result.status, Object.fromEntries(result.headers));
+    response.end(Buffer.from(await result.arrayBuffer()));
+  } catch {
+    response.writeHead(500, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    response.end(JSON.stringify({ error: "DEX API request failed" }));
+  }
 }).listen(port, host, () => {
   process.stdout.write(`DEX API listening on http://${host}:${port}\n`);
 });
