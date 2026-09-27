@@ -33,7 +33,7 @@
 
 **Files:** `docs/research/2026-09-27-trading-api-live-evidence.md`; create `apps/api/src/quote-store.ts` and test; modify `apps/api/src/trading-api.ts`, `apps/api/src/server.ts` and tests.
 
-- [ ] Run the sanitized smoke script where outbound networking works; capture both directions and schema, with no secrets. Stop if routing/schema differs from spec.
+- [x] Owner ran the sanitized Trading API smoke script in both directions: HTTP 200, `CLASSIC`, Polygon 137, exact input/output identity and no simulation failure for the small probes. See the live-evidence log.
 - [ ] Test quote ID binding to chain/account/tokens/amount/slippage/version, 30-second TTL, capacity cap and one-time consume; observe failure.
 - [ ] Implement bounded in-memory storage and opaque IDs; return ID plus summary, never raw quote. Rerun tests.
 - [ ] Record the Redis/shared-store requirement for replicas.
@@ -47,6 +47,7 @@
 - [x] Test deterministic `approve(Permit2, amountIn)` calldata, wrong chain/token/amount and `uint256.max` existing-allowance blocking; observed missing-module failure.
 - [x] Implement pure exact approval builder; no API call or wallet submission. Focused tests pass.
 - [x] Add Polygon allowance read at a pinned block and zero/exact/other-nonzero states; expose only an unsigned `POST /api/v1/approval-plan`. Unit and handler tests cover stale blocks, wrong chain, excessive allowance and RPC failure.
+- [x] Owner ran `smoke-approval-plan.mjs` against the local API: both zero-allowance Polygon reads returned exact unsigned Permit2 approval plans; no wallet transaction was submitted. See the live-evidence log.
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 

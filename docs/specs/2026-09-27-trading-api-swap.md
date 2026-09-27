@@ -54,6 +54,8 @@ Before preparing an approval, read `allowance(account, Permit2)` on Polygon. If 
 
 `POST /api/v1/approval-plan` is a **read-only preparation endpoint**. It validates the curated intent, reads ERC20 allowance at a pinned recent Polygon block, and returns `approve`, `ready` or `blocked-existing`. The `approve` case contains an unsigned transaction targeting the selected input token with `approve(canonical Permit2, amountIn)` and zero native value. The web app does not submit it. Recheck account, chain and allowance immediately before any future wallet prompt; this block snapshot is not a reservation.
 
+The owner's live read-only smoke run returned zero allowance and a decoded exact `approve` plan for both native USDC and WETH (Polygon blocks `94544786`–`94544787`). This establishes the zero-allowance preparation path only; a funded-wallet receipt and post-approval requote are still required before enabling writes. See [live evidence](../research/2026-09-27-trading-api-live-evidence.md).
+
 For every returned wallet transaction, verify Polygon chain, sender/account, target against the official router or approved spender, nonempty calldata, and value `0` for ERC20 input. Decode approval calldata and enforce token, spender and amount policy. Bind `/swap` to the saved quote and matching Permit2 signature; never reuse a signature with another quote. Verify deadline and minimum output against visible intent, simulate from the wallet account, and inspect final receipt status. Simulation success is not confirmation.
 
 ## Verification gates
