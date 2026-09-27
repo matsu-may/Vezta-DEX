@@ -144,13 +144,13 @@ export function createDexApi(
       }
       return body.quote;
     },
-    async getTradingQuote(intent: TradingIntent, now = Date.now()): Promise<TradingQuoteSummary> {
+    async getTradingQuote(intent: TradingIntent, now = Date.now()): Promise<{ quote: TradingQuoteSummary; quoteId: string }> {
       try {
         validateTradingIntent(intent);
       } catch {
         throw new DexApiError("Invalid Trading API intent", 400);
       }
-      const body = await request("/api/v1/trading-quote", z.object({ quote: tradingQuoteSchema }), {
+      const body = await request("/api/v1/trading-quote", z.object({ quote: tradingQuoteSchema, quoteId: z.string().regex(/^[0-9a-f]{48}$/) }), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(intent),
@@ -161,7 +161,7 @@ export function createDexApi(
         if (error instanceof Error && error.message.includes("expired")) throw new DexApiError("Quote expired", 409);
         throw new DexApiError("Invalid DEX API response", 502);
       }
-      return body.quote;
+      return body;
     },
   };
 }

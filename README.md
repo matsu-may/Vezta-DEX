@@ -26,6 +26,10 @@ pnpm build      # Production Next.js build
 
 Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. `/swap` now distinguishes the single-pool comparison from the Trading API's best-price Uniswap AMM route across v2/v3/v4; neither quote enables wallet execution yet. Volume, APR, position earnings and LP actions remain unavailable until their live-data and transaction checks pass.
 
+The routed Trading API preview returns a validated summary and an opaque `quoteId`. Its full upstream response stays in a bounded, 30-second, single-process server store and can be consumed once by a future swap preparation flow. The browser currently displays only the summary; it cannot submit a swap.
+
+After restarting the local API with the current code, run `node scripts/smoke-local-quote.mjs` to check both directions through the quote store. It prints only identity checks and whether an opaque ID was returned; it does not print the upstream quote or use a wallet key.
+
 `POST /api/v1/approval-plan` reads the selected token's Polygon allowance to Permit2 and returns an unsigned exact-amount plan. Zero allowance produces `approve(Permit2, amountIn)`; an already exact allowance produces `ready`; any other nonzero allowance produces `blocked-existing`. It never signs or submits. The web app still has no wallet-write control.
 
 For a read-only live check, start the API with `pnpm --filter @vezta-dex/api start` in one terminal, then run `node scripts/smoke-approval-plan.mjs` in another. The script uses a public dummy wallet by default and prints only allowance categories and decoded transaction identity, never raw calldata. A working Polygon RPC is required.

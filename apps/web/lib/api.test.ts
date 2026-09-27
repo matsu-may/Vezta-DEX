@@ -87,8 +87,11 @@ describe("DEX API client", () => {
       quotedAt: "2026-09-27T00:00:00.000Z",
       source: "uniswap-trading-api",
     };
-    const api = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote }));
-    expect((await api.getTradingQuote(intent, Date.parse("2026-09-27T00:00:10.000Z"))).amountOut).toBe(quote.amountOut);
+    const quoteId = "a".repeat(48);
+    const api = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote, quoteId }));
+    expect(await api.getTradingQuote(intent, Date.parse("2026-09-27T00:00:10.000Z"))).toMatchObject({ quote: { amountOut: quote.amountOut }, quoteId });
     await expect(api.getTradingQuote({ ...intent, swapper: "0x2222222222222222222222222222222222222222" }, Date.parse("2026-09-27T00:00:10.000Z"))).rejects.toThrow();
+    const missingId = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote }));
+    await expect(missingId.getTradingQuote(intent, Date.parse("2026-09-27T00:00:10.000Z"))).rejects.toThrow("Invalid DEX API response");
   });
 });

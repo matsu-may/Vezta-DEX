@@ -25,7 +25,7 @@ An in-memory limiter protects only one process. Public multi-instance deployment
 
 ## Quote identity and server state
 
-The future write path keeps the complete upstream quote in a **short-lived server-side store** keyed by an opaque random ID. Bind it to account, chain, token pair, amount, slippage, router version and creation time; expire at 30 seconds and consume at most once for `/swap`. The browser sends the ID, never a replacement raw quote. Bounded memory suffices for one process; replicas require a shared TTL store. After approval, invalidate the old quote, fetch a new one and require explicit review. Do not log Permit2 signatures or full quotes. The current read-only endpoint does **not** implement this store; it is required before writes.
+The API now keeps the complete upstream quote in a **short-lived server-side store** keyed by an opaque random ID. It binds account, chain, token pair, amount, slippage and router version, expires 30 seconds from request start, and permits one consume. The browser receives only the ID and validated summary, never the raw quote. The current store is bounded to 128 entries and 256 KB per upstream payload in one process; replicas require a shared TTL store before public use. After approval, invalidate the old quote, fetch a new one and require explicit review. Do not log Permit2 signatures or full quotes. No `/swap` consumer or wallet write is enabled yet.
 
 ## Wallet state machine
 

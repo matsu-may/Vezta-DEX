@@ -7,9 +7,33 @@ import {
 } from "@vezta-dex/core";
 import { z } from "zod";
 import { TradingApiClient } from "./trading-client";
+import { QuoteStore } from "./quote-store";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const positiveAmount = z.string().regex(/^[1-9]\d{0,77}$/);
+const MAX_UPSTREAM_QUOTE_BYTES = 256_000;
+
+async function readBoundedJson(response: Response): Promise<unknown> {
+  if (!response.body) throw new Error("Empty response");
+  const reader = response.body.getReader();
+  const chunks: Buffer[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_UPSTREAM_QUOTE_BYTES) {
+        await reader.cancel();
+        throw new Error("Oversized response");
+      }
+      chunks.push(Buffer.from(value));
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8")) as unknown;
+}
 const responseSchema = z.object({
   requestId: z.string().min(1).max(256),
   routing: z.literal("CLASSIC"),
@@ -32,9 +56,10 @@ export class TradingApiQuoteReader {
   constructor(
     private readonly client: TradingApiClient,
     private readonly now: () => number = Date.now,
+    private readonly store: QuoteStore = new QuoteStore(now),
   ) {}
 
-  async getQuote(intent: TradingIntent): Promise<TradingQuoteSummary> {
+  async getQuote(intent: TradingIntent): Promise<{ quote: TradingQuoteSummary; quoteId: string }> {
     try {
       validateTradingIntent(intent);
     } catch {
@@ -65,7 +90,7 @@ export class TradingApiQuoteReader {
 
     let payload: unknown;
     try {
-      payload = await response.json();
+      payload = await readBoundedJson(response);
     } catch {
       throw new TradingApiUnavailableError("Invalid Trading API response");
     }
@@ -101,6 +126,10 @@ export class TradingApiQuoteReader {
     } catch {
       throw new TradingApiUnavailableError("Invalid Trading API quote amounts");
     }
-    return summary;
+    try {
+      return { quote: summary, quoteId: this.store.save(intent, summary, payload, requestedAt) };
+    } catch {
+      throw new TradingApiUnavailableError("Trading API quote is unavailable");
+    }
   }
 }

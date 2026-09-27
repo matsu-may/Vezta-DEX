@@ -72,7 +72,10 @@ describe("DEX HTTP handler", () => {
     const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "100000000", slippageBps: 50 };
     const valid = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes, trading);
     expect(valid.status).toBe(200);
-    expect((await valid.json()).quote).toMatchObject({ routing: "CLASSIC", source: "uniswap-trading-api" });
+    const result = await valid.json();
+    expect(result.quote).toMatchObject({ routing: "CLASSIC", source: "uniswap-trading-api" });
+    expect(result.quoteId).toMatch(/^[0-9a-f]{48}$/);
+    expect(result).not.toHaveProperty("permitData");
     const invalid = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify({ ...body, tokenIn: "0x2791bca1f2de4661ed88a30c99a7a9449aa84174" }) }), reader, quotes, trading);
     expect(invalid.status).toBe(400);
     const unavailable = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes);

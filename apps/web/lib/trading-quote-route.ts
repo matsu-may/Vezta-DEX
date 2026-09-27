@@ -16,7 +16,7 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 }
 
-export function createTradingQuoteHandler(getQuote: (intent: TradingIntent) => Promise<TradingQuoteSummary>) {
+export function createTradingQuoteHandler(getQuote: (intent: TradingIntent) => Promise<{ quote: TradingQuoteSummary; quoteId: string }>) {
   return async (request: Request): Promise<Response> => {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     let body: unknown;
@@ -35,7 +35,7 @@ export function createTradingQuoteHandler(getQuote: (intent: TradingIntent) => P
       return json({ error: "Unsupported Polygon trading quote" }, 400);
     }
     try {
-      return json({ quote: await getQuote(parsed.data) });
+      return json(await getQuote(parsed.data));
     } catch (error) {
       const status = error instanceof DexApiError && error.status === 400 ? 400 : 503;
       return json({ error: status === 400 ? "Invalid quote request" : "Trading API quote is unavailable" }, status);

@@ -34,9 +34,9 @@
 **Files:** `docs/research/2026-09-27-trading-api-live-evidence.md`; create `apps/api/src/quote-store.ts` and test; modify `apps/api/src/trading-api.ts`, `apps/api/src/server.ts` and tests.
 
 - [x] Owner ran the sanitized Trading API smoke script in both directions: HTTP 200, `CLASSIC`, Polygon 137, exact input/output identity and no simulation failure for the small probes. See the live-evidence log.
-- [ ] Test quote ID binding to chain/account/tokens/amount/slippage/version, 30-second TTL, capacity cap and one-time consume; observe failure.
-- [ ] Implement bounded in-memory storage and opaque IDs; return ID plus summary, never raw quote. Rerun tests.
-- [ ] Record the Redis/shared-store requirement for replicas.
+- [x] Test quote ID binding to chain/account/tokens/amount/slippage/version, 30-second TTL, capacity cap and one-time consume; observed missing implementation before green tests.
+- [x] Implement bounded in-memory storage and opaque IDs; return ID plus summary, never raw quote. Focused tests and full suite pass.
+- [x] Record the Redis/shared-store requirement for replicas in the spec; the current store is single-process only.
 
 ### Task 2: Exact approval policy and validation
 

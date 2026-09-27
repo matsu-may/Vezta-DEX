@@ -17,10 +17,11 @@ describe("same-origin Trading API quote route", () => {
     const handler = createTradingQuoteHandler(async (intent) => {
       calls++;
       expect(intent).toMatchObject(body);
-      return { ...intent, chainId: 137, amountOut: "100000000000000000", minimumAmountOut: "99500000000000000", routing: "CLASSIC", routerVersion: "2.1.2", requestId: "request-1", quotedAt: new Date().toISOString(), source: "uniswap-trading-api" } as TradingQuoteSummary;
+      return { quote: { ...intent, chainId: 137, amountOut: "100000000000000000", minimumAmountOut: "99500000000000000", routing: "CLASSIC", routerVersion: "2.1.2", requestId: "request-1", quotedAt: new Date().toISOString(), source: "uniswap-trading-api" } as TradingQuoteSummary, quoteId: "a".repeat(48) };
     });
     const valid = await handler(new Request("http://localhost/api/trading-quote", { method: "POST", body: JSON.stringify(body) }));
     expect(valid.status).toBe(200);
+    expect(await valid.json()).toMatchObject({ quote: { routing: "CLASSIC" }, quoteId: "a".repeat(48) });
     const invalid = await handler(new Request("http://localhost/api/trading-quote", { method: "POST", body: JSON.stringify({ ...body, chainId: 1 }) }));
     expect(invalid.status).toBe(400);
     expect(calls).toBe(1);

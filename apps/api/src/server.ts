@@ -48,8 +48,7 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
     const parsed = tradingIntentSchema.safeParse(body);
     if (!parsed.success) return json({ error: "Invalid quote request" }, 400);
     try {
-      const quote = await trading.getQuote(parsed.data as TradingIntent);
-      return json({ quote });
+      return json(await trading.getQuote(parsed.data as TradingIntent));
     } catch (error) {
       return error instanceof TradingApiInputError ? json({ error: error.message }, 400) : json({ error: "Trading API quote is unavailable" }, 503);
     }
