@@ -3,6 +3,7 @@ import { z } from "zod";
 import type { PoolReader } from "./pools";
 import { QuoteInputError, type QuoteReader } from "./quote";
 import { TradingApiInputError, type TradingApiQuoteReader } from "./trading-api";
+import { ApprovalInputError, type AllowanceReader } from "./allowance-reader";
 
 const tradingIntentSchema = z.object({
   chainId: z.literal(137),
@@ -20,8 +21,21 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader): Promise<Response> {
+export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader): Promise<Response> {
   const pathname = new URL(request.url).pathname;
+  if (pathname === "/api/v1/approval-plan") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    if (!approval) return json({ error: "Approval planning is unavailable" }, 503);
+    let body: unknown;
+    try { body = await request.json(); }
+    catch { return json({ error: "Invalid approval request" }, 400); }
+    const parsed = tradingIntentSchema.safeParse(body);
+    if (!parsed.success) return json({ error: "Invalid approval request" }, 400);
+    try { return json({ approval: await approval.getPlan(parsed.data as TradingIntent) }); }
+    catch (error) {
+      return error instanceof ApprovalInputError ? json({ error: error.message }, 400) : json({ error: "Polygon approval state is unavailable" }, 503);
+    }
+  }
   if (pathname === "/api/v1/trading-quote") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     if (!trading) return json({ error: "Trading API is not configured" }, 503);

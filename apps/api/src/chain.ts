@@ -1,8 +1,9 @@
-import { createPublicClient, http, type Address } from "viem";
+import { createPublicClient, erc20Abi, http, type Address } from "viem";
 import { polygon } from "viem/chains";
 import { POLYGON_CHAIN_ID, TOKENS, V3_FACTORY, V3_QUOTER } from "@vezta-dex/core";
 import type { PoolChainSource } from "./pools";
 import type { QuoteChainSource } from "./quote";
+import type { AllowanceChainSource } from "./allowance-reader";
 
 const factoryAbi = [{
   type: "function",
@@ -45,7 +46,7 @@ const quoterAbi = [{
   ],
 }] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource {
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -85,6 +86,15 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
         blockNumber,
       });
       return { amountOut: result[0], gasEstimate: result[3] };
+    },
+    getTokenAllowance(token, owner, spender, blockNumber) {
+      return client.readContract({
+        address: token,
+        abi: erc20Abi,
+        functionName: "allowance",
+        args: [owner, spender],
+        blockNumber,
+      });
     },
   };
 }

@@ -14,8 +14,10 @@
 
 - Polygon 137, curated native USDC/WETH, `CLASSIC`, Universal Router 2.1.2.
 - Quote expires after 30 seconds and after any intent change. Requote and review after approval.
-- `permitAmount: EXACT` does not constrain ERC20-to-Permit2 approval by itself.
-- No write path until live response and approval calldata are inspected, policy settled, and browser evidence recorded.
+- `permitAmount: EXACT` does not constrain ERC20-to-Permit2 approval by itself. Owner selected exact ERC20 approval per swap on 2026-09-27.
+- Never forward Uniswap's observed `uint256.max` approval. Build `approve(canonical Permit2, amountIn)` and validate it independently.
+- Nonzero existing allowance other than `amountIn` blocks the flow pending an explicit reset/review; never silently use or revoke it.
+- No wallet write path until exact approval, fresh quote and browser evidence pass.
 
 ## Review Focus
 
@@ -36,13 +38,17 @@
 - [ ] Implement bounded in-memory storage and opaque IDs; return ID plus summary, never raw quote. Rerun tests.
 - [ ] Record the Redis/shared-store requirement for replicas.
 
-### Task 2: Approval policy and validation
+### Task 2: Exact approval policy and validation
 
-**Files:** Create `apps/api/src/approval.ts` and test; extend API route and docs.
+**Files:** Create `apps/api/src/exact-approval.ts` and test; later extend the API route and docs.
 
 - [x] Run `node scripts/smoke-approval.mjs` in the owner's networked Terminal; both dummy-wallet proposals targeted canonical Permit2 with `uint256.max` allowance, and neither required cancellation. No private key or transaction was used. **Stop for the owner's allowance-policy decision before Task 2 writes.**
-- [ ] Test wrong chain/account/token/spender/amount and cancellation ordering; observe failure.
-- [ ] Implement approval preparation through the shared Trading API client; return only validated unsigned transaction data. Rerun tests.
+- [x] Owner selected exact ERC20 approval per swap; keep wallet writes disabled during implementation.
+- [x] Test deterministic `approve(Permit2, amountIn)` calldata, wrong chain/token/amount and `uint256.max` existing-allowance blocking; observed missing-module failure.
+- [x] Implement pure exact approval builder; no API call or wallet submission. Focused tests pass.
+- [x] Add Polygon allowance read at a pinned block and zero/exact/other-nonzero states; expose only an unsigned `POST /api/v1/approval-plan`. Unit and handler tests cover stale blocks, wrong chain, excessive allowance and RPC failure.
+- [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
+- [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 
 ### Task 3: Permit2 and swap preparation
 

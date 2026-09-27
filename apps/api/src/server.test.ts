@@ -5,6 +5,7 @@ import { handleRequest } from "./server";
 import { QuoteReader } from "./quote";
 import { TradingApiQuoteReader } from "./trading-api";
 import { TradingApiClient } from "./trading-client";
+import { AllowanceReader } from "./allowance-reader";
 
 const POOL = "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9" as Address;
 const chain: PoolChainSource = {
@@ -86,5 +87,37 @@ describe("DEX HTTP handler", () => {
     const text = await response.text();
     expect(text).not.toContain("test-secret-key");
     expect(text).not.toContain("private upstream detail");
+  });
+
+  it("returns only an exact unsigned approval plan from a pinned Polygon allowance", async () => {
+    const approval = new AllowanceReader({
+      getBlock: async () => ({ number: 123n, timestamp: 1_000n }),
+      getTokenAllowance: async () => 0n,
+    }, () => 1_000_000);
+    const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
+    const valid = await handleRequest(new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify(body) }), reader, quotes, undefined, approval);
+    expect(valid.status).toBe(200);
+    expect(valid.headers.get("Cache-Control")).toBe("no-store");
+    const result = await valid.json();
+    expect(result.approval.plan.kind).toBe("approve");
+    expect(result.approval.plan.transaction.data).toContain("000000000022d473030f116ddee9f6b43ac78ba3");
+    expect(result.approval.plan.transaction.data).not.toContain("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+    const invalid = await handleRequest(new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify({ ...body, chainId: 1 }) }), reader, quotes, undefined, approval);
+    expect(invalid.status).toBe(400);
+  });
+
+  it("blocks existing excessive allowance and hides RPC failures", async () => {
+    const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
+    const request = () => new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify(body) });
+    const existing = new AllowanceReader({ getBlock: async () => ({ number: 123n, timestamp: 1_000n }), getTokenAllowance: async () => (1n << 256n) - 1n }, () => 1_000_000);
+    const blocked = await handleRequest(request(), reader, quotes, undefined, existing);
+    expect(blocked.status).toBe(200);
+    const result = await blocked.json();
+    expect(result.approval.plan.kind).toBe("blocked-existing");
+    expect(result.approval.plan.transaction).toBeUndefined();
+    const broken = new AllowanceReader({ getBlock: async () => { throw new Error("secret RPC URL"); }, getTokenAllowance: async () => 0n });
+    const unavailable = await handleRequest(request(), reader, quotes, undefined, broken);
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.text()).not.toContain("secret RPC URL");
   });
 });

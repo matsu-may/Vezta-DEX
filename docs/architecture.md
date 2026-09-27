@@ -30,7 +30,7 @@ Next.js matches `vezta-fe`; a small TypeScript HTTP API can follow the Hono patt
 2. The browser checks that the wallet is on Polygon and that the returned `to`, spender, recipient, amount limits and expiry match the user's visible intent before requesting approval or a signature. A fresh quote is required after account, chain, tokens, amount or slippage changes.
 3. The wallet alone signs and submits. An API response or successful simulation is not a confirmed transaction; the UI waits for a receipt, then refreshes balances and positions.
 4. Pool lists and historical metrics may be indexed and delayed. Display their source and freshness. Read current chain/protocol state for transaction preparation. Pool identity includes `chainId`, Uniswap version, token pair, fee parameters and v4 hook address when applicable.
-5. For the initial AMM swap path, limit quoted protocols to Uniswap `V2`/`V3`/`V4` and accept only `CLASSIC`. Pin Universal Router `2.1.2` for Polygon throughout the API journey. UniswapX orders and cross-chain plans have different execution states and belong to later specs. [Supported chains and router versions](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains).
+5. For the initial AMM swap path, limit quoted protocols to Uniswap `V2`/`V3`/`V4` and accept only `CLASSIC`. Pin Universal Router `2.1.2` for Polygon on quote and swap calls where supported. The exact ERC20 approval targets canonical Permit2 and is planned from a pinned on-chain allowance read. UniswapX orders and cross-chain plans have different execution states and belong to later specs. [Supported chains and router versions](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains).
 
 ## Threats to address before writes
 
@@ -39,6 +39,7 @@ Next.js matches `vezta-fe`; a small TypeScript HTTP API can follow the Hono patt
 | Lookalike token or wrong chain | User signs for the wrong asset | Curated `chainId + address` registry; on-chain decimals; display addresses; wrong-chain and duplicate-symbol tests | API + web |
 | Changed transaction target or recipient | Token approval or swap can move funds elsewhere | Validate allowed target/spender and intent-bound recipient/limits before wallet prompt; test tampered responses | API + web |
 | Stale quote or Permit2 signature | Unexpected execution or failed trade | Invalidate on input changes, enforce expiry, refresh before sign; test delayed approval and price moves | Web |
+| Excess token allowance | Persistent permission beyond this swap | Exact `approve(Permit2, amountIn)` only from zero allowance; block pre-existing different allowance; recheck before wallet prompt | API + web |
 | Stale pool or position index | Misleading liquidity, fee or balance display | Timestamp data, label estimates, refresh from chain after receipt; test index lag | API + web |
 | Public API key proxy abuse | Quota exhaustion and unavailable quotes | Keep key server-side; explicit endpoints, validation and rate limits; test malformed/high-volume requests | API |
 

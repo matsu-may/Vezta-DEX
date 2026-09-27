@@ -6,6 +6,7 @@ import { handleRequest } from "./server";
 import { QuoteReader } from "./quote";
 import { TradingApiQuoteReader } from "./trading-api";
 import { TradingApiClient } from "./trading-client";
+import { AllowanceReader } from "./allowance-reader";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -18,6 +19,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invali
 const source = createPolygonPoolSource(rpcUrl);
 const reader = new PoolReader(source);
 const quotes = new QuoteReader(source);
+const approval = new AllowanceReader(source);
 const trading = process.env.UNISWAP_API_KEY?.trim()
   ? new TradingApiQuoteReader(new TradingApiClient(process.env.UNISWAP_API_KEY))
   : undefined;
@@ -39,7 +41,7 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading);
+    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval);
     response.writeHead(result.status, Object.fromEntries(result.headers));
     response.end(Buffer.from(await result.arrayBuffer()));
   } catch {
