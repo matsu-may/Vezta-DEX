@@ -40,7 +40,7 @@
 
 **Files:** Create `apps/api/src/approval.ts` and test; extend API route and docs.
 
-- [ ] Run `node scripts/smoke-approval.mjs` in a networked Terminal with a disposable public wallet address if available; inspect sanitized token, spender, amount category and cancel transaction. The script uses no private key and sends no transaction. If unlimited/long-lived approval is required, stop for policy decision.
+- [x] Run `node scripts/smoke-approval.mjs` in the owner's networked Terminal; both dummy-wallet proposals targeted canonical Permit2 with `uint256.max` allowance, and neither required cancellation. No private key or transaction was used. **Stop for the owner's allowance-policy decision before Task 2 writes.**
 - [ ] Test wrong chain/account/token/spender/amount and cancellation ordering; observe failure.
 - [ ] Implement approval preparation through the shared Trading API client; return only validated unsigned transaction data. Rerun tests.
 
