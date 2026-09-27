@@ -20,21 +20,31 @@ for (const [direction, tokenIn, tokenOut, amountIn] of pairs) {
     let body;
     try { body = await response.json(); } catch { body = {}; }
     const quote = body?.quote;
+    const hasOpaqueQuoteId = typeof body?.quoteId === "string" && /^[0-9a-f]{48}$/.test(body.quoteId);
+    const inputMatches = sameAddress(quote?.tokenIn, tokenIn) && quote?.amountIn === amountIn;
+    const outputMatches = sameAddress(quote?.tokenOut, tokenOut) && sameAddress(quote?.swapper, swapper);
+    const hasMinimumOutput = typeof quote?.minimumAmountOut === "string" && /^\d+$/.test(quote.minimumAmountOut) && BigInt(quote.minimumAmountOut) > 0n;
+    const leaksUpstreamPayload = Boolean(body?.permitData || body?.permitTransaction || body?.route);
     process.stdout.write(JSON.stringify({
       direction,
       status: response.status,
-      hasOpaqueQuoteId: typeof body?.quoteId === "string" && /^[0-9a-f]{48}$/.test(body.quoteId),
+      responseFields: body && typeof body === "object" ? Object.keys(body).sort() : [],
+      quoteIdPresent: typeof body?.quoteId === "string",
+      quoteIdLength: typeof body?.quoteId === "string" ? body.quoteId.length : undefined,
+      hasOpaqueQuoteId,
       quoteChainId: quote?.chainId,
       routing: quote?.routing,
-      inputMatches: sameAddress(quote?.tokenIn, tokenIn) && quote?.amountIn === amountIn,
-      outputMatches: sameAddress(quote?.tokenOut, tokenOut) && sameAddress(quote?.swapper, swapper),
-      hasMinimumOutput: typeof quote?.minimumAmountOut === "string" && /^\d+$/.test(quote.minimumAmountOut) && BigInt(quote.minimumAmountOut) > 0n,
-      leaksUpstreamPayload: Boolean(body?.permitData || body?.permitTransaction || body?.route),
+      inputMatches,
+      outputMatches,
+      hasMinimumOutput,
+      leaksUpstreamPayload,
       error: response.ok ? undefined : body?.error,
     }) + "\n");
+    if (!response.ok || !hasOpaqueQuoteId || quote?.chainId !== 137 || quote?.routing !== "CLASSIC" || !inputMatches || !outputMatches || !hasMinimumOutput || leaksUpstreamPayload) process.exitCode = 1;
     if (!response.ok) break;
   } catch (error) {
     process.stdout.write(JSON.stringify({ direction, networkError: error instanceof Error ? error.name : "unknown" }) + "\n");
+    process.exitCode = 1;
     break;
   }
   await new Promise((resolve) => setTimeout(resolve, 1_000));
