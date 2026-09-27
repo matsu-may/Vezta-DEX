@@ -40,7 +40,7 @@
 
 **Files:** Create `apps/api/src/approval.ts` and test; extend API route and docs.
 
-- [ ] Obtain read-only `/check_approval` payload for a disposable wallet; decode token, spender, amount and cancel transaction. If unlimited/long-lived approval is required, stop for policy decision.
+- [ ] Run `node scripts/smoke-approval.mjs` in a networked Terminal with a disposable public wallet address if available; inspect sanitized token, spender, amount category and cancel transaction. The script uses no private key and sends no transaction. If unlimited/long-lived approval is required, stop for policy decision.
 - [ ] Test wrong chain/account/token/spender/amount and cancellation ordering; observe failure.
 - [ ] Implement approval preparation through the shared Trading API client; return only validated unsigned transaction data. Rerun tests.
 

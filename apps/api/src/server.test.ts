@@ -60,6 +60,10 @@ describe("DEX HTTP handler", () => {
       requestId: "request-1",
       routing: "CLASSIC",
       quote: {
+        chainId: 137,
+        tradeType: "EXACT_INPUT",
+        txFailureReasons: [],
+        swapper: "0x1111111111111111111111111111111111111111",
         input: { token: TOKENS.USDC.address, amount: "100000000" },
         output: { token: TOKENS.WETH.address, amount: "100000000000000000", minimumAmount: "99500000000000000", recipient: "0x1111111111111111111111111111111111111111" },
       },

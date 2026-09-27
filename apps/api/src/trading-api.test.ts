@@ -20,6 +20,7 @@ function apiResponse(changes: Record<string, unknown> = {}) {
       chainId: 137,
       tradeType: "EXACT_INPUT",
       txFailureReasons: [],
+      swapper: intent.swapper,
       input: { token: TOKENS.USDC.address, amount: intent.amountIn },
       output: {
         token: TOKENS.WETH.address,
@@ -61,6 +62,10 @@ describe("Trading API quote reader", () => {
       apiResponse({ quote: { ...apiResponse().quote, txFailureReasons: ["SIMULATION_FAILED"] } }),
       apiResponse({ quote: { ...apiResponse().quote, chainId: 1 } }),
       apiResponse({ quote: { ...apiResponse().quote, tradeType: "EXACT_OUTPUT" } }),
+      apiResponse({ quote: { ...apiResponse().quote, chainId: undefined } }),
+      apiResponse({ quote: { ...apiResponse().quote, tradeType: undefined } }),
+      apiResponse({ quote: { ...apiResponse().quote, swapper: undefined } }),
+      apiResponse({ quote: { ...apiResponse().quote, txFailureReasons: undefined } }),
     ];
     for (const body of bad) {
       const fetcher = vi.fn(async () => Response.json(body)) as unknown as typeof fetch;

@@ -52,7 +52,7 @@ For every returned wallet transaction, verify Polygon chain, sender/account, tar
 
 ## Verification gates
 
-1. Run the read-only smoke script with a key in ignored `apps/api/.env`; record sanitized status, routing, identity checks and simulation-failure count in both directions. Both small probes returned HTTP 200 and `CLASSIC` from the owner's Terminal. Identity values and failure-reason count still need a rerun; API errors and 429 are unverified. Outbound sockets remain blocked in this sandbox.
+1. Run the read-only smoke script with a key in ignored `apps/api/.env`; record sanitized status, routing, identity checks and simulation-failure count in both directions. Both small probes returned HTTP 200 and `CLASSIC`, matched the Polygon exact-input intent, and reported zero simulation failures from the owner's Terminal. API error/429 behavior remains unverified live. Outbound sockets remain blocked in this sandbox.
 2. Test decimal precision, wrong chain/token/account, stale quote, queue saturation, 429 pause, mismatched router/spender, replayed permit, insufficient token/gas, rejection, revert and delayed receipt.
 3. With a disposable funded Polygon wallet, browser-check a small real approval and swap. Record transaction hashes, gas, receipt status and quoted-versus-executed amount. Never record a secret or signature.
 4. Compare representative sizes and both directions with the Uniswap app. Enable writes only after these checks and independent code review.

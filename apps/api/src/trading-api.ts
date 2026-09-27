@@ -15,13 +15,13 @@ const responseSchema = z.object({
   routing: z.literal("CLASSIC"),
   txFailureReason: z.string().nullish(),
   quote: z.object({
-    chainId: z.union([z.literal(137), z.literal("137")]).optional(),
-    tradeType: z.literal("EXACT_INPUT").optional(),
+    chainId: z.union([z.literal(137), z.literal("137")]),
+    tradeType: z.literal("EXACT_INPUT"),
     input: z.object({ token: address, amount: positiveAmount }),
     output: z.object({ token: address, amount: positiveAmount, minimumAmount: positiveAmount, recipient: address }),
-    swapper: address.optional(),
+    swapper: address,
     txFailureReason: z.string().nullish(),
-    txFailureReasons: z.array(z.unknown()).nullish(),
+    txFailureReasons: z.array(z.unknown()),
   }),
 });
 
@@ -78,7 +78,7 @@ export class TradingApiQuoteReader {
         quote.input.amount !== intent.amountIn ||
         quote.output.token.toLowerCase() !== intent.tokenOut.toLowerCase() ||
         quote.output.recipient.toLowerCase() !== intent.swapper.toLowerCase() ||
-        (quote.swapper && quote.swapper.toLowerCase() !== intent.swapper.toLowerCase())) {
+        quote.swapper.toLowerCase() !== intent.swapper.toLowerCase()) {
       throw new TradingApiUnavailableError("Trading API quote does not match intent");
     }
     const summary: TradingQuoteSummary = {

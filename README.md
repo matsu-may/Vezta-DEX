@@ -18,7 +18,7 @@ pnpm dev
 The API listens on `127.0.0.1:3021`, and the web app on `127.0.0.1:3020`; these avoid Vezta's existing `3000`/`3001` and launchpad's `3010`. `POLYGON_RPC_URL` can point to another trusted Polygon RPC; use HTTPS except for local development. `DEX_API_URL` is server-only and must be reachable by the Next.js process. Set `UNISWAP_API_KEY` in `apps/api/.env` to enable wallet-bound Trading API quotes; never put it in `NEXT_PUBLIC_*` or share it in logs. Without a key, pool discovery and the indicative QuoterV2 comparison still work, while the routed quote returns a controlled unavailable state.
 
 ```bash
-pnpm test       # Vitest: identity, API errors, pool reader, display states
+pnpm test       # Vitest and approval-calldata summary tests
 pnpm typecheck  # TypeScript across all packages
 pnpm lint       # ESLint/Next rules
 pnpm build      # Production Next.js build
@@ -26,6 +26,6 @@ pnpm build      # Production Next.js build
 
 Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. `/swap` now distinguishes the single-pool comparison from the Trading API's best-price Uniswap AMM route across v2/v3/v4; neither quote enables wallet execution yet. Volume, APR, position earnings and LP actions remain unavailable until their live-data and transaction checks pass.
 
-The Trading API client spaces requests at 5 RPS inside this one API process, leaving room under the supplied 6 RPS key limit. More than one process needs a shared limiter before public use. To check the key and response shape without sending a transaction, run `node scripts/smoke-trading-api.mjs`; it reads the ignored API `.env` and prints sanitized field names. Network access is required. See the [evidence record](docs/research/2026-09-27-trading-api-live-evidence.md).
+The Trading API client spaces requests at 5 RPS inside this one API process, leaving room under the supplied 6 RPS key limit. More than one process needs a shared limiter before public use. To check the key and quote shape without sending a transaction, run `node scripts/smoke-trading-api.mjs`; to inspect proposed ERC20 approvals without signing or submitting, run `node scripts/smoke-approval.mjs`. Both read the ignored API `.env`, print sanitized summaries and require network access. See the [evidence record](docs/research/2026-09-27-trading-api-live-evidence.md).
 
 The DEX is developed independently first. Integration into `vezta.io/swap`, `/explore`, and `/pools` is a later milestone, after the standalone product passes its own checks.
