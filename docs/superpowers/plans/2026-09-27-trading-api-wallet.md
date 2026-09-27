@@ -37,6 +37,7 @@
 - [x] Test quote ID binding to chain/account/tokens/amount/slippage/version, 30-second TTL, capacity cap and one-time consume; observed missing implementation before green tests.
 - [x] Implement bounded in-memory storage and opaque IDs; return ID plus summary, never raw quote. Focused tests and full suite pass.
 - [x] Record the Redis/shared-store requirement for replicas in the spec; the current store is single-process only.
+- [x] Owner reran the local quote-store smoke check after restarting the API; both directions returned HTTP 200 with opaque IDs and no raw upstream payload.
 
 ### Task 2: Exact approval policy and validation
 

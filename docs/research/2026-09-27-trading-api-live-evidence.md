@@ -37,8 +37,10 @@ After a clean `pnpm install` and local API start, `node scripts/smoke-approval-p
 
 This verifies the live RPC allowance path and transaction construction for zero allowance in both directions. It does not verify a nonzero allowance branch on a live wallet, token approval receipt, Permit2 signature, `/swap` payload, gas sufficiency, or swap receipt. Wallet writes remain disabled.
 
-## Next local quote-store check
+## Local quote-store check
 
 The backend now returns a validated quote summary and an opaque, single-use `quoteId`, while retaining the complete upstream response for 30 seconds in process memory. `node scripts/smoke-local-quote.mjs` checks this boundary through the local API in both directions without logging raw quote data. Its result is separate from the earlier direct Uniswap quote probe.
 
-The owner's first local run returned HTTP 200, Polygon 137, `CLASSIC`, matching token/account identities, positive minimum output and no upstream payload leak in both directions, but `hasOpaqueQuoteId: false` for both. **The quote-store live gate has not passed.** Current source and handler tests include a top-level `quoteId`; a Node process was listening on port 3021 during investigation, but this sandbox could not connect to its localhost socket or establish when it started. A stale API process is plausible, not confirmed. Restart the process and rerun the diagnostic smoke script, which now prints response field names and exits nonzero on a failed gate.
+The owner's first local run returned HTTP 200, Polygon 137, `CLASSIC`, matching token/account identities, positive minimum output and no upstream payload leak in both directions, but `hasOpaqueQuoteId: false` for both. A Node process was listening on port 3021 during investigation; this sandbox could not connect to its localhost socket or establish when it started.
+
+After stopping and restarting the API, the owner reran the diagnostic script. **Both directions returned HTTP 200 with exactly `quote` and `quoteId` as top-level fields, a 48-character lowercase-hex opaque ID, Polygon 137, `CLASSIC`, matching input/output identities, positive minimum output and no upstream payload leak. The local quote-store response gate now passes.** The changed result is consistent with the first process running older code, although its version was not independently inspected. This probe does not consume the stored quote or verify a `/swap` transaction.
