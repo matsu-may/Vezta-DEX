@@ -27,17 +27,29 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
   slippageBps: number;
 }) {
   const [account, setAccount] = useState<Address | null>(null);
-  const [quote, setQuote] = useState<TradingQuoteSummary | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const inputKey = `${direction}:${amount}:${slippageBps}`;
+  const [quoteState, setQuoteState] = useState<{
+    inputKey: string;
+    requestId: number;
+    quote: TradingQuoteSummary | null;
+    error: string;
+    loading: boolean;
+  } | null>(null);
+  const [walletError, setWalletError] = useState("");
   const [connecting, setConnecting] = useState(false);
   const requestId = useRef(0);
+  const [previousInputKey, setPreviousInputKey] = useState(inputKey);
+  if (previousInputKey !== inputKey) {
+    setPreviousInputKey(inputKey);
+    setQuoteState(null);
+  }
+  const activeQuoteState = quoteState?.inputKey === inputKey ? quoteState : null;
+  const quote = activeQuoteState?.quote ?? null;
+  const error = walletError || activeQuoteState?.error || "";
+  const loading = activeQuoteState?.loading ?? false;
 
   useEffect(() => {
     requestId.current += 1;
-    setQuote(null);
-    setLoading(false);
-    setError("");
   }, [direction, amount, slippageBps]);
 
   useEffect(() => {
@@ -46,9 +58,8 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
     const reset = () => {
       requestId.current += 1;
       setAccount(null);
-      setQuote(null);
-      setLoading(false);
-      setError("Wallet account or chain changed. Connect again to request a new quote.");
+      setQuoteState(null);
+      setWalletError("Wallet account or chain changed. Connect again to request a new quote.");
     };
     wallet.on("accountsChanged", reset);
     wallet.on("chainChanged", reset);
@@ -63,20 +74,19 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
     const timeLeft = Math.max(0, Date.parse(quote.quotedAt) + 30_000 - Date.now());
     const timer = setTimeout(() => {
       requestId.current += 1;
-      setQuote(null);
-      setError("Routed quote expired. Request a fresh quote.");
+      setQuoteState({ inputKey, requestId: requestId.current, quote: null, error: "Routed quote expired. Request a fresh quote.", loading: false });
     }, timeLeft);
     return () => clearTimeout(timer);
-  }, [quote]);
+  }, [quote, inputKey]);
 
   async function connect() {
     const wallet = provider();
     if (!wallet) {
-      setError("No browser wallet detected. Install or open an EVM wallet to request a routed quote.");
+      setWalletError("No browser wallet detected. Install or open an EVM wallet to request a routed quote.");
       return;
     }
     setConnecting(true);
-    setError("");
+    setWalletError("");
     try {
       const accounts = await wallet.request({ method: "eth_requestAccounts" });
       const chain = await wallet.request({ method: "eth_chainId" });
@@ -87,10 +97,10 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
       }
       requestId.current += 1;
       setAccount(first as Address);
-      setQuote(null);
+      setQuoteState(null);
     } catch (cause) {
       setAccount(null);
-      setError(cause instanceof Error ? cause.message : "Wallet connection was rejected.");
+      setWalletError(cause instanceof Error ? cause.message : "Wallet connection was rejected.");
     } finally {
       setConnecting(false);
     }
@@ -100,15 +110,15 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
     if (!account) return;
     requestId.current += 1;
     const currentRequest = requestId.current;
-    setQuote(null);
-    setError("");
+    setWalletError("");
+    setQuoteState({ inputKey, requestId: currentRequest, quote: null, error: "", loading: false });
     const inputToken = TOKENS[direction];
     const outputToken = direction === "USDC" ? TOKENS.WETH : TOKENS.USDC;
     let amountIn: bigint;
     try {
       amountIn = parseExactInput(amount, inputToken.decimals);
     } catch {
-      setError(`Enter a positive ${inputToken.symbol} amount with at most ${inputToken.decimals} decimal places.`);
+      setQuoteState({ inputKey, requestId: currentRequest, quote: null, error: `Enter a positive ${inputToken.symbol} amount with at most ${inputToken.decimals} decimal places.`, loading: false });
       return;
     }
     const intent = {
@@ -119,7 +129,7 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
       amountIn: amountIn.toString(),
       slippageBps,
     };
-    setLoading(true);
+    setQuoteState({ inputKey, requestId: currentRequest, quote: null, error: "", loading: true });
     try {
       const response = await fetch("/api/trading-quote", {
         method: "POST",
@@ -132,11 +142,9 @@ export function TradingQuotePanel({ direction, amount, slippageBps }: {
       if (!body || typeof body !== "object" || !("quote" in body)) throw new Error("Invalid routed quote response.");
       const result = body.quote as TradingQuoteSummary;
       validateTradingQuoteSummary(result, intent, Date.now());
-      if (requestId.current === currentRequest) setQuote(result);
+      if (requestId.current === currentRequest) setQuoteState({ inputKey, requestId: currentRequest, quote: result, error: "", loading: false });
     } catch (cause) {
-      if (requestId.current === currentRequest) setError(cause instanceof Error ? cause.message : "Best-route quote is unavailable.");
-    } finally {
-      if (requestId.current === currentRequest) setLoading(false);
+      if (requestId.current === currentRequest) setQuoteState({ inputKey, requestId: currentRequest, quote: null, error: cause instanceof Error ? cause.message : "Best-route quote is unavailable.", loading: false });
     }
   }
 
