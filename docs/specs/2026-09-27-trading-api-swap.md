@@ -52,11 +52,11 @@ For every returned wallet transaction, verify Polygon chain, sender/account, tar
 
 ## Verification gates
 
-1. Run the read-only smoke script with a key in ignored `apps/api/.env`; record sanitized status, routing and field names in both directions. Validate actual API errors without exceeding 6 RPS. Outbound sockets are blocked here, so this gate is **open**.
+1. Run the read-only smoke script with a key in ignored `apps/api/.env`; record sanitized status, routing, identity checks and simulation-failure count in both directions. Both small probes returned HTTP 200 and `CLASSIC` from the owner's Terminal. Identity values and failure-reason count still need a rerun; API errors and 429 are unverified. Outbound sockets remain blocked in this sandbox.
 2. Test decimal precision, wrong chain/token/account, stale quote, queue saturation, 429 pause, mismatched router/spender, replayed permit, insufficient token/gas, rejection, revert and delayed receipt.
 3. With a disposable funded Polygon wallet, browser-check a small real approval and swap. Record transaction hashes, gas, receipt status and quoted-versus-executed amount. Never record a secret or signature.
 4. Compare representative sizes and both directions with the Uniswap app. Enable writes only after these checks and independent code review.
 
 ## Sources and unknowns
 
-Use the official [integration guide](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide), [Permit2 guide](https://developers.uniswap.org/docs/trading/swapping-api/concepts/permit2), [supported chains](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains), [approval API](https://developers.uniswap.org/docs/api-reference/check_approval), and [API errors](https://developers.uniswap.org/docs/trading/swapping-api/common-errors). Live response shape, approval amount, reverse-direction depth, gas, wallet behavior and production RPC reliability remain unverified.
+Use the official [integration guide](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide), [quote API](https://developers.uniswap.org/docs/api-reference/aggregator_quote), [Permit2 guide](https://developers.uniswap.org/docs/trading/swapping-api/concepts/permit2), [supported chains](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains), [approval API](https://developers.uniswap.org/docs/api-reference/check_approval), and [API errors](https://developers.uniswap.org/docs/trading/swapping-api/common-errors). Quote field names were observed in both directions; identity values, approval amount, deeper trade sizes, gas, wallet behavior and production RPC reliability remain unverified.

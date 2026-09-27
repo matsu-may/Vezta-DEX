@@ -17,6 +17,9 @@ function apiResponse(changes: Record<string, unknown> = {}) {
     requestId: "request-1",
     routing: "CLASSIC",
     quote: {
+      chainId: 137,
+      tradeType: "EXACT_INPUT",
+      txFailureReasons: [],
       input: { token: TOKENS.USDC.address, amount: intent.amountIn },
       output: {
         token: TOKENS.WETH.address,
@@ -55,6 +58,9 @@ describe("Trading API quote reader", () => {
       apiResponse({ quote: { ...apiResponse().quote, output: { ...apiResponse().quote.output, recipient: "0x2222222222222222222222222222222222222222" } } }),
       apiResponse({ routing: "CHAINED" }),
       apiResponse({ quote: { ...apiResponse().quote, txFailureReason: "SIMULATION_FAILED" } }),
+      apiResponse({ quote: { ...apiResponse().quote, txFailureReasons: ["SIMULATION_FAILED"] } }),
+      apiResponse({ quote: { ...apiResponse().quote, chainId: 1 } }),
+      apiResponse({ quote: { ...apiResponse().quote, tradeType: "EXACT_OUTPUT" } }),
     ];
     for (const body of bad) {
       const fetcher = vi.fn(async () => Response.json(body)) as unknown as typeof fetch;

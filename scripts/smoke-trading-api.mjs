@@ -6,6 +6,7 @@ if (!key) throw new Error("UNISWAP_API_KEY is missing");
 
 const swapper = process.env.DEX_SMOKE_WALLET ?? "0x1111111111111111111111111111111111111111";
 if (!/^0x[0-9a-fA-F]{40}$/.test(swapper)) throw new Error("DEX_SMOKE_WALLET must be an EVM address");
+const sameAddress = (value, expected) => typeof value === "string" && value.toLowerCase() === expected.toLowerCase();
 
 const pairs = [
   ["USDC_TO_WETH", "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359", "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619", "1000000"],
@@ -32,6 +33,12 @@ for (const [direction, tokenIn, tokenOut, amount] of pairs) {
     let body;
     try { body = await response.json(); } catch { body = {}; }
     const quote = body?.quote;
+    const failureReasons = quote?.txFailureReasons;
+    const quoteInput = quote?.input;
+    const quoteOutput = quote?.output;
+    const validOutputAmounts = typeof quoteOutput?.amount === "string" && /^\d+$/.test(quoteOutput.amount) &&
+      typeof quoteOutput?.minimumAmount === "string" && /^\d+$/.test(quoteOutput.minimumAmount) &&
+      BigInt(quoteOutput.minimumAmount) > 0n && BigInt(quoteOutput.minimumAmount) <= BigInt(quoteOutput.amount);
     process.stdout.write(JSON.stringify({
       direction,
       status: response.status,
@@ -42,7 +49,13 @@ for (const [direction, tokenIn, tokenOut, amount] of pairs) {
       inputFields: quote?.input && typeof quote.input === "object" ? Object.keys(quote.input).sort() : [],
       outputFields: quote?.output && typeof quote.output === "object" ? Object.keys(quote.output).sort() : [],
       hasPermitData: Boolean(body?.permitData),
-      hasTxFailureReason: Boolean(body?.txFailureReason || quote?.txFailureReason),
+      quoteChainId: quote?.chainId,
+      quoteTradeType: quote?.tradeType,
+      inputMatches: sameAddress(quoteInput?.token, tokenIn) && quoteInput?.amount === amount,
+      outputMatches: sameAddress(quoteOutput?.token, tokenOut) && sameAddress(quoteOutput?.recipient, swapper),
+      minimumOutputValid: validOutputAmounts,
+      failureReasonCount: Array.isArray(failureReasons) ? failureReasons.length : undefined,
+      hasTxFailureReason: Boolean(body?.txFailureReason || quote?.txFailureReason || (Array.isArray(failureReasons) ? failureReasons.length : failureReasons)),
     }) + "\n");
     if (response.status === 401 || response.status === 429) break;
   } catch (error) {

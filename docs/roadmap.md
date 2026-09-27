@@ -10,7 +10,7 @@ Build an independent `vezta-dex/` project using existing Uniswap liquidity on Po
 
 **Current implementation:** the [foundation plan](superpowers/plans/2026-09-27-foundation-and-discovery.md) is underway. The standalone read-only API and web routes exist; clean dependency installation, live runtime/browser checks, and CI execution remain to be verified. Milestone 0 and all write gates remain open.
 
-The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget plan](superpowers/plans/2026-09-27-trading-api-rate-budget.md) and [wallet-flow plan](superpowers/plans/2026-09-27-trading-api-wallet.md) govern the next slices. Read-only QuoterV2 comparison, wallet-bound Trading API quote preview and a single-process 5 RPS limiter exist. The [live API probe](research/2026-09-27-trading-api-live-evidence.md) was blocked by local networking. Approval and submission remain pending its evidence gates.
+The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget plan](superpowers/plans/2026-09-27-trading-api-rate-budget.md) and [wallet-flow plan](superpowers/plans/2026-09-27-trading-api-wallet.md) govern the next slices. Read-only QuoterV2 comparison, wallet-bound Trading API quote preview and a single-process 5 RPS limiter exist. The [live API probe](research/2026-09-27-trading-api-live-evidence.md) returned HTTP 200 and `CLASSIC` in both directions from the owner's Terminal; this sandbox remains offline and quote-value validation is pending. Approval and submission remain behind their evidence gates.
 
 ## Delivery sequence
 

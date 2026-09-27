@@ -14,3 +14,9 @@ Observed here: `{"direction":"USDC_TO_WETH","networkError":"TypeError"}` before 
 4. Record any 429 and `Retry-After` without load testing the 6 RPS key. The [Uniswap API error guide](https://developers.uniswap.org/docs/trading/swapping-api/common-errors) documents 429 behavior.
 
 **Gate status:** live quote, approval and swap API shapes unverified; wallet execution disabled.
+
+## Host Terminal result supplied by project owner
+
+The same script subsequently ran in the owner's Terminal with working DNS. Both `USDC_TO_WETH` and `WETH_TO_USDC` returned **HTTP 200**, top-level `routing: CLASSIC`, and `hasPermitData: true`, one second apart. The top-level fields were `isTokenApprovalApplicable`, `permitData`, `permitTransaction`, `quote`, `requestId`, and `routing`. The quote included `chainId`, `tradeType`, `input`, `output`, `swapper`, `route`, `quoteId`, gas estimates, and `txFailureReasons` (plural). Both directions returned input `amount`/`token` and output `amount`/`minimumAmount`/`recipient`/`token` fields.
+
+This confirms key access and route availability for the two small probe amounts. It does **not** prove that quoted amounts, chain, recipient, minimum output or simulation status matched the request: the first script only printed field names and checked singular `txFailureReason`. Its `hasTxFailureReason: false` result therefore did not inspect `txFailureReasons`. The script and quote parser have since been corrected; rerun the script to obtain sanitized validation booleans and the failure-reason count. Approval calldata, allowance policy, executable swap and browser wallet behavior remain unverified. Wallet execution stays disabled.

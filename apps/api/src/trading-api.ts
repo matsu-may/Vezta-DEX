@@ -15,10 +15,13 @@ const responseSchema = z.object({
   routing: z.literal("CLASSIC"),
   txFailureReason: z.string().nullish(),
   quote: z.object({
+    chainId: z.union([z.literal(137), z.literal("137")]).optional(),
+    tradeType: z.literal("EXACT_INPUT").optional(),
     input: z.object({ token: address, amount: positiveAmount }),
     output: z.object({ token: address, amount: positiveAmount, minimumAmount: positiveAmount, recipient: address }),
     swapper: address.optional(),
     txFailureReason: z.string().nullish(),
+    txFailureReasons: z.array(z.unknown()).nullish(),
   }),
 });
 
@@ -67,7 +70,7 @@ export class TradingApiQuoteReader {
       throw new TradingApiUnavailableError("Invalid Trading API response");
     }
     const parsed = responseSchema.safeParse(payload);
-    if (!parsed.success || parsed.data.txFailureReason || parsed.data.quote.txFailureReason) {
+    if (!parsed.success || parsed.data.txFailureReason || parsed.data.quote.txFailureReason || parsed.data.quote.txFailureReasons?.length) {
       throw new TradingApiUnavailableError("Invalid Trading API response");
     }
     const { quote, requestId } = parsed.data;
