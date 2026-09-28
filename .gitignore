@@ -4,6 +4,7 @@ node_modules
 coverage/
 dist/
 *.tsbuildinfo
+.playwright-cli/
 .env
 .env.local
 .env.*.local

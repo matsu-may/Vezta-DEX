@@ -63,10 +63,11 @@
 - [x] Record the user's Trading API selection and current Polygon/router documentation in the spec.
 - [x] Reject changed account, token, chain, route, minimum output or stale quote in pure code and API tests.
 - [x] Add server-only API key handling and a wallet-bound, read-only quote UI.
+- [x] Run mock-wallet browser regression checks and independent review of connection event ordering; see [wallet connection evidence](../../research/2026-09-28-wallet-connection-validation.md).
 - [ ] With a real API key, verify live `CLASSIC` quote shape, fees, quote age, errors and both directions against Uniswap's app.
 - [ ] Browser-check account and chain changes on an installed wallet.
 
-The standalone API now has a read-only smoke script and a 5 RPS local scheduler. The smoke attempt could not reach the network; see [live evidence](../../research/2026-09-27-trading-api-live-evidence.md). Implement the detailed [rate-budget plan](2026-09-27-trading-api-rate-budget.md) and [wallet plan](2026-09-27-trading-api-wallet.md) for remaining work.
+The standalone API now has read-only smoke scripts and a 5 RPS local scheduler. The owner verified small live quotes, opaque local quote IDs and exact unsigned approval plans; see [live evidence](../../research/2026-09-27-trading-api-live-evidence.md). Fees, representative amounts, error behavior and installed-wallet checks remain open. Implement the detailed [rate-budget plan](2026-09-27-trading-api-rate-budget.md) and [wallet plan](2026-09-27-trading-api-wallet.md) for remaining work.
 
 ### Task 5: Approval, Permit2 and unsigned swap preparation
 

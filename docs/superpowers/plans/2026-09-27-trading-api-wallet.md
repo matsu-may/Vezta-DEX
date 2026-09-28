@@ -49,6 +49,8 @@
 - [x] Implement pure exact approval builder; no API call or wallet submission. Focused tests pass.
 - [x] Add Polygon allowance read at a pinned block and zero/exact/other-nonzero states; expose only an unsigned `POST /api/v1/approval-plan`. Unit and handler tests cover stale blocks, wrong chain, excessive allowance and RPC failure.
 - [x] Owner ran `smoke-approval-plan.mjs` against the local API: both zero-allowance Polygon reads returned exact unsigned Permit2 approval plans; no wallet transaction was submitted. See the live-evidence log.
+- [x] Harden read-only connection against malformed chains, silent account changes, delayed grant events and interrupted prompts; verify unit regressions, independent review and eight mock-wallet browser cases. See [wallet connection evidence](../../research/2026-09-28-wallet-connection-validation.md).
+- [ ] Verify read-only connection, account/network changes, rejection and quote invalidation in an installed wallet using the evidence document's steps.
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 
