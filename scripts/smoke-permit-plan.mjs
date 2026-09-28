@@ -1,4 +1,5 @@
 // Read-only local quote → validated Permit2 plan. Never signs, submits, or prints typed data.
+import { summarizeTradingFailure } from "../packages/core/src/trading-failure.ts";
 const apiUrl = process.env.DEX_API_URL ?? "http://127.0.0.1:3021";
 const swapper = process.env.DEX_SMOKE_WALLET ?? "0x1111111111111111111111111111111111111111";
 if (!/^0x[0-9a-fA-F]{40}$/.test(swapper)) throw new Error("DEX_SMOKE_WALLET must be an EVM address");
@@ -25,7 +26,7 @@ for (const [direction, tokenIn, tokenOut, amountIn] of pairs) {
     const intent = { chainId: 137, swapper, tokenIn, tokenOut, amountIn, slippageBps: 50 };
     const { response: quoteResponse, payload: quoted } = await post("/api/v1/trading-quote", intent);
     if (!quoteResponse.ok || !/^[0-9a-f]{48}$/.test(quoted?.quoteId ?? "")) {
-      process.stdout.write(JSON.stringify({ direction, stage: "quote", status: quoteResponse.status, quoteAvailable: false }) + "\n");
+      process.stdout.write(JSON.stringify({ direction, stage: "quote", status: quoteResponse.status, quoteAvailable: false, ...summarizeTradingFailure(quoted) }) + "\n");
       process.exitCode = 1;
       break;
     }

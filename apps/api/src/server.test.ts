@@ -85,6 +85,7 @@ describe("DEX HTTP handler", () => {
     expect(invalid.status).toBe(400);
     const unavailable = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes);
     expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({ error: "Trading API is not configured", code: "TRADING_API_NOT_CONFIGURED" });
   });
 
   it("hides the key and upstream body when Uniswap rate-limits a quote", async () => {
@@ -93,6 +94,7 @@ describe("DEX HTTP handler", () => {
     const response = await handleRequest(new Request("http://localhost/api/v1/trading-quote", { method: "POST", body: JSON.stringify(body) }), reader, quotes, trading);
     expect(response.status).toBe(503);
     const text = await response.text();
+    expect(JSON.parse(text)).toEqual({ error: "Trading API quote is unavailable", code: "TRADING_API_RATE_LIMITED", upstreamStatus: 429 });
     expect(text).not.toContain("test-secret-key");
     expect(text).not.toContain("private upstream detail");
   });

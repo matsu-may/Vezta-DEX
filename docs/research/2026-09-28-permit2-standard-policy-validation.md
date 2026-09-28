@@ -41,3 +41,23 @@ Expect two HTTP 200 results, normally `permitKind: sign` for the default dummy p
 - [Uniswap integration guide](https://developers.uniswap.org/docs/trading/swapping-api/start-building/integration-guide): quote-specific permit data and paired signature/permit inputs to `/swap`.
 - [Permit2 AllowanceTransfer](https://developers.uniswap.org/docs/protocols/permit2/concepts/allowance-transfer): canonical structs, nonce scope and distinct expiration/deadline.
 - [Canonical Permit2 interface](https://github.com/Uniswap/permit2/blob/main/src/interfaces/IAllowanceTransfer.sol): allowance ABI and uint widths.
+
+## Host probe stopped at quote — follow-up
+
+The owner supplied `USDC_TO_WETH`, `stage: quote`, HTTP 503 and `quoteAvailable: false`. This means the local quote endpoint failed before `/permit-plan` was called; it does not establish a Permit2 validation failure. The current sandbox cannot reproduce the host request: local fetch returned `TypeError` with cause `EPERM`. The listener on port 3021 was observed in `vezta-dex/apps/api`; its upstream response and loaded configuration remain unknown. No root cause is claimed yet.
+
+The quote endpoint now adds a fixed, allowlisted `code` and, where an HTTP response exists, numeric `upstreamStatus`. The smoke script prints these fields on quote failure while suppressing arbitrary messages, keys and raw payloads. Restart the existing API process before rerunning the same probe; otherwise it will still return the older generic error.
+
+| Code | Where investigation continues |
+|---|---|
+| `TRADING_API_NOT_CONFIGURED` | The running API has no configured key; check ignored server env loading and restart. |
+| `TRADING_API_AUTH_FAILED` | Uniswap returned 401/403; check key access and permissions. |
+| `TRADING_API_RATE_LIMITED` | Uniswap returned 429; allow the shared limiter's pause and check other consumers of this key. |
+| `TRADING_API_NETWORK_ERROR` / `TRADING_API_TIMEOUT` | Fetch or response-body transport failed; compare the host's direct API probe. |
+| `TRADING_API_HTTP_ERROR` | Other upstream HTTP failure; inspect the numeric status. |
+| `TRADING_API_INVALID_RESPONSE` / `TRADING_API_SIMULATION_FAILED` | Uniswap response schema or simulation gate failed. |
+| `TRADING_API_UNSUPPORTED_ROUTE` / `TRADING_API_INTENT_MISMATCH` / `TRADING_API_INVALID_AMOUNTS` | A route, identity or amount guard rejected the response; investigate without weakening the policy. |
+| `TRADING_API_QUOTE_EXPIRED` / `TRADING_API_QUEUE_FULL` / `TRADING_QUOTE_STORE_UNAVAILABLE` | Request lifetime, queue capacity or server quote storage failed. |
+| `TRADING_API_UNAVAILABLE` | Unexpected local failure; more targeted diagnosis is required. |
+
+Diagnostic regression tests first failed for missing codes and response-body timeout/network classification. Final full test run: 176 Vitest + 8 Node passed; typecheck, lint, build and smoke syntax passed. Existing React-detection and Next.js workspace-root warnings remain. These synthetic diagnostics do not establish that the owner's 503 is resolved.

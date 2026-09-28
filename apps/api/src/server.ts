@@ -1,8 +1,8 @@
-import { TOKENS, parsePoolKey, type TradingIntent } from "@vezta-dex/core";
+import { TOKENS, parsePoolKey, summarizeTradingFailure, type TradingIntent } from "@vezta-dex/core";
 import { z } from "zod";
 import type { PoolReader } from "./pools";
 import { QuoteInputError, type QuoteReader } from "./quote";
-import { TradingApiInputError, type TradingApiQuoteReader } from "./trading-api";
+import { TradingApiInputError, TradingApiUnavailableError, type TradingApiQuoteReader } from "./trading-api";
 import { ApprovalInputError, type AllowanceReader } from "./allowance-reader";
 import { PermitInputError, type PermitReader } from "./permit-reader";
 
@@ -53,7 +53,7 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
   }
   if (pathname === "/api/v1/trading-quote") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
-    if (!trading) return json({ error: "Trading API is not configured" }, 503);
+    if (!trading) return json({ error: "Trading API is not configured", code: "TRADING_API_NOT_CONFIGURED" }, 503);
     let body: unknown;
     try {
       body = await request.json();
@@ -65,7 +65,8 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
     try {
       return json(await trading.getQuote(parsed.data as TradingIntent));
     } catch (error) {
-      return error instanceof TradingApiInputError ? json({ error: error.message }, 400) : json({ error: "Trading API quote is unavailable" }, 503);
+      return error instanceof TradingApiInputError ? json({ error: error.message }, 400)
+        : json({ error: "Trading API quote is unavailable", ...summarizeTradingFailure(error instanceof TradingApiUnavailableError ? error : { code: "TRADING_API_UNAVAILABLE" }) }, 503);
     }
   }
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);

@@ -40,6 +40,67 @@ function apiResponse(changes: Record<string, unknown> = {}) {
 }
 
 describe("Trading API quote reader", () => {
+  it.each([
+    [401, "TRADING_API_AUTH_FAILED"],
+    [403, "TRADING_API_AUTH_FAILED"],
+    [429, "TRADING_API_RATE_LIMITED"],
+    [500, "TRADING_API_HTTP_ERROR"],
+  ])("reports a safe diagnostic code for upstream HTTP %s", async (status, code) => {
+    const reader = new TradingApiQuoteReader(new TradingApiClient("private-key", async () => new Response("secret-upstream", { status })));
+    try {
+      await reader.getQuote(intent);
+      expect.fail("must reject the upstream error");
+    } catch (error) {
+      expect(error).toMatchObject({ code, upstreamStatus: status });
+      expect(JSON.stringify(error)).not.toContain("private-key");
+      expect(JSON.stringify(error)).not.toContain("secret-upstream");
+    }
+  });
+
+  it.each([
+    [new TypeError("private-network-detail"), "TRADING_API_NETWORK_ERROR"],
+    [new DOMException("private-timeout-detail", "TimeoutError"), "TRADING_API_TIMEOUT"],
+  ])("distinguishes a network error from timeout with only a fixed code", async (cause, code) => {
+    const reader = new TradingApiQuoteReader(new TradingApiClient("private-key", async () => { throw cause; }));
+    await expect(reader.getQuote(intent)).rejects.toMatchObject({ code });
+  });
+
+  it.each([
+    [new DOMException("private-body-timeout", "TimeoutError"), "TRADING_API_TIMEOUT"],
+    [new TypeError("private-body-network-error"), "TRADING_API_NETWORK_ERROR"],
+  ])("identifies failures while reading the HTTP response body", async (cause, code) => {
+    const response = new Response(new ReadableStream({ start(controller) { controller.error(cause); } }));
+    const reader = new TradingApiQuoteReader(new TradingApiClient("private-key", async () => response));
+    await expect(reader.getQuote(intent)).rejects.toMatchObject({ code, upstreamStatus: 200 });
+  });
+
+  it.each([
+    ["shape", "TRADING_API_INVALID_RESPONSE"],
+    ["simulation", "TRADING_API_SIMULATION_FAILED"],
+    ["route", "TRADING_API_UNSUPPORTED_ROUTE"],
+    ["identity", "TRADING_API_INTENT_MISMATCH"],
+    ["minimum", "TRADING_API_INVALID_AMOUNTS"],
+  ])("identifies the rejected quote stage %s without exposing the quote", async (kind, code) => {
+    const body = apiResponse();
+    if (kind === "shape") Object.assign(body.quote, { chainId: 1 });
+    if (kind === "simulation") body.quote.txFailureReasons = ["private-simulation-detail"] as never[];
+    if (kind === "route") body.quote.route[0][0].type = "unknown-pool";
+    if (kind === "identity") body.quote.output.recipient = "0x2222222222222222222222222222222222222222";
+    if (kind === "minimum") body.quote.output.minimumAmount = "1";
+    const reader = new TradingApiQuoteReader(new TradingApiClient("private-key", async () => Response.json(body)));
+    await expect(reader.getQuote(intent)).rejects.toMatchObject({ code });
+  });
+
+  it("distinguishes expired quotes from store capacity failure", async () => {
+    let now = Date.parse("2026-09-28T00:00:00Z");
+    const expired = new TradingApiQuoteReader(new TradingApiClient("test-key", async () => { now += 30_000; return Response.json(apiResponse()); }), () => now);
+    await expect(expired.getQuote(intent)).rejects.toMatchObject({ code: "TRADING_API_QUOTE_EXPIRED" });
+    const store = new QuoteStore(() => now, { maxEntries: 1 });
+    const full = new TradingApiQuoteReader(new TradingApiClient("test-key", async () => Response.json(apiResponse())), () => now, store);
+    await full.getQuote(intent);
+    await expect(full.getQuote(intent)).rejects.toMatchObject({ code: "TRADING_QUOTE_STORE_UNAVAILABLE" });
+  });
+
   it("posts a bounded exact-input Polygon request without exposing the key", async () => {
     const fetcher = vi.fn(async () => Response.json(apiResponse())) as unknown as typeof fetch;
     const now = Date.parse("2026-09-27T00:00:00Z");
