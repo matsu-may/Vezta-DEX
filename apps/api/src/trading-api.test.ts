@@ -116,6 +116,7 @@ describe("Trading API quote reader", () => {
       swapper: intent.swapper,
       slippageTolerance: 0.5,
       permitAmount: "EXACT",
+      generatePermitAsTransaction: false,
       protocols: ["V2", "V3", "V4"],
       hooksOptions: "V4_NO_HOOKS",
       routingPreference: "BEST_PRICE",

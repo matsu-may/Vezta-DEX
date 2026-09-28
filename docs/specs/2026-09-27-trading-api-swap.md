@@ -31,6 +31,12 @@ The first message adapter accepts timestamp expiration only. `expiration=0` has 
 
 PermitSingle grants spender permission; it does **not** cryptographically bind output token, recipient or minimum received. Vezta's saved quote binds that intent, and future swap calldata validation must independently enforce it. A nonce snapshot is not a reservation. Recheck policy and chain state before subsequent writes. The read-only permit plan does not establish that ERC20 approval is ready, that a signature is valid, or that swap simulation/receipt gates have passed.
 
+## Initial account boundary approved on 2026-09-28 (A)
+
+Start with EOA accounts that have explicit empty code at the checked Polygon block. The permit-plan endpoint now checks raw `eth_getCode` at its pinned block before reading allowance or returning signing data. Any deployed code, including EIP-7702 delegation, returns `blocked-account` without a message. Missing/malformed code or an expired quote fails closed. Smart accounts retain read-only pool and quote access. Future approval/signature/submission controls must apply this account gate before every prompt and recheck before preparing a swap.
+
+The backend has a tested, off-chain EIP-712 signature verifier for canonical 64-byte compact or 65-byte signatures with recovery byte 27/28 and low-s values. It preserves the accepted signature bytes and saved message. This helper is not yet a swap consumer: a valid signature does not prove current code/nonce/allowance, safe calldata, simulation or receipt. No signing, broadcast or wallet write control is enabled. See [EOA evidence and unresolved ABI provenance](../research/2026-09-28-eoa-signer-validation.md).
+
 ## API budget and availability
 
 The supplied key is limited to **6 requests/second across every endpoint and process**. A single-process server dispatches at most **5 requests/second**, at least 200 ms apart, with a bounded queue. Pending approval/swap preparation gets priority over new previews; requests already in flight cannot be preempted. The UI does not poll quotes. Queue saturation returns a controlled unavailable response. HTTP 429 pauses *all* calls using the key according to `Retry-After` or a conservative fallback. Retry uses a fresh user intent; never automatically replay a signed request.

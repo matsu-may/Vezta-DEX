@@ -14,7 +14,7 @@ The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget 
 
 See [Permit2 standard-policy validation](research/2026-09-28-permit2-standard-policy-validation.md) for the read-only host probe and remaining execution gates.
 
-The next account-specific signing adapter awaits the owner's [initial signer-boundary decision](research/2026-09-28-swap-signer-boundary.md): EOA first, or additional smart-wallet support in the initial slice.
+**Signer decision, 2026-09-28: A — EOA first.** Permit plans now check explicit empty account code at a pinned Polygon block; deployed/delegated accounts cannot obtain a signing message. Canonical 64/65-byte EIP-712 signature verification exists as a tested internal helper. Swap consumption, transaction simulation and receipts remain pending. Decoder implementation waits for resolving the V4 source-revision discrepancy documented in [EOA validation](research/2026-09-28-eoa-signer-validation.md); the selected V2/V3/V4_NO_HOOKS policy is unchanged.
 
 ## Delivery sequence
 

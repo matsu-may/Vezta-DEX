@@ -8,6 +8,8 @@ import { QuoteStore } from "./quote-store";
 export interface PermitChainSource {
   /** Implementations must verify Polygon chain ID before returning a block. */
   getBlock(): Promise<{ number: bigint; timestamp: bigint }>;
+  /** Return raw eth_getCode hex; missing data must not be treated as an empty account. */
+  getAccountCode(owner: Address, blockNumber: bigint): Promise<string>;
   getPermitAllowance(token: Address, owner: Address, spender: Address, blockNumber: bigint): Promise<{ amount: bigint; expiration: bigint; nonce: bigint }>;
 }
 
@@ -20,6 +22,7 @@ export interface PermitPlanResult {
   permit:
     | { kind: "sign"; data: Permit2Data; allowanceExpiresAt: string; signatureDeadline: string }
     | { kind: "ready" }
+    | { kind: "blocked-account" }
     | { kind: "blocked-existing" };
 }
 
@@ -31,6 +34,11 @@ function checkBlock(block: { number: bigint; timestamp: bigint }, now: number): 
     throw new Error("Polygon permit block is stale");
   }
   return observed;
+}
+
+function accountHasCode(code: unknown): boolean {
+  if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(code)) throw new Error("Invalid Polygon account code");
+  return code !== "0x";
 }
 
 export class PermitReader {
@@ -50,6 +58,12 @@ export class PermitReader {
     this.read(intent, quoteId);
     const block = await this.chain.getBlock();
     checkBlock(block, this.now());
+    const code = await this.chain.getAccountCode(intent.swapper, block.number);
+    const current = this.read(intent, quoteId);
+    const codeObserved = checkBlock(block, this.now());
+    if (accountHasCode(code)) {
+      return { chainId: 137, quoteId, quoteExpiresAt: new Date(current.expiresAt).toISOString(), blockNumber: block.number.toString(), observedAt: new Date(codeObserved).toISOString(), permit: { kind: "blocked-account" } };
+    }
     const state = await this.chain.getPermitAllowance(intent.tokenIn, intent.swapper, POLYGON_UNIVERSAL_ROUTER_212, block.number);
     for (const [value, bits] of [[state.amount, 160n], [state.expiration, 48n], [state.nonce, 48n]] as const) {
       if (typeof value !== "bigint" || value < 0n || value >= 1n << bits) throw new Error("Invalid Polygon permit state");

@@ -1,4 +1,4 @@
-# Initial swap signer boundary — owner decision pending
+# Initial swap signer boundary — EOA first approved
 
 ## Context and verified progress
 
@@ -27,7 +27,7 @@ The [viem public verification action](https://viem.sh/docs/actions/public/verify
 
 **Recommendation:** choose A for the small standalone DEX. Detect account type using chain state, not the wallet brand; MetaMask or another wallet can expose different account modes. Show the unsupported account state before asking for a signature. Extend support through explicit adapters later when integrating with the main Vezta wallet.
 
-No signer restriction or signature/submission code is introduced by this document. The owner asked that important choices be analyzed and decided by them. Record their selection here before proceeding with account-specific implementation.
+**Owner decision, 2026-09-28: A — EOA first.** Require an explicit empty `eth_getCode` result at the checked Polygon block. Contract accounts, EIP-7702 delegation and unavailable/malformed account-code responses cannot reach the signing plan. Read-only pool and quote access remains available. Accept canonical compact 64-byte or 65-byte ECDSA signatures; the latter must carry recovery byte 27/28. Reject noncanonical high-s signatures without changing the bytes submitted to Uniswap. Smart-account adapters remain a later compatibility task.
 
 ## Requirements common to either choice
 

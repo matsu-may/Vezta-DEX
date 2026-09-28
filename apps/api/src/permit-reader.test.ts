@@ -33,6 +33,7 @@ function setup(raw: unknown = payload(), overrides: Partial<PermitChainSource> =
   const calls: unknown[][] = [];
   const source: PermitChainSource = {
     getBlock: async () => ({ number: 123n, timestamp: seconds }),
+    getAccountCode: async () => "0x",
     getPermitAllowance: async (...args) => { calls.push(args); return { amount: 0n, expiration: 0n, nonce: 7n }; },
     ...overrides,
   };
@@ -40,6 +41,38 @@ function setup(raw: unknown = payload(), overrides: Partial<PermitChainSource> =
 }
 
 describe("quote-bound read-only Permit2 plan", () => {
+  it("checks account code at the pinned Polygon block", async () => {
+    const codeCalls: unknown[][] = [];
+    const s = setup(payload(), { getAccountCode: async (...args) => { codeCalls.push(args); return "0x"; } });
+    expect((await s.reader.getPlan(intent, s.id)).permit.kind).toBe("sign");
+    expect(codeCalls).toEqual([[intent.swapper, 123n]]);
+  });
+
+  it.each(["0x00", "0x6000", "0xef01001111111111111111111111111111111111111111"])("blocks deployed or delegated code %s before exposing signing data", async (code) => {
+    const s = setup(payload(), { getAccountCode: async () => code });
+    const result = await s.reader.getPlan(intent, s.id);
+    expect(result.permit).toEqual({ kind: "blocked-account" });
+    expect(s.calls).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain("PermitSingle");
+  });
+
+  it.each([undefined, null, "", "0X", "0x0", "0xzz"])("fails closed on unavailable or malformed code %s", async (code) => {
+    const s = setup(payload(), { getAccountCode: async () => code as string });
+    await expect(s.reader.getPlan(intent, s.id)).rejects.toThrow();
+    expect(s.calls).toEqual([]);
+  });
+
+  it("does not reuse an exact existing permit for a contract account", async () => {
+    const s = setup({ ...payload(), permitData: null }, { getAccountCode: async () => "0x6000" });
+    expect((await s.reader.getPlan(intent, s.id)).permit).toEqual({ kind: "blocked-account" });
+  });
+
+  it("rechecks quote expiry after a delayed code read", async () => {
+    const s = setup();
+    s.source.getAccountCode = async () => { s.advance(30_000); return "0x"; };
+    await expect(s.reader.getPlan(intent, s.id)).rejects.toThrow();
+    expect(s.calls).toEqual([]);
+  });
   it("returns only validated unchanged signing data and pinned block provenance", async () => {
     const s = setup();
     const result = await s.reader.getPlan(intent, s.id);

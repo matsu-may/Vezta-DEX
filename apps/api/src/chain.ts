@@ -1,4 +1,4 @@
-import { createPublicClient, erc20Abi, http, type Address } from "viem";
+import { createPublicClient, erc20Abi, http, toHex, type Address } from "viem";
 import { polygon } from "viem/chains";
 import { POLYGON_CHAIN_ID, POLYGON_PERMIT2, TOKENS, V3_FACTORY, V3_QUOTER } from "@vezta-dex/core";
 import type { PoolChainSource } from "./pools";
@@ -61,6 +61,10 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
   const client = createPublicClient({ chain: polygon, transport: http(rpcUrl, { timeout: 8_000, retryCount: 1 }) });
 
   return {
+    getAccountCode(owner, blockNumber) {
+      // viem.getCode maps an empty result to undefined, losing the fail-closed distinction.
+      return client.request({ method: "eth_getCode", params: [owner, toHex(blockNumber)] });
+    },
     async getPermitAllowance(token, owner, spender, blockNumber) {
       const [amount, expiration, nonce] = await client.readContract({
         address: POLYGON_PERMIT2, abi: permit2Abi, functionName: "allowance", args: [owner, token, spender], blockNumber,

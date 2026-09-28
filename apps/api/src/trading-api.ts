@@ -95,6 +95,7 @@ export class TradingApiQuoteReader {
           routingPreference: "BEST_PRICE",
           ...TRADING_ROUTING_POLICY,
           permitAmount: "EXACT",
+          generatePermitAsTransaction: false,
       }, "preview");
     } catch (error) {
       const code = error instanceof TradingApiQueueFullError ? "TRADING_API_QUEUE_FULL"

@@ -63,7 +63,7 @@
 - [x] Owner selected option 1: exact amount, maximum 30-day remaining allowance expiration, maximum 30-minute signature deadline, and a separate 30-second quote TTL.
 - [x] Add a read-only quote-bound Permit2 message plan with full schema/spender/nonce validation. See [standard-policy plan](2026-09-28-permit2-standard-policy.md) and [validation/host probe](../../research/2026-09-28-permit2-standard-policy-validation.md). Owner supplied successful live full-schema/spender/pinned-nonce plans in both directions at Polygon blocks 94600398 and 94600401. Signing and transaction gates remain open.
 
-- [ ] Select the initial signer/account boundary before account-specific code; see [EOA versus smart-wallet analysis](../../research/2026-09-28-swap-signer-boundary.md).
+- [x] Owner selected A: EOA accounts without deployed code/delegation. Permit plans now gate account code before returning signing data; canonical 64/65-byte ECDSA verification is implemented and tested as an internal helper. See [EOA boundary evidence](../../research/2026-09-28-eoa-signer-validation.md). Signature consumption and swap preparation remain pending.
 - [ ] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observe failure.
 - [ ] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate returned transaction from connected account. Rerun tests.
 - [ ] Browser-test rejected signature and changed account while prompt is open.
