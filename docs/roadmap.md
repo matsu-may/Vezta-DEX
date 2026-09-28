@@ -14,7 +14,7 @@ The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget 
 
 ## Delivery sequence
 
-**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; live compatibility with this stricter policy awaits a new probe. Permit2 duration policy also needs an owner decision before signing. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
+**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; the owner verified live compatibility in both directions, exact permit amounts, approximately 30-day Permit2 allowance expiration and 30-minute signature deadline. Permit2 duration policy needs an owner decision before signing. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
 
 | Milestone | Work | Exit evidence |
 |---|---|---|

@@ -12,7 +12,21 @@ The [official quote API](https://developers.uniswap.org/docs/api-reference/aggre
 
 Core/API/server focused tests: 42 passed. Final full suite: 104 Vitest and 8 Node tests passed. Typecheck, lint and build passed; existing React-detection and Next.js workspace-root warnings remain. Independent DEX review found no P1/P2 issues in the route-policy slice. Permit2 diagnostic tests cover exact/unlimited amounts, malformed/expired fields, zero expiration and suppression of raw messages. Review caught the zero-expiration semantics; its regression failed before the fix and final review confirmed resolution.
 
-The revised `node scripts/smoke-trading-api.mjs` was attempted locally. It stopped before an HTTP response with `{"direction":"USDC_TO_WETH","networkError":"TypeError"}`. Current sandbox restrictions do not permit escalation. Neither new live route-policy compatibility nor live Permit2 timing has been verified. Earlier HTTP 200 results used the previous routing request and do not establish this new gate.
+The revised `node scripts/smoke-trading-api.mjs` was attempted locally. It stopped before an HTTP response with `{"direction":"USDC_TO_WETH","networkError":"TypeError"}`. Current sandbox restrictions do not permit escalation. The owner's subsequent host-Terminal result below establishes the new read-only route/timing evidence; earlier results with the previous request did not establish this gate.
+
+## Host Terminal result supplied by owner
+
+On 2026-09-28 the owner supplied successful output for both directions from the revised script. Both returned HTTP 200, CLASSIC, `V4_NO_HOOKS`, `routePolicyMatches: true`, Polygon 137, EXACT_INPUT, matching input/output identities, valid minimum output and zero simulation failure reasons. Each route had one path and one pool. USDC→WETH used one hook-free V4 pool; WETH→USDC had no V4 pool (the output does not distinguish V2 from V3).
+
+| Diagnostic | USDC→WETH | WETH→USDC |
+|---|---:|---:|
+| Permit2 domain and token match | true | true |
+| Permit amount | exact | exact |
+| Remaining allowance lifetime | 2,592,000 seconds | 2,591,998 seconds |
+| Remaining signature deadline | 1,800 seconds | 1,798 seconds |
+| Allowance/signature already expired | false / false | false / false |
+
+This confirms approximately 30-day Permit2 allowance expiration and a 30-minute signature-submission window for these two small quotes. It does not verify spender, nonce, the complete typed-data schema, a signature or transaction receipt. The supplied output has no absolute request timestamp or block number. The script defaults to a public dummy wallet unless overridden; the output does not establish funded-wallet execution. No transaction was signed or submitted.
 
 ## Next read-only evidence
 
@@ -34,7 +48,7 @@ Three clocks are distinct:
 2. **`PermitDetails.expiration`:** when Permit2 spender allowance expires.
 3. **`sigDeadline`:** the last time the permit signature may be submitted.
 
-The [AllowanceTransfer reference](https://developers.uniswap.org/docs/protocols/permit2/concepts/allowance-transfer) defines the last two separately. The quote API describes the default message path as valid for 30 days; actual returned values still need the diagnostic probe. `permitAmount: EXACT` controls quantity, not these clocks. The selected ERC20 approval remains exactly the input amount under either future duration policy.
+The [AllowanceTransfer reference](https://developers.uniswap.org/docs/protocols/permit2/concepts/allowance-transfer) defines the last two separately. The owner's probe confirmed the API's approximately 30-day allowance and 30-minute signature windows. `permitAmount: EXACT` controls quantity, not these clocks. The selected ERC20 approval remains exactly the input amount under either future duration policy.
 
 The owner must choose whether to accept the standard API allowance lifetime (with exact amounts and explicit validation/display) or require a short allowance lifetime, such as ten minutes. The latter requires verifying whether API-generated typed data and swap preparation support that policy; if not, it changes the signing/preparation adapter. Do not modify typed data and assume the existing API flow will remain compatible.
 
