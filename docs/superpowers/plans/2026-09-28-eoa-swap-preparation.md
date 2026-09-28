@@ -53,6 +53,8 @@
 
 **Deployment evidence gate before Task 3:** run `node scripts/smoke-router-deployment.mjs --save` on the host. Review the saved public artifact for runtime agreement, complete source/dependency graph, compiler configuration and immutable addresses. Two matching source fingerprints alone cannot close this gate. A missing or mismatched deployment stays unresolved; no executable endpoint is added while this gate is open.
 
+**Host evidence received:** 24,380-byte runtime matches RPC; both source fingerprints match; solc 0.8.26, optimizer 3000, viaIR/Cancun. All 110 source contents match metadata/input; runtime is reproduced exactly using 40 immutable replacements; creation matches after constructor arguments. Sourcify reports `match`, with `bytecodeHash: none`. This is artifact inspection, not an independent rebuild. Owner is choosing **A (recommended): independently recompile** or **B: rely on reviewed Sourcify compiler evidence**. Complete immutable/Polygon configuration checks for either choice; leave Task 3 pending until this gate is settled. See [decision and limits](../../research/2026-09-28-eoa-signer-validation.md#host-deployment-evidence-and-verification-decision).
+
 ### Task 3: Single-use preparation and verification
 
 **Files:** New `swap-preparation.ts` and tests; `chain.ts`, `server.ts`, `main.ts`, `trading-api.ts`, research/spec/roadmap.

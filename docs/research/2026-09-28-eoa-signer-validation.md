@@ -42,6 +42,31 @@ This reads router bytecode at a pinned Polygon block, rechecks the block hash, t
 
 Then match complete verified deployment source/compiler/dependencies and immutables to the selected router before exposing any prepared transaction endpoint. Implement single-use preparation and verify actual `/swap` response compatibility afterward. Installed-wallet connection, exact approval receipt, quote refresh, signed preparation, account/state rechecks, simulation and a small-swap receipt remain separate gates. Do not drop V4 or switch router versions without an owner decision.
 
+## Host deployment evidence and verification decision
+
+**Host run, 2026-09-28:** the deployment probe passed and saved the full public artifact. Polygon block `0x5a38aa6`, observed `2026-09-28T15:57:33.000Z`; runtime is 24,380 bytes. RPC bytes equal Sourcify's on-chain runtime. Both pinned source fingerprints match. Compiler is `0.8.26+commit.8a97fa7a`, optimizer enabled with 3000 runs, `viaIR: true`, EVM `cancun`, metadata `bytecodeHash: none`. Sourcify reports `runtimeMatch: match` and `creationMatch: match`, not `exact_match`.
+
+Read-only local artifact inspection established:
+
+- All **110 sources** occur in metadata and Standard JSON input. Every source content's Keccak-256 matches its metadata hash and its compiler-input content; no mismatch was found.
+- Compiler output metadata and runtime/creation bytecode agree with the corresponding Sourcify fields.
+- Runtime has **40 immutable replacements**, with no other declared transformation. Applying each declared value at its immutable reference produces byte-for-byte equality with both Sourcify's on-chain runtime and the saved RPC bytes; no runtime byte is skipped.
+- Appending the decoded ten-field constructor arguments to creation bytecode reproduces Sourcify's creation bytes. This uses Sourcify's creation evidence, not a separately fetched deployment transaction.
+- Observed runtime Keccak-256: `0x370874a6575cc7bd5cef1d58b30d0ce5905a90a54e955695573d2e896f1e9733`.
+
+These checks establish artifact consistency and runtime agreement. **They are not an independent compiler run**, a full comparison of every dependency to its Git revision, or an audit. Complete compiler-to-source verification and the immutable/configuration checks remain under the deployment gate.
+
+`runtimeExactMatch: false` is not a network/API error. Sourcify's [match definitions](https://docs.sourcify.dev/docs/exact-match-vs-match/) distinguish functional bytecode matching from metadata-backed source integrity. Solidity can [omit the metadata hash](https://docs.soliditylang.org/en/v0.8.26/metadata.html); this artifact does so and its CBOR contains only the compiler version. The two runtime tails already match, so the observed comparison does not reveal a metadata-byte difference. Without an embedded source fingerprint, even an independent rebuild cannot establish the exact historical comments/whitespace used at deployment. It can strengthen evidence that these supplied sources compile to the executable code.
+
+**Owner decision pending before Task 3:**
+
+| Option | Verification boundary | Tradeoff |
+|---|---|---|
+| **A — independent recompile (recommended)** | Compile the saved sources with the exact solc version/settings, compare the result to RPC runtime after checking immutables and Polygon configuration. | One additional compiler/probe step on the host; reduces dependence on Sourcify's supplied compiler output. |
+| **B — reviewed Sourcify evidence** | Rely on Sourcify's compilation attestation plus the byte-for-byte runtime reconstruction above, and complete immutable/Polygon configuration checks. | Faster; compiler-to-source correctness remains dependent on the external verifier. |
+
+Neither choice changes `runtimeExactMatch` or proves live Trading API calldata, simulation or a wallet receipt. The collector intentionally keeps both `deployedSourceVerified` and `calldataValidated` false. The owner requested a stop at important decisions; preparation remains unstarted pending this verification choice.
+
 ## Verification
 
 ### Account/source-probe slice (commit `d1a185d`)
