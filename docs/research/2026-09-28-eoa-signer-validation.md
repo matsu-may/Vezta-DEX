@@ -58,14 +58,33 @@ These checks establish artifact consistency and runtime agreement. **They are no
 
 `runtimeExactMatch: false` is not a network/API error. Sourcify's [match definitions](https://docs.sourcify.dev/docs/exact-match-vs-match/) distinguish functional bytecode matching from metadata-backed source integrity. Solidity can [omit the metadata hash](https://docs.soliditylang.org/en/v0.8.26/metadata.html); this artifact does so and its CBOR contains only the compiler version. The two runtime tails already match, so the observed comparison does not reveal a metadata-byte difference. Without an embedded source fingerprint, even an independent rebuild cannot establish the exact historical comments/whitespace used at deployment. It can strengthen evidence that these supplied sources compile to the executable code.
 
-**Owner decision pending before Task 3:**
+**Owner decision before Task 3: A selected.**
 
 | Option | Verification boundary | Tradeoff |
 |---|---|---|
 | **A — independent recompile (recommended)** | Compile the saved sources with the exact solc version/settings, compare the result to RPC runtime after checking immutables and Polygon configuration. | One additional compiler/probe step on the host; reduces dependence on Sourcify's supplied compiler output. |
 | **B — reviewed Sourcify evidence** | Rely on Sourcify's compilation attestation plus the byte-for-byte runtime reconstruction above, and complete immutable/Polygon configuration checks. | Faster; compiler-to-source correctness remains dependent on the external verifier. |
 
-Neither choice changes `runtimeExactMatch` or proves live Trading API calldata, simulation or a wallet receipt. The collector intentionally keeps both `deployedSourceVerified` and `calldataValidated` false. The owner requested a stop at important decisions; preparation remains unstarted pending this verification choice.
+Neither choice changes `runtimeExactMatch` or proves live Trading API calldata, simulation or a wallet receipt. The collector intentionally keeps both `deployedSourceVerified` and `calldataValidated` false. Preparation remains unstarted while the independent rebuild and configuration checks are open.
+
+## Independent rebuild workflow (approved A)
+
+From `vezta-dex/`, install the exact verification compiler in this plan's ignored tools directory, then run the offline rebuild:
+
+```bash
+npm install --prefix .superpowers/sdd/2026-09-28-eoa-swap-preparation/compiler-tools --registry=https://registry.npmjs.org --ignore-scripts --no-audit --no-fund --save-exact solc@0.8.26
+node scripts/rebuild-router-deployment.mjs --compile
+```
+
+The npm command installs verification tools only; the application manifests/lockfile gain no compiler dependency. The rebuild reads the previously saved public deployment artifact, verifies source hashes/settings, checks the compiler's full version string, then compiles literal sources without an import callback. It requests AST and derives the 17 immutable variables from exact source/contract scopes, constructor fields and the Polygon EIP-712 domain. It does not trust Sourcify's immutable replacement values. Every reference must be a disjoint 32-byte zero placeholder within bounds; every final runtime byte must equal the saved RPC snapshot. Canonical constructor encoding and creation-bytecode equality are also checked against Sourcify's creation evidence.
+
+The script uses no `.env`, API key, wallet or RPC request. It saves `router-compiler-input.json`, `router-compiler-output.json` and `router-rebuild-report.json` in the existing ignored workspace, and removes a previous success report before a new compile attempt. `--prepare` can validate/save input without installing or executing the compiler. Compilation errors and unsupported data return a fixed generic code.
+
+**Expected host result:** `status: rebuild-verified`, `sourceCount: 110`, `immutableVariableCount: 17`, `immutableReferenceCount: 40`, `independentRuntimeMatch: true`, `independentCreationMatch: true`, and runtime hash `0x370874a6575cc7bd5cef1d58b30d0ce5905a90a54e955695573d2e896f1e9733`. The report includes compiler fingerprint and input/output digests. Configuration/deployment/calldata certification flags deliberately stay false until the separate review closes those gates; a successful rebuild is not a wallet execution result. Creation comparison uses Sourcify's supplied deployment bytes, not an independently retrieved transaction.
+
+**Actual verification in this environment:** exact compiler installation failed with `ENOTFOUND registry.npmjs.org`; `--prepare` validated all 110 sources; `--compile` returned controlled `COMPILER_NOT_INSTALLED`. No independent compilation success is claimed. Twelve new Node tests passed after missing-module/CLI failures were observed. `pnpm test` passed **236 Vitest + 28 Node tests**; typecheck, lint and build exited 0 with the existing warnings.
+
+Fresh independent DEX review passed the 12 focused tests and found no Critical/Important findings. **Deferred Minor:** saved input/output files contain a final newline, while reported SHA-256 digests currently hash the compiler JSON strings without that newline; hashing the complete saved file produces a different digest. The source Keccak checks and complete runtime comparison are unaffected. Independent execution, compiler-output authenticity, dependency Git-revision mapping, complete Polygon configuration, fresh chain state, live calldata/wallet/receipts, LP and protocol audit were not certified by this review and retain their separate evidence boundaries.
 
 ## Verification
 
