@@ -14,6 +14,8 @@ The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget 
 
 ## Delivery sequence
 
+**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; live compatibility with this stricter policy awaits a new probe. Permit2 duration policy also needs an owner decision before signing. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
+
 | Milestone | Work | Exit evidence |
 |---|---|---|
 | **0. Pool and integration research** | Verify canonical Polygon token addresses and decimals; compare WETH/USDC pools and quotes at representative sizes; check LP create/increase/decrease/claim support, API access, RPC and data freshness. | A recorded pool selection with source links, quote timestamps, trade sizes, price impact, gas, unsigned LP preparation responses, and explicit unsupported cases. No live-write code depends on an unverified pool. |

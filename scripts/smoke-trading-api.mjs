@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import { TRADING_ROUTING_POLICY, inspectTradingRoute } from "../packages/core/src/trading-route.ts";
+import { summarizePermit } from "./permit-summary.mjs";
 
 const env = readFileSync(new URL("../apps/api/.env", import.meta.url), "utf8");
 const key = env.split(/\r?\n/).find((line) => line.startsWith("UNISWAP_API_KEY="))?.slice("UNISWAP_API_KEY=".length).trim();
@@ -26,7 +28,7 @@ for (const [direction, tokenIn, tokenOut, amount] of pairs) {
       body: JSON.stringify({
         type: "EXACT_INPUT", amount, tokenInChainId: 137, tokenOutChainId: 137,
         tokenIn, tokenOut, swapper, recipient: swapper, slippageTolerance: 0.5,
-        routingPreference: "BEST_PRICE", protocols: ["V2", "V3", "V4"], permitAmount: "EXACT",
+        routingPreference: "BEST_PRICE", ...TRADING_ROUTING_POLICY, permitAmount: "EXACT",
       }),
       signal: AbortSignal.timeout(12_000),
     });
@@ -36,6 +38,8 @@ for (const [direction, tokenIn, tokenOut, amount] of pairs) {
     const failureReasons = quote?.txFailureReasons;
     const quoteInput = quote?.input;
     const quoteOutput = quote?.output;
+    let routePolicySummary;
+    try { routePolicySummary = inspectTradingRoute(quote?.route, { chainId: 137, tokenIn, tokenOut }); } catch { /* Print only the failed policy check. */ }
     const validOutputAmounts = typeof quoteOutput?.amount === "string" && /^\d+$/.test(quoteOutput.amount) &&
       typeof quoteOutput?.minimumAmount === "string" && /^\d+$/.test(quoteOutput.minimumAmount) &&
       BigInt(quoteOutput.minimumAmount) > 0n && BigInt(quoteOutput.minimumAmount) <= BigInt(quoteOutput.amount);
@@ -44,11 +48,15 @@ for (const [direction, tokenIn, tokenOut, amount] of pairs) {
       status: response.status,
       errorCode: typeof body?.errorCode === "string" ? body.errorCode : undefined,
       routing: typeof body?.routing === "string" ? body.routing : undefined,
+      hooksOptions: TRADING_ROUTING_POLICY.hooksOptions,
+      routePolicyMatches: Boolean(routePolicySummary),
+      routePolicySummary,
       responseFields: body && typeof body === "object" ? Object.keys(body).sort() : [],
       quoteFields: quote && typeof quote === "object" ? Object.keys(quote).sort() : [],
       inputFields: quote?.input && typeof quote.input === "object" ? Object.keys(quote.input).sort() : [],
       outputFields: quote?.output && typeof quote.output === "object" ? Object.keys(quote.output).sort() : [],
       hasPermitData: Boolean(body?.permitData),
+      permitDiagnostics: summarizePermit(body?.permitData, { chainId: 137, token: tokenIn, amount }),
       quoteChainId: quote?.chainId,
       quoteTradeType: quote?.tradeType,
       inputMatches: sameAddress(quoteInput?.token, tokenIn) && quoteInput?.amount === amount,

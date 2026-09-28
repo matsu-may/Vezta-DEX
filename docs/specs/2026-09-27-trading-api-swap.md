@@ -10,12 +10,18 @@ The standalone DEX first previews an exact-input swap between native USDC and WE
 |---|---|
 | Chain | Polygon `137` |
 | Tokens | Native USDC `0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359` (6 decimals); WETH `0x7ceb23fd6bc0add59e62ac25578270cff1b9f619` (18 decimals) |
-| Route | `CLASSIC`, exact input, V2/V3/V4, `BEST_PRICE` |
+| Route | `CLASSIC`, exact input, V2/V3/V4, `BEST_PRICE`, `hooksOptions: V4_NO_HOOKS` |
 | Router | Universal Router `2.1.2`, `0xDc264714F68d84CF29BC605589405E78bDBE7C9f` on Polygon |
 | Slippage | 10–300 bps; integer base units only |
 | Quote lifetime | 30 seconds from request start; refresh after approval |
 
 Validate chain, token pair, account, integer amount and slippage before contacting Uniswap. `/quote` uses `permitAmount: EXACT`, `swapper` and `recipient` equal to the account, and the router-version header. Use that header on `/quote` and `/swap` where documented; do not assume `/check_approval` accepts it. Reject unknown routing, mismatched tokens/amount/recipient, missing minimum output, failed simulation or malformed response. Send only a bounded summary to the browser. Keep the key, raw upstream errors and sensitive payloads out of logs and client responses.
+
+## Hook policy selected on 2026-09-28
+
+The owner selected V2/V3 plus hook-free V4. Request `hooksOptions: V4_NO_HOOKS` explicitly and inspect every returned route branch and hop before storage. Require supported pool type, pool reference, Polygon currency metadata, continuous path and matching endpoints. V4 requires an explicit zero `hooks` address. Missing or contradictory metadata fails closed; never fall back to inclusive hooks. This verifies quote metadata only; calldata and contract provenance remain wallet-write gates. See [policy evidence and pending Permit2 decision](../research/2026-09-28-hook-free-routing-and-permit-policy.md).
+
+Permit2 allowance expiration and signature deadline are separate from Vezta's 30-second quote TTL. The diagnostic probe now reports both windows, but live timing and the owner's maximum allowance-duration policy are still pending. Do not enable Permit2 signing before settling that policy.
 
 ## API budget and availability
 

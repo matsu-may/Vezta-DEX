@@ -58,6 +58,9 @@
 
 **Files:** Create `apps/api/src/swap-preparation.ts` and tests; modify `apps/web/lib/`, `apps/web/components/` and tests.
 
+- [x] Apply owner's hook-free routing decision and add read-only diagnostics separating Permit2 allowance expiry from signature deadline; see [routing/permit evidence](../../research/2026-09-28-hook-free-routing-and-permit-policy.md).
+- [ ] Collect new live route and Permit2 timing evidence, then settle the owner-selected duration policy before adding signing.
+
 - [ ] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observe failure.
 - [ ] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate returned transaction from connected account. Rerun tests.
 - [ ] Browser-test rejected signature and changed account while prompt is open.

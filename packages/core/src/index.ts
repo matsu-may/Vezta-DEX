@@ -104,3 +104,5 @@ export {
   type TradingIntent,
   type TradingQuoteSummary,
 } from "./trading";
+
+export { TRADING_ROUTING_POLICY, inspectTradingRoute } from "./trading-route";

@@ -64,6 +64,11 @@ describe("DEX HTTP handler", () => {
         chainId: 137,
         tradeType: "EXACT_INPUT",
         txFailureReasons: [],
+        route: [[{
+          type: "v3-pool", address: POOL,
+          tokenIn: { chainId: 137, address: TOKENS.USDC.address },
+          tokenOut: { chainId: 137, address: TOKENS.WETH.address },
+        }]],
         swapper: "0x1111111111111111111111111111111111111111",
         input: { token: TOKENS.USDC.address, amount: "100000000" },
         output: { token: TOKENS.WETH.address, amount: "100000000000000000", minimumAmount: "99500000000000000", recipient: "0x1111111111111111111111111111111111111111" },

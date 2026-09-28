@@ -1,5 +1,7 @@
 import {
   UNIVERSAL_ROUTER_VERSION,
+  TRADING_ROUTING_POLICY,
+  inspectTradingRoute,
   validateTradingIntent,
   validateTradingQuoteSummary,
   type TradingIntent,
@@ -46,6 +48,7 @@ const responseSchema = z.object({
     swapper: address,
     txFailureReason: z.string().nullish(),
     txFailureReasons: z.array(z.unknown()),
+    route: z.unknown(),
   }),
 });
 
@@ -80,7 +83,7 @@ export class TradingApiQuoteReader {
           recipient: intent.swapper,
           slippageTolerance: intent.slippageBps / 100,
           routingPreference: "BEST_PRICE",
-          protocols: ["V2", "V3", "V4"],
+          ...TRADING_ROUTING_POLICY,
           permitAmount: "EXACT",
       }, "preview");
     } catch {
@@ -99,6 +102,11 @@ export class TradingApiQuoteReader {
       throw new TradingApiUnavailableError("Invalid Trading API response");
     }
     const { quote, requestId } = parsed.data;
+    try {
+      inspectTradingRoute(quote.route, intent);
+    } catch {
+      throw new TradingApiUnavailableError("Unsupported Trading API route");
+    }
     if (quote.input.token.toLowerCase() !== intent.tokenIn.toLowerCase() ||
         quote.input.amount !== intent.amountIn ||
         quote.output.token.toLowerCase() !== intent.tokenOut.toLowerCase() ||

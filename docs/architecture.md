@@ -34,6 +34,8 @@ Next.js matches `vezta-fe`; a small TypeScript HTTP API can follow the Hono patt
 
 ## Threats to address before writes
 
+The owner selected `V4_NO_HOOKS` for V4 routing on 2026-09-28. V2/V3 remain eligible. The API inspects every route branch/hop and rejects missing or nonzero V4 hook metadata before quote storage. This metadata guard does not replace future pool-provenance, calldata and simulation checks.
+
 | Scenario | Asset / impact | Control and verification | Owner |
 |---|---|---|---|
 | Lookalike token or wrong chain | User signs for the wrong asset | Curated `chainId + address` registry; on-chain decimals; display addresses; wrong-chain and duplicate-symbol tests | API + web |

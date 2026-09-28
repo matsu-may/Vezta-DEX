@@ -21,6 +21,11 @@ function apiResponse(changes: Record<string, unknown> = {}) {
       chainId: 137,
       tradeType: "EXACT_INPUT",
       txFailureReasons: [],
+      route: [[{
+        type: "v3-pool", address: "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9",
+        tokenIn: { chainId: 137, address: intent.tokenIn },
+        tokenOut: { chainId: 137, address: intent.tokenOut },
+      }]],
       swapper: intent.swapper,
       input: { token: TOKENS.USDC.address, amount: intent.amountIn },
       output: {
@@ -51,6 +56,7 @@ describe("Trading API quote reader", () => {
       slippageTolerance: 0.5,
       permitAmount: "EXACT",
       protocols: ["V2", "V3", "V4"],
+      hooksOptions: "V4_NO_HOOKS",
       routingPreference: "BEST_PRICE",
     });
     expect(result.quote).toMatchObject({ amountOut: "100000000000000000", minimumAmountOut: "99500000000000000", routing: "CLASSIC" });
@@ -91,5 +97,28 @@ describe("Trading API quote reader", () => {
     const fetcher = vi.fn(async () => Response.json({ ...apiResponse(), padding: "x".repeat(300_000) })) as unknown as typeof fetch;
     const reader = new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher));
     await expect(reader.getQuote(intent)).rejects.toThrow("Invalid Trading API response");
+  });
+
+  it("rejects hooked or unverifiable route metadata before saving a quote", async () => {
+    const base = apiResponse().quote.route[0][0];
+    for (const route of [undefined, [], [[{ ...base, type: "v4-pool", address: `0x${"1".repeat(64)}`, hooks: intent.swapper }]], [[{ ...base, type: "v4-pool", address: `0x${"1".repeat(64)}` }]], [[{ ...base, type: "unknown-pool" }]]]) {
+      const payload = apiResponse({ quote: { ...apiResponse().quote, route } });
+      const fetcher = vi.fn(async () => Response.json(payload)) as unknown as typeof fetch;
+      const store = new QuoteStore();
+      const save = vi.spyOn(store, "save");
+      const reader = new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher), Date.now, store);
+      await expect(reader.getQuote(intent)).rejects.toThrow();
+      expect(save).not.toHaveBeenCalled();
+    }
+  });
+
+  it("keeps complete hook-free V4 routes server-side", async () => {
+    const base = apiResponse().quote.route[0][0];
+    const payload = apiResponse({ quote: { ...apiResponse().quote, route: [[{ ...base, type: "v4-pool", address: `0x${"1".repeat(64)}`, hooks: "0x0000000000000000000000000000000000000000" }]] } });
+    const fetcher = vi.fn(async () => Response.json(payload)) as unknown as typeof fetch;
+    const result = await new TradingApiQuoteReader(new TradingApiClient("test-key", fetcher)).getQuote(intent);
+    expect(result.quoteId).toMatch(/^[0-9a-f]{48}$/);
+    expect(JSON.stringify(result)).not.toContain("v4-pool");
+    expect(JSON.stringify(result)).not.toContain("hooks");
   });
 });
