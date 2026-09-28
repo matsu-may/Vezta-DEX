@@ -39,7 +39,7 @@
 
 ### Task 2: Router calldata policy
 
-**Source gate passed; deployment gate remains open.** The owner supplied actual gitlink fields and source fingerprints. Implement the internal decoder against that single ABI, keeping it disconnected from wallet controls and transaction endpoints until deployment and live calldata checks pass. See [evidence and next gate](../../research/2026-09-28-eoa-signer-validation.md).
+**Source gate passed; scoped functional deployment gate passed below.** The owner supplied actual gitlink fields and source fingerprints, followed by successful independent rebuild. The decoder is now used by unsigned preparation; wallet controls still await live calldata and receipt checks. See [evidence and next gate](../../research/2026-09-28-eoa-signer-validation.md).
 
 **Files:** New `apps/api/src/swap-calldata.ts` and test; ABI constants in `swap-abi.ts`; public deployment-evidence probe and extractor tests under `scripts/`.
 
@@ -79,5 +79,7 @@
 - [x] Write failing tests for valid saved payload, exact approval, balances/gas, stale/replayed/concurrent ID, signature, changed nonce/code, upstream failure/malformed payload, wrong transaction, failed simulation and HTTP secret suppression. Observed missing preparer/balance methods, followed by block-advance and cross-ID message-reuse regressions.
 - [x] Implement validation/consume/upstream/decoder/local simulation with state rechecks. Shared quote/swap client; no signed retries or restore. New blocks trigger a bounded local resimulation/gas refresh. Owner/message digests reject cross-ID reuse until signature deadline.
 - [x] Full `pnpm test`: 270 Vitest + 28 Node passed; `pnpm typecheck`, `pnpm lint`, `pnpm build`: exit 0. Existing React-detection and Next workspace-root warnings only.
-- [ ] Document deterministic evidence and remaining live calldata / installed-wallet / funded receipt gates. Record A in the parent plan and roadmap. Commit the slice.
-- [ ] Obtain one fresh whole-change DEX review; fix Important/Critical findings with regression RED→GREEN, then rerun required checks. Keep browser writes disabled and do not merge/push.
+- [x] Document deterministic evidence and remaining live calldata / installed-wallet / funded receipt gates. Record A in the parent plan and roadmap. Implementation commit `624cc44`; parent plan/README synchronized.
+- [x] Fresh whole-change DEX review of `c119f08..624cc44` found no Critical/Important findings and only the already-deferred newline-digest Minor. Reviewer independently passed 126 focused tests and checked saved proof digests/runtime reconstruction. No fix pass required; browser writes remain disabled and no merge/push occurs.
+
+**Plan outcome:** internal EOA signature/calldata/preparation plus independent rebuild tooling are complete. This is not milestone 2 completion: installed-wallet behavior, real signed Trading API calldata, exact approval receipt, submission/receipt UI and a small-swap receipt remain open in the parent wallet plan. Preserve the ignored proof workspace for those gates.

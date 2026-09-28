@@ -130,6 +130,13 @@ Deterministic tests cover saved-message binding, concurrency, replay across quot
 
 ## Verification
 
+### Whole EOA/preparation change
+
+- Preparation/RPC/store tests first failed for missing behavior; block-advance and cross-ID message-reuse regressions were observed RED before GREEN. Focused preparation/RPC/store tests: **41 passed**.
+- `pnpm test`: **270 Vitest + 28 Node tests passed**; `pnpm typecheck`, `pnpm lint`, `pnpm build`: exit 0, with existing warnings only.
+- Fresh independent review of `c119f08..624cc44` found no Critical/Important findings and only the already-deferred newline-digest Minor. Reviewer passed **126 focused tests**, checked all saved digests and reconstructed runtime/creation equality from saved compiler output; no additional compiler run was claimed.
+- Review excludes live wallet/calldata/receipt behavior, public replicas and restart-persistent replay storage, LP lifecycle/indexer data, full historical Git-file/creation-transaction provenance, unused integrations and protocol audit. Each remains a separate gate; no browser writes or public launch were approved by this review.
+
 ### Account/source-probe slice (commit `d1a185d`)
 
 Account-gate tests first failed (12 regressions); the signature suite initially failed for the missing module. Focused checks then passed 71 tests and typecheck. The raw RPC contract test additionally proves that explicit empty code is preserved at the requested block. The provenance extractor tests failed for the missing module before implementation.

@@ -63,9 +63,9 @@
 - [x] Owner selected option 1: exact amount, maximum 30-day remaining allowance expiration, maximum 30-minute signature deadline, and a separate 30-second quote TTL.
 - [x] Add a read-only quote-bound Permit2 message plan with full schema/spender/nonce validation. See [standard-policy plan](2026-09-28-permit2-standard-policy.md) and [validation/host probe](../../research/2026-09-28-permit2-standard-policy-validation.md). Owner supplied successful live full-schema/spender/pinned-nonce plans in both directions at Polygon blocks 94600398 and 94600401. Signing and transaction gates remain open.
 
-- [x] Owner selected A: EOA accounts without deployed code/delegation. Permit plans now gate account code before returning signing data; canonical 64/65-byte ECDSA verification is implemented and tested as an internal helper. See [EOA boundary evidence](../../research/2026-09-28-eoa-signer-validation.md). Signature consumption and swap preparation remain pending.
-- [ ] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observe failure.
-- [ ] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate returned transaction from connected account. Rerun tests.
+- [x] Owner selected A: EOA accounts without deployed code/delegation, followed by A for independent deployment recompilation. Host and local solc runs reproduced saved runtime; scoped configuration review supports the allowed ERC20 commands. See [EOA/rebuild/preparation evidence](../../research/2026-09-28-eoa-signer-validation.md); exact historical dependency Git text and unused integrations remain unclaimed.
+- [x] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observed missing implementation and block-advance/message-reuse regressions before green tests.
+- [x] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate from the owner at pinned blocks, recheck state, compute local gas and share the rate limiter. Deterministic full tests passed; live signed calldata compatibility remains open. Dedicated [EOA plan](2026-09-28-eoa-swap-preparation.md) carries the implementation and final review gate.
 - [ ] Browser-test rejected signature and changed account while prompt is open.
 
 ### Task 4: Receipts and release gate
