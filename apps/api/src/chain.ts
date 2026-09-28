@@ -5,6 +5,7 @@ import type { PoolChainSource } from "./pools";
 import type { QuoteChainSource } from "./quote";
 import type { AllowanceChainSource } from "./allowance-reader";
 import type { PermitChainSource } from "./permit-reader";
+import type { SwapPreparationChainSource } from "./swap-preparation";
 
 const permit2Abi = [{
   type: "function", name: "allowance", stateMutability: "view",
@@ -53,7 +54,7 @@ const quoterAbi = [{
   ],
 }] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource {
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource & SwapPreparationChainSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -61,6 +62,22 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
   const client = createPublicClient({ chain: polygon, transport: http(rpcUrl, { timeout: 8_000, retryCount: 1 }) });
 
   return {
+    getTokenBalance(token, owner, blockNumber) {
+      return client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [owner], blockNumber });
+    },
+    getNativeBalance(owner, blockNumber) {
+      return client.getBalance({ address: owner, blockNumber });
+    },
+    getGasPrice() { return client.getGasPrice(); },
+    async simulateSwap(transaction, blockNumber) {
+      const result = await client.request({ method: "eth_call", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0" }, toHex(blockNumber)] });
+      if (result !== "0x") throw new Error("Unexpected router simulation response");
+    },
+    async estimateSwapGas(transaction, blockNumber) {
+      const result = await client.request({ method: "eth_estimateGas", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0" }, toHex(blockNumber)] });
+      if (!/^0x[0-9a-fA-F]+$/.test(result)) throw new Error("Invalid Polygon gas estimate");
+      return BigInt(result);
+    },
     getAccountCode(owner, blockNumber) {
       // viem.getCode maps an empty result to undefined, losing the fail-closed distinction.
       return client.request({ method: "eth_getCode", params: [owner, toHex(blockNumber)] });

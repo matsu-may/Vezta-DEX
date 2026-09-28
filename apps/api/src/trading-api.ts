@@ -17,7 +17,7 @@ const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
 const positiveAmount = z.string().regex(/^[1-9]\d{0,77}$/);
 const MAX_UPSTREAM_QUOTE_BYTES = 256_000;
 
-async function readBoundedJson(response: Response): Promise<unknown> {
+export async function readBoundedJson(response: Response): Promise<unknown> {
   if (!response.body) throw new Error("Empty response");
   const reader = response.body.getReader();
   const chunks: Buffer[] = [];

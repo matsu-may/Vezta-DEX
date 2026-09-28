@@ -22,6 +22,7 @@ function binding(intent: TradingIntent, routerVersion: string): string {
 
 export class QuoteStore {
   private readonly entries = new Map<string, StoredQuote>();
+  private readonly usedPermits = new Map<string, number>();
   private readonly maxEntries: number;
   private readonly maxBytes: number;
 
@@ -54,8 +55,15 @@ export class QuoteStore {
     return { summary: { ...entry.summary }, payload: JSON.parse(entry.payloadJson) as unknown, expiresAt: entry.expiresAt };
   }
 
-  consume(id: string, intent: TradingIntent, routerVersion: string): { summary: TradingQuoteSummary; payload: unknown } {
+  consume(id: string, intent: TradingIntent, routerVersion: string, permitUse?: { key: string; expiresAt: number }): { summary: TradingQuoteSummary; payload: unknown } {
     const { summary, payload } = this.read(id, intent, routerVersion);
+    if (permitUse) {
+      const now = this.now();
+      for (const [key, expiresAt] of this.usedPermits) if (now >= expiresAt) this.usedPermits.delete(key);
+      if (!/^[0-9a-f]{64}$/.test(permitUse.key) || !Number.isSafeInteger(permitUse.expiresAt) || permitUse.expiresAt <= now ||
+          this.usedPermits.has(permitUse.key) || this.usedPermits.size >= this.maxEntries) throw new Error("Trading quote is unavailable");
+      this.usedPermits.set(permitUse.key, permitUse.expiresAt);
+    }
     this.entries.delete(id);
     return { summary, payload };
   }

@@ -53,6 +53,8 @@
 
 **Deployment evidence gate before Task 3:** run `node scripts/smoke-router-deployment.mjs --save` on the host. Review the saved public artifact for runtime agreement, complete source/dependency graph, compiler configuration and immutable addresses. Two matching source fingerprints alone cannot close this gate. A missing or mismatched deployment stays unresolved; no executable endpoint is added while this gate is open.
 
+**Scoped functional gate passed, 2026-09-28:** after the owner installed solc, actual host and local compiler runs reproduced all runtime bytes from the complete 110-source input, with 17 AST-derived immutable variables/40 references. Used swap configuration and both init hashes match official sources. Full historical Git-file mapping and separately retrieved deployment transaction remain unclaimed; SpokePool uses the release-author configuration attestation, not a retrieved full deploy script. Native, bridge and position commands remain rejected. See the research table for exact provenance; collector certification flags stay false. This permits the modeled unsigned preparation only; live calldata/wallet writes retain separate gates.
+
 **Host evidence received:** 24,380-byte runtime matches RPC; both source fingerprints match; solc 0.8.26, optimizer 3000, viaIR/Cancun. All 110 source contents match metadata/input; runtime is reproduced exactly using 40 immutable replacements; creation matches after constructor arguments. Sourcify reports `match`, with `bytecodeHash: none`. **Owner selected A: independently recompile.** Task 4 below implements this additional gate before Task 3. See [decision and limits](../../research/2026-09-28-eoa-signer-validation.md#host-deployment-evidence-and-verification-decision).
 
 ### Task 4: Independent deployment rebuild (before Task 3)
@@ -66,6 +68,7 @@
 - [x] Add bounded local CLI, fixed artifact paths, generic errors, input/output digests and offline saved report. Real-artifact `--prepare` passed 110 sources; `--compile` returned controlled `COMPILER_NOT_INSTALLED`. No independent compiler success is claimed.
 - [x] Attempt exact compiler installation: `ENOTFOUND registry.npmjs.org`. Host install/rebuild commands are documented; the evidence gate remains open.
 - [x] Full tests passed 236 Vitest + 28 Node; typecheck/lint/build exit 0. Fresh independent review found no Critical/Important findings and one deferred Minor (report digests exclude the saved trailing newline). Commit the verification slice; Task 3 remains pending for host rebuild/config evidence.
+- [x] Owner installed exact compiler; host rebuild passed at 16:36:28Z. Actual local recompile at 16:38:16Z reproduced identical evidence/compiler/input/output digests and creation/runtime matches. Scoped functional/configuration review recorded above; no live calldata or historical source-text certification.
 
 ### Task 3: Single-use preparation and verification
 
@@ -73,8 +76,8 @@
 
 **Interfaces:** `SwapPreparer.prepare(intent: TradingIntent, quoteId: string, signature?: Hex)` returns only validated unsigned transaction, intent/expiry and simulation provenance. Extend chain source with balances, simulation and gas estimation at pinned blocks. `POST /api/v1/swap-preparation` accepts only intent, quote ID and optional signature. Share one `TradingApiClient` across quote and swap readers.
 
-- [ ] Write failing tests for valid saved payload, exact approval, balances/gas, stale/replayed/concurrent ID, signature, changed nonce/code, upstream failure/malformed payload, wrong transaction, failed simulation and HTTP secret suppression.
-- [ ] Observe test failures, then implement: validate intent/EOA/permit/signature and chain state; consume synchronously before `/swap`; request upstream simulation and quote-bound deadline; bounded JSON; validate transaction/calldata; simulate and estimate locally; recheck freshness and account state. Consumed IDs never recover after an upstream failure.
-- [ ] Run full `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`; inspect outputs.
+- [x] Write failing tests for valid saved payload, exact approval, balances/gas, stale/replayed/concurrent ID, signature, changed nonce/code, upstream failure/malformed payload, wrong transaction, failed simulation and HTTP secret suppression. Observed missing preparer/balance methods, followed by block-advance and cross-ID message-reuse regressions.
+- [x] Implement validation/consume/upstream/decoder/local simulation with state rechecks. Shared quote/swap client; no signed retries or restore. New blocks trigger a bounded local resimulation/gas refresh. Owner/message digests reject cross-ID reuse until signature deadline.
+- [x] Full `pnpm test`: 270 Vitest + 28 Node passed; `pnpm typecheck`, `pnpm lint`, `pnpm build`: exit 0. Existing React-detection and Next workspace-root warnings only.
 - [ ] Document deterministic evidence and remaining live calldata / installed-wallet / funded receipt gates. Record A in the parent plan and roadmap. Commit the slice.
 - [ ] Obtain one fresh whole-change DEX review; fix Important/Critical findings with regression RED→GREEN, then rerun required checks. Keep browser writes disabled and do not merge/push.

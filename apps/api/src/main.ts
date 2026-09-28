@@ -9,6 +9,7 @@ import { TradingApiClient } from "./trading-client";
 import { AllowanceReader } from "./allowance-reader";
 import { QuoteStore } from "./quote-store";
 import { PermitReader } from "./permit-reader";
+import { SwapPreparer } from "./swap-preparation";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -23,10 +24,10 @@ const reader = new PoolReader(source);
 const quotes = new QuoteReader(source);
 const approval = new AllowanceReader(source);
 const quoteStore = new QuoteStore();
-const trading = process.env.UNISWAP_API_KEY?.trim()
-  ? new TradingApiQuoteReader(new TradingApiClient(process.env.UNISWAP_API_KEY), Date.now, quoteStore)
-  : undefined;
+const tradingClient = process.env.UNISWAP_API_KEY?.trim() ? new TradingApiClient(process.env.UNISWAP_API_KEY) : undefined;
+const trading = tradingClient ? new TradingApiQuoteReader(tradingClient, Date.now, quoteStore) : undefined;
 const permits = trading ? new PermitReader(source, quoteStore) : undefined;
+const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient) : undefined;
 createServer(async (request, response) => {
   try {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
@@ -45,7 +46,7 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits);
+    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps);
     response.writeHead(result.status, Object.fromEntries(result.headers));
     response.end(Buffer.from(await result.arrayBuffer()));
   } catch {

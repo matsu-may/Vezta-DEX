@@ -93,4 +93,19 @@ describe("short-lived Trading API quote store", () => {
     expect(() => store.save(intent, summary, { quote: {} }, 1_000)).toThrow();
     expect(store.save(intent, summary, { quote: {} }, 31_000)).toMatch(/^[0-9a-f]{48}$/);
   });
+
+  it("atomically remembers used permit digests across quote IDs until their signature deadline", () => {
+    let now = 1000;
+    const store = new QuoteStore(() => now, { maxEntries: 1 });
+    const first = store.save(intent, summary, {}, now);
+    const used = { key: "a".repeat(64), expiresAt: 5000 };
+    store.consume(first, intent, "2.1.2", used);
+    const second = store.save(intent, summary, {}, now);
+    expect(() => store.consume(second, intent, "2.1.2", used)).toThrow();
+    expect(() => store.consume(second, intent, "2.1.2", { key: "b".repeat(64), expiresAt: 5000 })).toThrow();
+    // Capacity/replay rejection does not delete an otherwise fresh quote.
+    expect(store.read(second, intent, "2.1.2").payload).toEqual({});
+    now = 5000;
+    expect(store.consume(second, intent, "2.1.2", { key: "b".repeat(64), expiresAt: 6000 }).payload).toEqual({});
+  });
 });
