@@ -19,9 +19,17 @@ Validate chain, token pair, account, integer amount and slippage before contacti
 
 ## Hook policy selected on 2026-09-28
 
-The owner selected V2/V3 plus hook-free V4. Request `hooksOptions: V4_NO_HOOKS` explicitly and inspect every returned route branch and hop before storage. Require supported pool type, pool reference, Polygon currency metadata, continuous path and matching endpoints. V4 requires an explicit zero `hooks` address. Missing or contradictory metadata fails closed; never fall back to inclusive hooks. This verifies quote metadata only; calldata and contract provenance remain wallet-write gates. See [policy evidence and pending Permit2 decision](../research/2026-09-28-hook-free-routing-and-permit-policy.md).
+The owner selected V2/V3 plus hook-free V4. Request `hooksOptions: V4_NO_HOOKS` explicitly and inspect every returned route branch and hop before storage. Require supported pool type, pool reference, Polygon currency metadata, continuous path and matching endpoints. V4 requires an explicit zero `hooks` address. Missing or contradictory metadata fails closed; never fall back to inclusive hooks. This verifies quote metadata only; calldata and contract provenance remain wallet-write gates. See [policy evidence and approved Permit2 decision](../research/2026-09-28-hook-free-routing-and-permit-policy.md).
 
-Permit2 allowance expiration and signature deadline are separate from Vezta's 30-second quote TTL. The diagnostic probe now reports both windows, but live timing and the owner's maximum allowance-duration policy are still pending. Do not enable Permit2 signing before settling that policy.
+## Permit2 policy approved on 2026-09-28 (option 1)
+
+Keep the standard API PermitSingle message unchanged. Require the Permit2 domain (`name: Permit2`, Polygon 137, canonical Permit2 contract), the exact canonical ordered PermitSingle/PermitDetails types, the input token, `amountIn`, Universal Router 2.1.2 spender and the current owner/token/spender uint48 nonce. Reject missing, extra or altered signed fields and unsafe integers. Verify nonce from a pinned recent Polygon block before presenting any message.
+
+The maximum remaining Permit2 allowance lifetime is **2,592,000 seconds (30 days)** and signature deadline is **1,800 seconds (30 minutes)** at validation time. Both must remain unexpired. These clocks do not extend the application quote's **30 seconds from request start**. Reject the quote if it expires during RPC reads or a wallet prompt. Never reuse a signature for another quote. Exact ERC20 approval remains a separate prerequisite.
+
+The first message adapter accepts timestamp expiration only. `expiration=0` has execution-block semantics on-chain, but is unsupported here and is rejected without modifying the message. On-chain `permitTransaction` flows are also unsupported in this slice. If `permitData` is null, inspect the actual router allowance; only an exact, unexpired allowance within the 30-day cap may be considered ready. Otherwise report a blocked existing-allowance state; do not create, revoke or reuse a larger permission automatically.
+
+PermitSingle grants spender permission; it does **not** cryptographically bind output token, recipient or minimum received. Vezta's saved quote binds that intent, and future swap calldata validation must independently enforce it. A nonce snapshot is not a reservation. Recheck policy and chain state before subsequent writes. The read-only permit plan does not establish that ERC20 approval is ready, that a signature is valid, or that swap simulation/receipt gates have passed.
 
 ## API budget and availability
 

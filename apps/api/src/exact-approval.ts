@@ -1,7 +1,7 @@
 import { encodeFunctionData, erc20Abi, type Hex } from "viem";
-import { validateTradingIntent, type Address, type TradingIntent } from "@vezta-dex/core";
+import { POLYGON_PERMIT2, validateTradingIntent, type Address, type TradingIntent } from "@vezta-dex/core";
 
-export const POLYGON_PERMIT2 = "0x000000000022D473030F116dDEE9F6B43aC78BA3" as const;
+export { POLYGON_PERMIT2 };
 
 export interface ExactApprovalTransaction {
   chainId: 137;

@@ -1,4 +1,4 @@
-# Hook-free routing and pending Permit2 policy — 2026-09-28
+# Hook-free routing and approved Permit2 policy — 2026-09-28
 
 ## Owner decision and implementation
 
@@ -40,7 +40,7 @@ Check both directions for HTTP 200, `CLASSIC`, `hooksOptions: V4_NO_HOOKS`, `rou
 
 If a route fails inspection, investigate sanitized metadata before changing the guard; do not assume missing metadata means no hook. Installed-wallet checks remain open as described in [wallet connection validation](2026-09-28-wallet-connection-validation.md).
 
-## Decision pending: Permit2 permission lifetime
+## Owner decision: Permit2 option 1
 
 Three clocks are distinct:
 
@@ -50,8 +50,8 @@ Three clocks are distinct:
 
 The [AllowanceTransfer reference](https://developers.uniswap.org/docs/protocols/permit2/concepts/allowance-transfer) defines the last two separately. The owner's probe confirmed the API's approximately 30-day allowance and 30-minute signature windows. `permitAmount: EXACT` controls quantity, not these clocks. The selected ERC20 approval remains exactly the input amount under either future duration policy.
 
-The owner must choose whether to accept the standard API allowance lifetime (with exact amounts and explicit validation/display) or require a short allowance lifetime, such as ten minutes. The latter requires verifying whether API-generated typed data and swap preparation support that policy; if not, it changes the signing/preparation adapter. Do not modify typed data and assume the existing API flow will remain compatible.
+The owner selected **option 1 on 2026-09-28**: retain the standard API PermitSingle message, exact amount, maximum 30-day remaining allowance lifetime and maximum 30-minute signature deadline. Validate the full domain, ordered types, token, amount, Universal Router spender and current nonce, without changing signed values. Vezta's application quote remains valid for only 30 seconds. The alternative short-duration adapter was not selected.
 
 The diagnostic also reports `expiration=0` as `execution-block`, with unknown effective remaining lifetime before mining. The [canonical Permit2 implementation](https://github.com/Uniswap/permit2/blob/main/src/libraries/Allowance.sol) maps zero to the executing block's timestamp; zero must not be reported as already expired.
 
-No Permit2 signing, swap preparation endpoint or wallet-write control is introduced by this slice. Duration policy is deliberately unresolved until owner review.
+The hook-policy slice introduced no signing or wallet writes. The follow-up [Permit2 standard-policy plan](../superpowers/plans/2026-09-28-permit2-standard-policy.md) implements the approved decision as a read-only message plan; live full-schema/nonce evidence and funded-wallet execution remain open.
