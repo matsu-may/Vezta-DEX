@@ -31,8 +31,13 @@ describe("standard Permit2 permission policy", () => {
 
   it("accepts canonical string uint values with the same EIP-712 meaning", () => {
     const data = JSON.parse(JSON.stringify(fixture())) as ReturnType<typeof fixture>;
-    const strings = { ...data, domain: { ...data.domain, chainId: "137" }, values: { ...data.values, sigDeadline: String(data.values.sigDeadline), details: { ...data.values.details, expiration: String(data.values.details.expiration), nonce: "7" } } };
+    const strings = { ...data, values: { ...data.values, sigDeadline: String(data.values.sigDeadline), details: { ...data.values.details, expiration: String(data.values.details.expiration), nonce: "7" } } };
     expect(policy.validatePermit2Data(strings, intent, 7n, now)).toEqual(strings);
+  });
+
+  it("rejects a string domain chainId that viem would omit from its EIP-712 domain hash", () => {
+    const data = fixture();
+    expect(() => policy.validatePermit2Data({ ...data, domain: { ...data.domain, chainId: "137" } }, intent, 7n, now)).toThrow();
   });
 
   const mutations: [string, (data: ReturnType<typeof fixture>) => void][] = [

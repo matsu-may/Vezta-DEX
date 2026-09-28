@@ -23,6 +23,32 @@ const summary: TradingQuoteSummary = {
 };
 
 describe("short-lived Trading API quote store", () => {
+  it("reads independent bound snapshots without consuming or extending expiry", () => {
+    let now = 1_000;
+    const store = new QuoteStore(() => now);
+    const id = store.save(intent, summary, { quote: { marker: "original" } }, now);
+    const read = store.read(id, intent, "2.1.2");
+    expect(read.expiresAt).toBe(31_000);
+    read.summary.amountIn = "2";
+    (read.payload as { quote: { marker: string } }).quote.marker = "changed";
+    expect(store.read(id, intent, "2.1.2").summary.amountIn).toBe(intent.amountIn);
+    expect(store.read(id, intent, "2.1.2").payload).toEqual({ quote: { marker: "original" } });
+    expect(() => store.read(id, { ...intent, amountIn: "2" }, "2.1.2")).toThrow();
+    expect(() => store.read(id, intent, "2.0.0")).toThrow();
+    now = 30_999;
+    expect(store.read(id, intent, "2.1.2").expiresAt).toBe(31_000);
+    now = 31_000;
+    expect(() => store.read(id, intent, "2.1.2")).toThrow();
+  });
+
+  it("allows consuming after a read and then rejects all subsequent reads", () => {
+    const store = new QuoteStore(() => 1_000);
+    const id = store.save(intent, summary, { quote: {} }, 1_000);
+    store.read(id, intent, "2.1.2");
+    expect(store.consume(id, intent, "2.1.2").summary).toEqual(summary);
+    expect(() => store.read(id, intent, "2.1.2")).toThrow();
+  });
+
   it("returns an opaque single-use ID and keeps the complete upstream payload server-side", () => {
     const now = 1_000;
     const store = new QuoteStore(() => now);

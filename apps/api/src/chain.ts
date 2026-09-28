@@ -1,9 +1,16 @@
 import { createPublicClient, erc20Abi, http, type Address } from "viem";
 import { polygon } from "viem/chains";
-import { POLYGON_CHAIN_ID, TOKENS, V3_FACTORY, V3_QUOTER } from "@vezta-dex/core";
+import { POLYGON_CHAIN_ID, POLYGON_PERMIT2, TOKENS, V3_FACTORY, V3_QUOTER } from "@vezta-dex/core";
 import type { PoolChainSource } from "./pools";
 import type { QuoteChainSource } from "./quote";
 import type { AllowanceChainSource } from "./allowance-reader";
+import type { PermitChainSource } from "./permit-reader";
+
+const permit2Abi = [{
+  type: "function", name: "allowance", stateMutability: "view",
+  inputs: [{ name: "owner", type: "address" }, { name: "token", type: "address" }, { name: "spender", type: "address" }],
+  outputs: [{ name: "amount", type: "uint160" }, { name: "expiration", type: "uint48" }, { name: "nonce", type: "uint48" }],
+}] as const;
 
 const factoryAbi = [{
   type: "function",
@@ -46,7 +53,7 @@ const quoterAbi = [{
   ],
 }] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource {
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -54,6 +61,12 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
   const client = createPublicClient({ chain: polygon, transport: http(rpcUrl, { timeout: 8_000, retryCount: 1 }) });
 
   return {
+    async getPermitAllowance(token, owner, spender, blockNumber) {
+      const [amount, expiration, nonce] = await client.readContract({
+        address: POLYGON_PERMIT2, abi: permit2Abi, functionName: "allowance", args: [owner, token, spender], blockNumber,
+      });
+      return { amount, expiration: BigInt(expiration), nonce: BigInt(nonce) };
+    },
     async getBlock() {
       const chainId = await client.getChainId();
       if (chainId !== POLYGON_CHAIN_ID) throw new Error("RPC returned a different chain");

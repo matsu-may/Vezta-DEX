@@ -11,7 +11,7 @@ const canonicalTypes = {
 
 type Uint = string | number;
 export interface Permit2Data {
-  domain: { name: "Permit2"; chainId: Uint; verifyingContract: Address };
+  domain: { name: "Permit2"; chainId: 137; verifyingContract: Address };
   types: typeof canonicalTypes;
   values: {
     details: { token: Address; amount: Uint; expiration: Uint; nonce: Uint };
@@ -46,7 +46,8 @@ export function validatePermit2Data(data: unknown, intent: TradingIntent, nonce:
   if (!Number.isSafeInteger(now) || now < 0 || nonce < 0n || nonce >= 1n << 48n) throw new Error("Invalid Permit2 validation context");
   const root = object(data, ["domain", "types", "values"]);
   const domain = object(root.domain, ["name", "chainId", "verifyingContract"]);
-  if (domain.name !== "Permit2" || uint(domain.chainId, 256) !== 137n) throw new Error("Permit2 domain mismatch");
+  // viem infers EIP712Domain.chainId only from numeric values. Preserve, never normalize, API data.
+  if (domain.name !== "Permit2" || domain.chainId !== 137) throw new Error("Permit2 domain mismatch");
   address(domain.verifyingContract, POLYGON_PERMIT2);
   const types = object(root.types, ["PermitSingle", "PermitDetails"]);
   for (const key of ["PermitSingle", "PermitDetails"] as const) {

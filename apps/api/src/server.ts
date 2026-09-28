@@ -4,6 +4,7 @@ import type { PoolReader } from "./pools";
 import { QuoteInputError, type QuoteReader } from "./quote";
 import { TradingApiInputError, type TradingApiQuoteReader } from "./trading-api";
 import { ApprovalInputError, type AllowanceReader } from "./allowance-reader";
+import { PermitInputError, type PermitReader } from "./permit-reader";
 
 const tradingIntentSchema = z.object({
   chainId: z.literal(137),
@@ -21,8 +22,22 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader): Promise<Response> {
+export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader): Promise<Response> {
   const pathname = new URL(request.url).pathname;
+  if (pathname === "/api/v1/permit-plan") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    if (!permits) return json({ error: "Permit planning is unavailable" }, 503);
+    let body: unknown;
+    try { body = await request.json(); }
+    catch { return json({ error: "Invalid permit plan request" }, 400); }
+    const parsed = tradingIntentSchema.extend({ quoteId: z.string().regex(/^[0-9a-f]{48}$/) }).strict().safeParse(body);
+    if (!parsed.success) return json({ error: "Invalid permit plan request" }, 400);
+    const { quoteId, ...intent } = parsed.data;
+    try { return json({ permitPlan: await permits.getPlan(intent as TradingIntent, quoteId) }); }
+    catch (error) {
+      return error instanceof PermitInputError ? json({ error: "Invalid permit plan request" }, 400) : json({ error: "Polygon permit state is unavailable" }, 503);
+    }
+  }
   if (pathname === "/api/v1/approval-plan") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     if (!approval) return json({ error: "Approval planning is unavailable" }, 503);

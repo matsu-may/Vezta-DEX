@@ -12,9 +12,11 @@ Build an independent `vezta-dex/` project using existing Uniswap liquidity on Po
 
 The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget plan](superpowers/plans/2026-09-27-trading-api-rate-budget.md) and [wallet-flow plan](superpowers/plans/2026-09-27-trading-api-wallet.md) govern the next slices. Read-only QuoterV2 comparison, wallet-bound Trading API quote preview, a bounded single-process quote store, and a single-process 5 RPS limiter exist. The [live API probes](research/2026-09-27-trading-api-live-evidence.md) verified small `CLASSIC` quotes and opaque local quote IDs in both directions; `/check_approval` proposed unlimited ERC20 allowances to Permit2 for both tokens. The owner selected **exact ERC20 approval per swap**, and the read-only approval-plan probe verified zero allowance and exact unsigned plans for both tokens. The [wallet connection validation](research/2026-09-28-wallet-connection-validation.md) records passing browser checks with a mock wallet and instructions for the remaining installed-wallet check. Wallet writes wait for funded-wallet and swap transaction checks.
 
+See [Permit2 standard-policy validation](research/2026-09-28-permit2-standard-policy-validation.md) for the read-only host probe and remaining execution gates.
+
 ## Delivery sequence
 
-**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; the owner verified live compatibility in both directions, exact permit amounts, approximately 30-day Permit2 allowance expiration and 30-minute signature deadline. Permit2 duration policy needs an owner decision before signing. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
+**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; the owner verified live compatibility in both directions, exact permit amounts, approximately 30-day Permit2 allowance expiration and 30-minute signature deadline. The owner selected **Permit2 option 1**: exact amount, maximum 30-day remaining allowance lifetime, maximum 30-minute signature deadline, and a separate 30-second quote TTL. A read-only quote-bound Permit2 plan now checks the complete message and a pinned chain nonce; live validation and wallet-write gates remain open. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
 
 | Milestone | Work | Exit evidence |
 |---|---|---|

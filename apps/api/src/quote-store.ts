@@ -45,13 +45,18 @@ export class QuoteStore {
     return id;
   }
 
-  consume(id: string, intent: TradingIntent, routerVersion: string): { summary: TradingQuoteSummary; payload: unknown } {
+  read(id: string, intent: TradingIntent, routerVersion: string): { summary: TradingQuoteSummary; payload: unknown; expiresAt: number } {
     const entry = this.entries.get(id);
     if (!entry || this.now() >= entry.expiresAt || entry.binding !== binding(intent, routerVersion)) {
       if (entry && this.now() >= entry.expiresAt) this.entries.delete(id);
       throw new Error("Trading quote is unavailable");
     }
+    return { summary: { ...entry.summary }, payload: JSON.parse(entry.payloadJson) as unknown, expiresAt: entry.expiresAt };
+  }
+
+  consume(id: string, intent: TradingIntent, routerVersion: string): { summary: TradingQuoteSummary; payload: unknown } {
+    const { summary, payload } = this.read(id, intent, routerVersion);
     this.entries.delete(id);
-    return { summary: { ...entry.summary }, payload: JSON.parse(entry.payloadJson) as unknown };
+    return { summary, payload };
   }
 }

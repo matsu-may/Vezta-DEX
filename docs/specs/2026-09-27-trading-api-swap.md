@@ -15,7 +15,7 @@ The standalone DEX first previews an exact-input swap between native USDC and WE
 | Slippage | 10–300 bps; integer base units only |
 | Quote lifetime | 30 seconds from request start; refresh after approval |
 
-Validate chain, token pair, account, integer amount and slippage before contacting Uniswap. `/quote` uses `permitAmount: EXACT`, `swapper` and `recipient` equal to the account, and the router-version header. Use that header on `/quote` and `/swap` where documented; do not assume `/check_approval` accepts it. Reject unknown routing, mismatched tokens/amount/recipient, missing minimum output, failed simulation or malformed response. Send only a bounded summary to the browser. Keep the key, raw upstream errors and sensitive payloads out of logs and client responses.
+Validate chain, token pair, account, integer amount and slippage before contacting Uniswap. `/quote` uses `permitAmount: EXACT`, `swapper` and `recipient` equal to the account, and the router-version header. Use that header on `/quote` and `/swap` where documented; do not assume `/check_approval` accepts it. Reject unknown routing, mismatched tokens/amount/recipient, missing minimum output, failed simulation or malformed response. Quote previews return only a bounded summary and opaque ID. A separate permit plan may return validated signing data, without the raw quote. Keep the key, raw upstream errors and sensitive payloads out of logs and client responses.
 
 ## Hook policy selected on 2026-09-28
 
@@ -23,7 +23,7 @@ The owner selected V2/V3 plus hook-free V4. Request `hooksOptions: V4_NO_HOOKS` 
 
 ## Permit2 policy approved on 2026-09-28 (option 1)
 
-Keep the standard API PermitSingle message unchanged. Require the Permit2 domain (`name: Permit2`, Polygon 137, canonical Permit2 contract), the exact canonical ordered PermitSingle/PermitDetails types, the input token, `amountIn`, Universal Router 2.1.2 spender and the current owner/token/spender uint48 nonce. Reject missing, extra or altered signed fields and unsafe integers. Verify nonce from a pinned recent Polygon block before presenting any message.
+Keep the standard API PermitSingle message unchanged. Require the Permit2 domain (`name: Permit2`, numeric `chainId: 137`, canonical Permit2 contract), the exact canonical ordered PermitSingle/PermitDetails types, the input token, `amountIn`, Universal Router 2.1.2 spender and the current owner/token/spender uint48 nonce. Reject missing, extra or altered signed fields and unsafe integers. A string domain chain ID is rejected because viem 2.47.18 omits it when inferring EIP712Domain types. Verify nonce from a pinned recent Polygon block before presenting any message.
 
 The maximum remaining Permit2 allowance lifetime is **2,592,000 seconds (30 days)** and signature deadline is **1,800 seconds (30 minutes)** at validation time. Both must remain unexpired. These clocks do not extend the application quote's **30 seconds from request start**. Reject the quote if it expires during RPC reads or a wallet prompt. Never reuse a signature for another quote. Exact ERC20 approval remains a separate prerequisite.
 
@@ -39,7 +39,7 @@ An in-memory limiter protects only one process. Public multi-instance deployment
 
 ## Quote identity and server state
 
-The API now keeps the complete upstream quote in a **short-lived server-side store** keyed by an opaque random ID. It binds account, chain, token pair, amount, slippage and router version, expires 30 seconds from request start, and permits one consume. The browser receives only the ID and validated summary, never the raw quote. The current store is bounded to 128 entries and 256 KB per upstream payload in one process; replicas require a shared TTL store before public use. After approval, invalidate the old quote, fetch a new one and require explicit review. Do not log Permit2 signatures or full quotes. No `/swap` consumer or wallet write is enabled yet.
+The API now keeps the complete upstream quote in a **short-lived server-side store** keyed by an opaque random ID. It binds account, chain, token pair, amount, slippage and router version, expires 30 seconds from request start, and permits one consume. The browser receives only the ID and validated summary, never the raw quote. The current store is bounded to 128 entries and 256 KB per upstream payload in one process; replicas require a shared TTL store before public use. After approval, invalidate the old quote, fetch a new one and require explicit review. Do not log Permit2 signatures or full quotes. `POST /api/v1/permit-plan` reads the same bound quote without consuming or renewing it and returns validated PermitSingle data plus block/expiry provenance. No `/swap` consumer or wallet write is enabled yet. See [Permit2 validation and host probe](../research/2026-09-28-permit2-standard-policy-validation.md).
 
 ## Wallet state machine
 
