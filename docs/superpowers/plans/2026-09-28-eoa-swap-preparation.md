@@ -16,7 +16,7 @@
 - Exact ERC20 approval; unchanged PermitSingle, exact amount, maximum remaining 30 days / 30 minutes. Quote TTL is 30 seconds from request start.
 - Only explicit empty account code is supported. No smart-account verification fallback or wallet signing by the backend.
 - Reject unsupported executable compositions; never forward unknown effects. No automatic retries of signed `/swap` requests. Keep raw quotes/signatures/errors out of responses and logs.
-- Pin router source to commit `802fe4c18f47300e0f183e2a42e9146ec2ea9fc3`. Resolve the actual v4-periphery gitlink and deployed source before implementing V4; the lock revision `3779387e5d296f39df543d23524b050f89a62917` conflicts with release-note evidence and is not sufficient authority.
+- Pin router source to commit `802fe4c18f47300e0f183e2a42e9146ec2ea9fc3` and actual v4-periphery gitlink `545a5d2a87228167edde48f3b9eda122d1e3c4d6`, confirmed by the owner's host probe. The stale lock revision is not authority. Deployment verification remains required before exposing a prepared transaction.
 
 ## Review Focus
 
@@ -39,16 +39,19 @@
 
 ### Task 2: Router calldata policy
 
-**Not started: source evidence required.** The locked IV4Router has a different single-input tuple and price-guard fields from the periphery referenced by release notes. Browser fetches cannot resolve the actual gitlink or Polygon verified-source metadata in this environment. Run `node scripts/smoke-router-provenance.mjs` from the owner's Terminal to collect actual gitlink fields and fingerprints; it never signs or broadcasts. This probe does not establish deployed-source or transaction correctness. See [evidence and next gate](../../research/2026-09-28-eoa-signer-validation.md).
+**Source gate passed; deployment gate remains open.** The owner supplied actual gitlink fields and source fingerprints. Implement the internal decoder against that single ABI, keeping it disconnected from wallet controls and transaction endpoints until deployment and live calldata checks pass. See [evidence and next gate](../../research/2026-09-28-eoa-signer-validation.md).
 
-**Files:** New `apps/api/src/swap-calldata.ts` and test; ABI constants in `swap-abi.ts`.
+**Files:** New `apps/api/src/swap-calldata.ts` and test; ABI constants in `swap-abi.ts`; public deployment-evidence probe and extractor tests under `scripts/`.
 
-**Interfaces:** `validateSwapCalldata(data: Hex, context: { intent, summary, permitData?, signature?, deadline: bigint }): void`. Accept canonical `execute(bytes,bytes[],uint256)` only. Decode/reencode byte-for-byte; reject unknown commands and revert flags. Support explicit exact-input V2/V3 full paths and isolated hook-free V4 full paths, direct wallet output or bounded final sweep. Sum wallet input exactly; bound output in the same atomic transaction. Permit command must match the saved message and signature.
+**Interfaces:** `validateSwapCalldata(data: Hex, context: { intent, summary, permitData?, signature?, deadline: bigint, now: number }): void`. Accept canonical `execute(bytes,bytes[],uint256)` only. Bound dynamic array sizes before decoding, decode/reencode byte-for-byte; reject unknown commands and revert flags. Support explicit exact-input V2/V3 full paths and isolated hook-free V4 full paths paid by the wallet, direct wallet output or bounded final output sweep. Sum declared wallet input exactly; bound output in the same atomic transaction. Permit command must match the saved message and signature. Prefunding, router-balance/open-credit swap amounts and mixed-protocol chaining are unsupported until independently modeled; a zero V4 settlement/take amount maps the current full debt/credit, only in the isolated swap → settle → take shape.
 
-- [ ] Write failing tests for valid V2/V3/V4, split routes, permit mismatch, unsupported effects, weak minima, extra input spending, wrong recipient, missing deadline, old five-field ABI and malformed/trailing bytes.
-- [ ] Run `pnpm exec vitest run apps/api/src/swap-calldata.test.ts`; observe missing implementation.
-- [ ] Implement bounded canonical decoding and a conservative command/settlement whitelist grounded in pinned source. Unsupported mixed-protocol chaining stays rejected; quote previews remain available.
-- [ ] Run focused tests and typecheck; expect pass. Commit `feat(dex): validate Universal Router swap effects`.
+- [x] Write failing tests for valid V2/V3/V4, split routes, permit mismatch, unsupported effects, weak minima, extra input spending, wrong recipient, missing deadline, old five-field ABI and malformed/trailing bytes.
+- [x] Run `pnpm exec vitest run apps/api/src/swap-calldata.test.ts`; observe missing implementation.
+- [x] Implement bounded canonical decoding and a conservative command/settlement whitelist grounded in pinned source. Unsupported mixed-protocol chaining stays rejected; quote previews remain available.
+- [x] Focused checks passed 32 decoder tests and 4 deployment-extractor tests; full suite passed 236 Vitest + 16 Node tests, typecheck/lint exit 0.
+- [x] Build exited 0; fresh independent review found no findings and independently passed 32 decoder + 4 extractor tests. Commit this slice as `feat(dex): validate Universal Router swap effects`.
+
+**Deployment evidence gate before Task 3:** run `node scripts/smoke-router-deployment.mjs --save` on the host. Review the saved public artifact for runtime agreement, complete source/dependency graph, compiler configuration and immutable addresses. Two matching source fingerprints alone cannot close this gate. A missing or mismatched deployment stays unresolved; no executable endpoint is added while this gate is open.
 
 ### Task 3: Single-use preparation and verification
 
