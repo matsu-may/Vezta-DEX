@@ -16,7 +16,7 @@ Core policy tests cover 30 cases. API tests cover pinned state, null permits, wr
 
 **Independent review:** one Important compatibility issue was found: viem 2.47.18 infers EIP712Domain chain ID only for number/bigint, so accepting domain `chainId: "137"` could produce the wrong digest. A regression first failed because this string was accepted; the validator now requires numeric `137` without rewriting the message. The regression and full suite passed after the fix. No other Critical/Important or Minor finding was reported. The reviewer did not rerun a second review; the fix was verified by the failing-then-passing regression and full suite.
 
-The owner's earlier host probes verified the API's exact amount and approximate timing in both directions, but did not verify the full typed-data schema, spender or current nonce. These new checks still require a host-network run. Do not treat synthetic tests as live evidence.
+The earlier host probes established exact amounts and approximate timing. The subsequent successful permit-plan probe below establishes the full-schema, spender and pinned-nonce read-only gate in both directions through the current server validator. Synthetic tests remain separate evidence.
 
 ## Host Terminal check (read-only)
 
@@ -61,3 +61,18 @@ The quote endpoint now adds a fixed, allowlisted `code` and, where an HTTP respo
 | `TRADING_API_UNAVAILABLE` | Unexpected local failure; more targeted diagnosis is required. |
 
 Diagnostic regression tests first failed for missing codes and response-body timeout/network classification. Final full test run: 176 Vitest + 8 Node passed; typecheck, lint, build and smoke syntax passed. Existing React-detection and Next.js workspace-root warnings remain. These synthetic diagnostics do not establish that the owner's 503 is resolved.
+
+## Successful host Permit2 plans supplied by owner
+
+The owner subsequently ran `node scripts/smoke-permit-plan.mjs` on `codex/hook-free-routing` and supplied:
+
+| Direction | HTTP / plan | Polygon block | Observed block time (UTC) |
+|---|---|---:|---|
+| USDC→WETH | 200 / sign | 94600398 | 2026-09-28T14:28:57.000Z |
+| WETH→USDC | 200 / sign | 94600401 | 2026-09-28T14:29:02.000Z |
+
+Both results reported `quoteIdMatches`, `chainMatches`, `quoteFresh`, `hasProvenance`, `domainMatches`, `spenderMatches`, `amountMatches`, `allowanceWindowValid` and `signatureWindowValid` as true, with `leaksRawQuote: false`. Successful `sign` plans mean the current backend additionally accepted the complete canonical types and matched the message nonce to the pinned owner/token/router allowance. The script intentionally prints neither the nonce nor typed data.
+
+This closes the read-only full-message/nonce compatibility gate for these small USDC/WETH probes. The output does not identify the wallet, prove a funded balance, contain a signature, or establish an approval/swap receipt. No transaction was signed or submitted by the probe. The earlier quote 503 did not recur; its specific cause remains unknown because no failure code was captured from that earlier run.
+
+Next work: settle the initial signer/account support boundary, validate signatures against saved messages, consume quotes once, validate Universal Router calldata and simulate before any wallet-write release.

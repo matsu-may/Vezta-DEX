@@ -61,8 +61,9 @@
 - [x] Apply owner's hook-free routing decision and add read-only diagnostics separating Permit2 allowance expiry from signature deadline; see [routing/permit evidence](../../research/2026-09-28-hook-free-routing-and-permit-policy.md).
 - [x] Owner supplied live hook-free quotes in both directions: route policy passes, exact permit amount, approximately 30-day allowance expiration and 30-minute signature deadline.
 - [x] Owner selected option 1: exact amount, maximum 30-day remaining allowance expiration, maximum 30-minute signature deadline, and a separate 30-second quote TTL.
-- [x] Add a read-only quote-bound Permit2 message plan with full schema/spender/nonce validation. See [standard-policy plan](2026-09-28-permit2-standard-policy.md) and [validation/host probe](../../research/2026-09-28-permit2-standard-policy-validation.md). Live full-schema/nonce evidence remains open.
+- [x] Add a read-only quote-bound Permit2 message plan with full schema/spender/nonce validation. See [standard-policy plan](2026-09-28-permit2-standard-policy.md) and [validation/host probe](../../research/2026-09-28-permit2-standard-policy-validation.md). Owner supplied successful live full-schema/spender/pinned-nonce plans in both directions at Polygon blocks 94600398 and 94600401. Signing and transaction gates remain open.
 
+- [ ] Select the initial signer/account boundary before account-specific code; see [EOA versus smart-wallet analysis](../../research/2026-09-28-swap-signer-boundary.md).
 - [ ] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observe failure.
 - [ ] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate returned transaction from connected account. Rerun tests.
 - [ ] Browser-test rejected signature and changed account while prompt is open.

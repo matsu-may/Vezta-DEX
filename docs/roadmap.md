@@ -14,9 +14,11 @@ The [Trading API swap spec](specs/2026-09-27-trading-api-swap.md), [rate-budget 
 
 See [Permit2 standard-policy validation](research/2026-09-28-permit2-standard-policy-validation.md) for the read-only host probe and remaining execution gates.
 
+The next account-specific signing adapter awaits the owner's [initial signer-boundary decision](research/2026-09-28-swap-signer-boundary.md): EOA first, or additional smart-wallet support in the initial slice.
+
 ## Delivery sequence
 
-**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; the owner verified live compatibility in both directions, exact permit amounts, approximately 30-day Permit2 allowance expiration and 30-minute signature deadline. The owner selected **Permit2 option 1**: exact amount, maximum 30-day remaining allowance lifetime, maximum 30-minute signature deadline, and a separate 30-second quote TTL. A read-only quote-bound Permit2 plan now checks the complete message and a pinned chain nonce; live validation and wallet-write gates remain open. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
+**Routing decision, 2026-09-28:** V2/V3 plus V4 without hooks. Shared policy and response inspection are implemented; the owner verified live compatibility in both directions, exact permit amounts, approximately 30-day Permit2 allowance expiration and 30-minute signature deadline. The owner selected **Permit2 option 1**: exact amount, maximum 30-day remaining allowance lifetime, maximum 30-minute signature deadline, and a separate 30-second quote TTL. A read-only quote-bound Permit2 plan now checks the complete message and a pinned chain nonce; the owner verified live signing plans in both directions at Polygon blocks 94600398 and 94600401. Wallet signing, simulation and receipt gates remain open. See [routing and permit evidence](research/2026-09-28-hook-free-routing-and-permit-policy.md).
 
 | Milestone | Work | Exit evidence |
 |---|---|---|
