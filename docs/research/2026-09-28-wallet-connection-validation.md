@@ -82,4 +82,8 @@ The initial report did not include the input amount. The owner subsequently repo
 
 For this sample, integer arithmetic also confirms `37276521867148979 = floor(37463841072511537 × 9950 / 10000)`. The input and USDC → WETH quote display are now confirmed by the owner; this is a 100 USDC quote, not a 1 USDC smoke result. The displayed route label does not independently establish best-price execution.
 
-Browser/wallet versions, the reverse direction, invalidation on input/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
+### Amount-change invalidation — owner confirmed
+
+After being asked to change the amount from 100 to 1 USDC, verify that the old quote disappears immediately, and request a fresh quote, the owner confirmed that the flow worked as described. Record amount-change invalidation and requesting a replacement quote as passed by owner report. No replacement quote values were supplied; this confirmation does not establish a new numerical quote sample or token-direction/slippage invalidation.
+
+Browser/wallet versions, the reverse direction, invalidation on token/slippage/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
