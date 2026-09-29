@@ -70,4 +70,16 @@ The owner supplied an installed MetaMask account (recorded here as `0xf662…D81
 
 Integer arithmetic confirms that the minimum equals `floor(estimated base units × 9950 / 10000)`, consistent with 50 bps (0.5%) slippage. This is owner-reported connection and one-direction quote-display evidence, not agent-observed browser execution, price comparison or a transaction receipt. It does not establish that this MetaMask account has empty on-chain code.
 
-The input amount was not included. `swap-form.tsx` defaults to `100` USDC, whereas the handoff requested a 1 USDC example; exact input confirmation remains pending before labeling this a 1 USDC smoke result. Do not infer price correctness from output alone. Browser/wallet versions, the reverse direction, invalidation on input/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
+The initial report did not include the input amount. The owner subsequently reported a new quote with an explicit **100 USDC** input:
+
+| Field | Reported value |
+|---|---|
+| Input | `100 USDC` |
+| Estimated received | `0.037463841072511537 WETH` |
+| Minimum received | `0.037276521867148979 WETH` |
+| Route | `Uniswap AMM · Polygon · best price` |
+| Observed | `2026-09-29T05:04:32.239Z` |
+
+For this sample, integer arithmetic also confirms `37276521867148979 = floor(37463841072511537 × 9950 / 10000)`. The input and USDC → WETH quote display are now confirmed by the owner; this is a 100 USDC quote, not a 1 USDC smoke result. The displayed route label does not independently establish best-price execution.
+
+Browser/wallet versions, the reverse direction, invalidation on input/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
