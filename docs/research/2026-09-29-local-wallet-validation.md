@@ -56,6 +56,6 @@ Installed-wallet rejection/change/reload checks, exact funded approval, unchange
 - `133772a`: opt-in local gate/UI/launcher.
 - `1fb2a7d`: transition regression, browser artifact and frozen CI.
 - `3bb1a52`: initial owner checklist/evidence, reviewed head.
-- The following fix commit binds shared recovery ownership and inclusion provenance; final handoff documents actual pending owner gates.
+- `af5f76d`: shared recovery ownership, nonce/inclusion proof and candidate verification; final handoff records actual pending owner gates.
 
 This session's scratch ledger is archived as [execution record](2026-09-29-local-wallet-execution-record.md); other plans' compiler/evidence directories are preserved.
