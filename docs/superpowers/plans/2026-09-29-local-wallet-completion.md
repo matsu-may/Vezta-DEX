@@ -31,47 +31,51 @@
 
 **Files:** rehearsal spec, this plan; research decision/evidence/checklist documents.
 **Interfaces:** Produces the constraints and named contracts consumed by Tasks 2–6.
-- [ ] Record approved implementation scope, trust boundaries and routine technical decisions.
-- [ ] Self-review spec/plan against the six agreed steps. Commit documentation.
+- [x] Record approved implementation scope, trust boundaries and routine technical decisions.
+- [x] Self-review spec/plan against the six agreed steps. Commit documentation.
 
 ### Task 2: Shared validation and narrow API contracts
 
 **Files:** `packages/core/src/{swap-calldata,swap-abi,permit-signature,transaction-receipt}.ts`; compatibility exports; `apps/api/src/{wallet-state,wallet-observation,swap-preparation,server,chain,main}.ts`; adjacent tests.
 **Interfaces:** `WalletStateReader.getState(intent)` returns pinned EOA/balances/allowances/approval gas. `SwapPreparer.recheck(intent, quoteId)` returns the unchanged validated transaction with fresh simulation/gas, no upstream dispatch. `WalletObservationReader.observe(submission)` returns receipt and verified execution fields; `submission` includes original intent, hash and expected calldata digest.
-- [ ] Write missing shared/browser validation and API regressions: EOA/code, uint bounds, stale/block failure, gas, exact policy, changed nonce, recheck expiry, no second Uniswap dispatch and unrelated receipt transaction.
-- [ ] Run focused tests; observe RED. Implement minimal contracts and unchanged shared extraction.
-- [ ] Run focused tests and typecheck; observe GREEN. Commit.
+- [x] Write missing shared/browser validation and API regressions: EOA/code, uint bounds, stale/block failure, gas, exact policy, changed nonce, recheck expiry, no second Uniswap dispatch and unrelated receipt transaction.
+- [x] Run focused tests; observe RED. Implement minimal contracts and unchanged shared extraction.
+- [x] Run focused tests and typecheck; observe GREEN. Commit.
 
 ### Task 3: Controller, tracking and reload recovery
 
 **Files:** `apps/web/lib/{rehearsal-contracts,rehearsal-controller,rehearsal-storage,rehearsal-client}.ts`; adjacent tests.
 **Interfaces:** `RehearsalController` exposes subscribe/snapshot/connect/quote/approve/sign/prepare/submit/checkReceipt/invalidate/dispose. A fixed typed client provides quote/approval/state/permit/prepare/recheck/receipt. Storage contains only validated submission metadata/uncertainty.
-- [ ] Write RED tests for full explicit-action flow, duplicate clicks, rejected/changed wallet, exact calldata, quote/signature expiry, changed allowance, simulation failure, gas review changes and ambiguous broadcast.
-- [ ] Implement minimal controller. Capture returned hashes even after invalidation; never retain signatures on reset/reload.
-- [ ] Write RED recovery/receipt tests: malformed storage, interrupted prompt marker, late receipt, original-account balance refresh, revert gas, serialized reads and nonce/replacement uncertainty.
-- [ ] Implement tracking/recovery and selected balance updates. Run focused tests/typecheck GREEN and commit.
+- [x] Write RED tests for full explicit-action flow, duplicate clicks, rejected/changed wallet, exact calldata, quote/signature expiry, changed allowance, simulation failure, gas review changes and ambiguous broadcast.
+- [x] Implement minimal controller. Capture returned hashes even after invalidation; never retain signatures on reset/reload.
+- [x] Write RED recovery/receipt tests: malformed storage, interrupted prompt marker, late receipt, original-account balance refresh, revert gas, serialized reads and nonce/replacement uncertainty.
+- [x] Implement tracking/recovery and selected balance updates. Run focused tests/typecheck GREEN and commit.
 
 ### Task 4: Opt-in development route and UI
 
 **Files:** `scripts/start-rehearsal.mjs`, `apps/web/app/rehearsal/page.tsx`, `apps/web/app/api/rehearsal/[action]/route.ts`, `apps/web/lib/rehearsal-gate.ts`, `apps/web/components/rehearsal-panel.tsx`; adjacent tests; environment examples/package script.
 **Interfaces:** Launcher binds `127.0.0.1:3020`; gate requires development and launcher opt-in. Proxy accepts only fixed action names, exact local same-origin POST JSON and bounded inputs; fixed API origin from server env, no redirect or error leakage.
-- [ ] Write RED gate/proxy tests: missing/production gate, spoofed origin/host, oversized/unknown input and upstream leak/redirect/failure.
-- [ ] Implement route/launcher and concrete accessible review/status/recovery UI.
-- [ ] Write/render UI tests for each click boundary, status and retained pending identity. Run GREEN tests/typecheck and commit.
+- [x] Write RED gate/proxy tests: missing/production gate, spoofed origin/host, oversized/unknown input and upstream leak/redirect/failure.
+- [x] Implement route/launcher and concrete accessible review/status/recovery UI.
+- [x] Write/render UI tests for each click boundary, status and retained pending identity. Run GREEN tests/typecheck and commit.
 
 ### Task 5: Integrated mock-wallet verification
 
 **Files:** controller/component integration tests; a reproducible browser smoke script and evidence.
 **Interfaces:** Uses only the Task 2 API schemas and Task 3 controller through Task 4 UI, no real wallet or funded RPC writes.
-- [ ] Add integrated cases for valid flow plus rejection, changed account/network, stale quote/allowance, RPC errors, insufficient balance/gas, failed simulation, revert/delay/reload.
-- [ ] Run deterministic tests and isolated mock browser checks at desktop/mobile when environment permits. Record an environmental block precisely if browser/server execution is unavailable; leave an owner-runnable command.
-- [ ] Run full `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`; expected exit 0. Preserve owner next-env change. Commit.
+- [x] Add integrated cases for valid flow plus rejection, changed account/network, stale quote/allowance, RPC errors, insufficient balance/gas, failed simulation, revert/delay/reload.
+- [x] Run deterministic tests and isolated mock browser checks at desktop/mobile when environment permits. Record an environmental block precisely if browser/server execution is unavailable; leave an owner-runnable command.
+- [x] Run full `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`; expected exit 0. Preserve owner next-env change. Commit.
 
 ### Task 6: Independent review and owner handoff
 
 **Files:** evidence, decision log, owner checklist, README, roadmap and existing wallet plan.
 **Interfaces:** Handoff distinguishes deterministic proofs from all remaining installed-wallet/live/funded gates.
 - [ ] Dispatch one fresh read-only reviewer for this plan's complete range. Rule on declined items and fix Critical/Important issues with RED→GREEN plus full suite.
-- [ ] Record every chosen alternative, rationale and limitation; record actual verification and deferred work.
-- [ ] Provide local launcher/runbook, wallet rejection/change checks, owner-only funded 1-USDC approval/swap checklist and sanitized evidence fields. Update existing plans accurately; commit.
+- [x] Record implementation alternatives, rationale, limitations and actual verification; review findings are appended after the final reviewer.
+- [x] Provide local launcher/runbook, wallet rejection/change checks, owner-only funded 1-USDC approval/swap checklist and sanitized evidence fields. Update existing plans accurately; commit.
 - [ ] Keep current feature branch and public writes gated. No live wallet action, merge or push.
+
+## Verification status
+
+Tasks1–5 are code-complete. Full415 Vitest +28 Node script tests, typecheck, lint and build passed. Task5 permits environmental browser blocks: local launch returned EPERM; the supplied desktop/mobile smoke script is syntax-checked but unexecuted. Task6 final independent review remains pending. Actual browser/installed-wallet/funded gates remain unchecked in the original wallet plan and owner checklist.

@@ -17,7 +17,7 @@
 - `permitAmount: EXACT` does not constrain ERC20-to-Permit2 approval by itself. Owner selected exact ERC20 approval per swap on 2026-09-27.
 - Never forward Uniswap's observed `uint256.max` approval. Build `approve(canonical Permit2, amountIn)` and validate it independently.
 - Nonzero existing allowance other than `amountIn` blocks the flow pending an explicit reset/review; never silently use or revoke it.
-- No wallet write path until exact approval, fresh quote and browser evidence pass.
+- Public wallet writes wait for release evidence. The owner approved a separate opt-in loopback development rehearsal on2026-09-29; each live action still requires their wallet confirmation.
 
 ## Review Focus
 
@@ -56,7 +56,7 @@
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 
-The [local rehearsal proposal](../../specs/2026-09-29-local-swap-rehearsal-proposal.md) is awaiting owner decision. It proposes a distinct development harness to gather funded evidence while public controls stay disabled; this is not approval to build or activate that exception.
+The owner approved the [local rehearsal](../../specs/2026-09-29-local-swap-rehearsal-proposal.md) and its [six-task implementation plan](2026-09-29-local-wallet-completion.md) on2026-09-29. The opt-in loopback harness is implemented; mock-wallet controller/UI/gate tests pass. Actual browser smoke, installed-wallet signing and funded evidence remain pending. Follow the [owner checklist](../../research/2026-09-29-local-wallet-owner-checklist.md); public write controls remain disabled.
 
 ### Task 3: Permit2 and swap preparation
 
@@ -70,14 +70,15 @@ The [local rehearsal proposal](../../specs/2026-09-29-local-swap-rehearsal-propo
 - [x] Owner selected A: EOA accounts without deployed code/delegation, followed by A for independent deployment recompilation. Host and local solc runs reproduced saved runtime; scoped configuration review supports the allowed ERC20 commands. See [EOA/rebuild/preparation evidence](../../research/2026-09-28-eoa-signer-validation.md); exact historical dependency Git text and unused integrations remain unclaimed.
 - [x] Test quote/signature identity, changed intent, expiry, router target, calldata, value and deadline; observed missing implementation and block-advance/message-reuse regressions before green tests.
 - [x] Implement single-use quote-bound Permit2 and `/swap` preparation; simulate from the owner at pinned blocks, recheck state, compute local gas and share the rate limiter. Deterministic full tests passed; live signed calldata compatibility remains open. Dedicated [EOA plan](2026-09-28-eoa-swap-preparation.md) carries the implementation and final review gate.
-- [ ] Browser-test rejected signature and changed account while prompt is open.
+- [x] Deterministic mock controller tests cover rejected signature and account/network changes during prompts.
+- [ ] Confirm these signing cases in browser smoke and installed MetaMask; the agent could not bind a local server.
 
 ### Task 4: Receipts and release gate
 
 **Files:** Wallet state component and tests; `docs/research/` evidence; README/roadmap.
 
-- [x] Prepare a read-only Polygon receipt reader and pure receipt lifecycle helpers with explicit confirmations, canonical-block/identity checks, timeout recovery, original-account effects and deduplication. See the [focused receipt plan](2026-09-29-receipt-tracking-foundation.md). UI wiring, actual balance refresh and approval/signature states remain pending.
+- [x] Prepare a read-only Polygon receipt reader and pure receipt lifecycle helpers with explicit confirmations, canonical-block/identity checks, timeout recovery, original-account effects and deduplication. See the [focused receipt plan](2026-09-29-receipt-tracking-foundation.md). The approved local rehearsal now wires UI/controller actions and original-account economic balance observation; public controls and funded evidence remain gated.
 
-- [ ] Test approval, permit, submission, confirmed, reverted and timeout states; observe failure.
-- [ ] Implement receipt tracking; refresh balances only on confirmed receipt. Rerun tests.
+- [x] Test approval, permit, submission, confirmed, reverted, delayed and reload states with a deterministic mock wallet; primary missing modules and concrete transition regressions were observed RED→GREEN.
+- [x] Implement serialized tracking in the local harness; verify actual transaction effects before reporting success and show receipt-block balances for confirmed success or revert. Full deterministic suite passes.
 - [ ] Test with small funded Polygon wallet, record sanitized hashes/gas/executed output, compare with Uniswap UI, obtain code review, then enable write control.
