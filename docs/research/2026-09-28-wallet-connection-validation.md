@@ -90,4 +90,8 @@ After being asked to change the amount from 100 to 1 USDC, verify that the old q
 
 The owner confirmed the next requested sequence worked: request a fresh quote, leave the inputs unchanged for approximately 30 seconds, observe the quote clear with `Routed quote expired. Request a fresh quote.`, and request a replacement quote successfully. Record expiry and refresh as passed by owner report; no exact elapsed-time measurement or replacement quote values were supplied.
 
-Browser/wallet versions, the reverse direction, invalidation on token/slippage/account/network changes and rejection/retry remain pending until reported. Wallet writes remain disabled.
+### Network change and Polygon reconnection — owner confirmed
+
+The owner confirmed the requested network-change sequence worked: obtain a Polygon quote, switch MetaMask to another network, observe the quote clear and the connection button return, and attempt connection on that network to receive the Polygon requirement. Switching back to Polygon, reconnecting and requesting a new quote also worked. Record network-change invalidation, wrong-network rejection and Polygon reconnection as passed by owner report. The alternative network was not specified; this result does not establish account-change handling.
+
+Browser/wallet versions, the reverse direction, invalidation on token/slippage/account changes and rejection/retry remain pending until reported. Wallet writes remain disabled.
