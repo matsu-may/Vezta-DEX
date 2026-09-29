@@ -140,3 +140,28 @@ describe("receipt lifecycle integration and recovery",()=>{
     expect(t.wallet.request).not.toHaveBeenCalledWith(expect.objectContaining({method:"eth_sendTransaction"}));
   });
 });
+
+describe("remaining wallet integration failures",()=>{
+ it("discards a signature that returns after quote TTL or a chain-change event",async()=>{
+  for(const fault of ["expiry","chain"]){
+   const s=await setup();await s.controller.connect();await s.controller.quote(testIntent);await s.controller.reviewPermit();const old=s.wallet.request;
+   s.wallet.request=async args=>{if(args.method === "eth_signTypedData_v4"){if(fault==="expiry")s.advance(30000);else{s.changeChain();s.emit("chainChanged","0x1");}return s.signature;}return old(args);};
+   await s.controller.sign();await s.controller.prepare();expect(s.api.call).not.toHaveBeenCalledWith("prepare",expect.anything());
+  }
+ });
+ it("does not prepare after a rejected signature, stale RPC or insufficient token balance",async()=>{
+  const s=await setup();await s.controller.connect();await s.controller.quote(testIntent);await s.controller.reviewPermit();const old=s.wallet.request;
+  s.wallet.request=async args=>{if(args.method === "eth_signTypedData_v4")throw {code:4001};return old(args);};await s.controller.sign();await s.controller.prepare();expect(s.api.call).not.toHaveBeenCalledWith("prepare",expect.anything());
+  for(const fault of ["stale","balance"]){const t=await setup();if(fault==="stale")t.state.observedAt=new Date(testNow-120001).toISOString();else t.state.balances.USDC="999999";await t.controller.connect();await t.controller.quote(testIntent);expect(t.controller.snapshot().stage).toBe("error");}
+ });
+ it("preserves intent and does not broadcast when simulation is unavailable",async()=>{
+  const s=await setup();await prepared(s);const old=s.api.call;s.api.call=async(a,b)=>{if(a === "recheck")throw new Error("secret-rpc");return old(a,b);};await s.controller.submit();
+  expect(s.wallet.request).not.toHaveBeenCalledWith(expect.objectContaining({method:"eth_sendTransaction"}));expect(s.controller.snapshot().message).not.toContain("secret");
+ });
+ it("does not prepare an already-ready permit after an invalid controller transition",async()=>{
+  const s=await setup();s.state.permitAllowance.amount="1000000";s.state.permitAllowance.expiration=String(Math.floor(testNow/1000)+100);const old=s.api.call;
+  s.api.call=vi.fn(async(a,b)=>a === "permit" ? {permitPlan:{...testPlan(),permit:{kind:"ready"}}} : old(a,b));
+  await s.controller.connect();await s.controller.quote(testIntent);await s.controller.reviewPermit();await s.controller.sign();expect(s.controller.snapshot().stage).toBe("error");await s.controller.prepare();
+  expect(s.api.call).not.toHaveBeenCalledWith("prepare",expect.anything());
+ });
+});

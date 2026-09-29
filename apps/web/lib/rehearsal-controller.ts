@@ -297,7 +297,7 @@ export class RehearsalController {
       this.free();
       const c = this.current();
       const plan = this.state.permit?.permit;
-      if (!plan || (plan.kind !== "ready" && !(plan.kind === "sign" && this.signature && this.state.stage === "permit-signed")))
+      if (!plan || !((plan.kind === "ready" && this.state.stage === "permit-review") || (plan.kind === "sign" && this.signature && this.state.stage === "permit-signed")))
         throw new FlowError("A reviewed permit is required.");
       await this.walletCheck(c.intent.swapper, c.generation);
       this.current();

@@ -28,7 +28,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
           <main>{children}</main>
           <footer className="site-footer">
             <span>Vezta DEX · Independent preview</span>
-            <span>Read-only pool discovery · No wallet signature required</span>
+            <span>Chain-sourced pool discovery · Independent development app</span>
           </footer>
         </div>
       </body>
