@@ -63,6 +63,7 @@ function recent(block: { number: bigint; timestamp: bigint }, now: number): void
 
 /** Generates unsigned data only. Never signs, retries signed requests, or broadcasts. */
 export class SwapPreparer {
+  private readonly preparations = new Map<string, { result: SwapPreparationResult; summary: import("@vezta-dex/core").TradingQuoteSummary; permit?: Permit2Data; signature?: Hex }>();
   constructor(
     private readonly chain: SwapPreparationChainSource,
     private readonly store: QuoteStore,
@@ -156,11 +157,52 @@ export class SwapPreparer {
       }
       if (uint(await this.chain.getNativeBalance(intent.swapper, finalBlock.number)) < gas * gasPrice) throw new Error();
       validate(); recent(finalBlock, this.now());
-      return {
+      const result: SwapPreparationResult = {
         chainId: 137, quoteId, intent, quoteExpiresAt: new Date(saved.expiresAt).toISOString(), deadline: deadline.toString(),
         transaction: { ...transaction, gas: gas.toString(), gasPrice: gasPrice.toString() },
         simulation: { status: "success", source: "polygon-rpc", blockNumber: finalBlock.number.toString(), observedAt: new Date(Number(finalBlock.timestamp) * 1000).toISOString() },
       };
+      this.prunePreparations();
+      if (this.preparations.size >= 128) this.preparations.delete(this.preparations.keys().next().value!);
+      this.preparations.set(quoteId, { result: structuredClone(result), summary: structuredClone(saved.summary), permit: permitData && structuredClone(permitData), signature: acceptedSignature });
+      return result;
+    } catch { throw new SwapPreparationUnavailableError("Swap preparation is unavailable"); }
+  }
+
+  private prunePreparations(): void {
+    for (const [id, entry] of this.preparations) if (Date.parse(entry.result.quoteExpiresAt) <= this.now()) this.preparations.delete(id);
+  }
+
+  /** Read-only refresh; never re-dispatches the consumed signed Uniswap request. */
+  async recheck(value: TradingIntent, quoteId: string): Promise<SwapPreparationResult> {
+    const intent = { ...value };
+    try {
+      validateTradingIntent(intent); this.prunePreparations();
+      const entry = this.preparations.get(quoteId);
+      if (!entry) throw new Error();
+      const { result, summary, permit, signature } = structuredClone(entry);
+      const validate = () => {
+        validateTradingQuoteSummary(summary, intent, this.now());
+        if (Date.parse(result.quoteExpiresAt) <= this.now()) throw new Error();
+        validateSwapCalldata(result.transaction.data, { intent, summary, permitData: permit, signature, deadline: BigInt(result.deadline), now: this.now() });
+      };
+      validate();
+      let block = await this.chain.getBlock(); recent(block, this.now());
+      if (block.number < BigInt(result.simulation.blockNumber)) throw new Error();
+      await this.checkState(intent, block, permit); validate();
+      await this.chain.simulateSwap(result.transaction, block.number); validate();
+      let gas = await this.checkGas(intent, result.transaction, block.number); validate();
+      const latest = await this.chain.getBlock(); recent(latest, this.now());
+      if (latest.number < block.number) throw new Error();
+      await this.checkState(intent, latest, permit); validate();
+      if (latest.number !== block.number) {
+        block = latest;
+        await this.chain.simulateSwap(result.transaction, block.number); validate();
+        gas = await this.checkGas(intent, result.transaction, block.number);
+        await this.checkState(intent, block, permit);
+      }
+      validate(); recent(block, this.now());
+      return { ...result, intent, transaction: { ...result.transaction, gas: gas.gas.toString(), gasPrice: gas.gasPrice.toString() }, simulation: { status: "success", source: "polygon-rpc", blockNumber: block.number.toString(), observedAt: new Date(Number(block.timestamp) * 1000).toISOString() } };
     } catch { throw new SwapPreparationUnavailableError("Swap preparation is unavailable"); }
   }
 

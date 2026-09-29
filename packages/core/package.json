@@ -4,9 +4,17 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./swap-calldata": "./src/swap-calldata.ts",
+    "./swap-abi": "./src/swap-abi.ts",
+    "./permit-signature": "./src/permit-signature.ts",
+    "./transaction-receipt": "./src/transaction-receipt.ts",
     ".": "./src/index.ts"
   },
   "scripts": {
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "viem": "2.47.18",
+    "zod": "4.3.6"
   }
 }

@@ -224,3 +224,34 @@ describe("swap preparation HTTP boundary", () => {
     expect(await failed.text()).not.toContain("hidden-rpc-secret");
   });
 });
+
+
+describe("prepared swap recheck", () => {
+  it("rechecks unchanged calldata without replaying a signed Uniswap request", async () => {
+    const s = setup();
+    const original = await s.preparer.prepare(intent, s.id, signature);
+    s.source.estimateSwapGas = async () => 200000n;
+    const fresh = await s.preparer.recheck(intent, s.id);
+    expect(fresh.transaction.data).toBe(original.transaction.data);
+    expect(fresh.transaction.gas).toBe("240000");
+    expect(s.posts).toHaveLength(1);
+  });
+  it("does not expose a cached preparation to another intent or expired quote", async () => {
+    const s = setup(); await s.preparer.prepare(intent, s.id, signature);
+    await expect(s.preparer.recheck({ ...intent, amountIn: "999999" }, s.id)).rejects.toThrow();
+    s.advance(30000);
+    await expect(s.preparer.recheck(intent, s.id)).rejects.toThrow();
+    expect(s.posts).toHaveLength(1);
+  });
+  it("rejects changed nonce/code/allowance and failed simulation without replay", async () => {
+    for (const fault of ["nonce", "code", "allowance", "simulation"]) {
+      const s = setup(); await s.preparer.prepare(intent, s.id, signature);
+      if (fault === "nonce") s.source.getPermitAllowance = async () => ({ amount: 0n, expiration: 0n, nonce: 8n });
+      if (fault === "code") s.source.getAccountCode = async () => "0xef0100";
+      if (fault === "allowance") s.source.getTokenAllowance = async () => 0n;
+      if (fault === "simulation") s.source.simulateSwap = async () => { throw new Error("revert"); };
+      await expect(s.preparer.recheck(intent, s.id)).rejects.toThrow();
+      expect(s.posts).toHaveLength(1);
+    }
+  });
+});

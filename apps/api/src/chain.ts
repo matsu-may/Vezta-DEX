@@ -5,6 +5,8 @@ import type { PoolChainSource } from "./pools";
 import type { QuoteChainSource } from "./quote";
 import type { AllowanceChainSource } from "./allowance-reader";
 import type { PermitChainSource } from "./permit-reader";
+import type { WalletStateSource } from "./wallet-state";
+import type { WalletObservationSource } from "./wallet-observation";
 import type { SwapPreparationChainSource } from "./swap-preparation";
 
 const permit2Abi = [{
@@ -54,7 +56,7 @@ const quoterAbi = [{
   ],
 }] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource & SwapPreparationChainSource {
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource & SwapPreparationChainSource & WalletStateSource & WalletObservationSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -62,6 +64,11 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
   const client = createPublicClient({ chain: polygon, transport: http(rpcUrl, { timeout: 8_000, retryCount: 1 }) });
 
   return {
+    receiptClient: client,
+    async simulateApproval(transaction, blockNumber) {
+      const result = await client.request({ method: "eth_call", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0" }, toHex(blockNumber)] });
+      if (result.toLowerCase() !== `0x${"0".repeat(63)}1`) throw new Error("Approval simulation failed");
+    },
     getTokenBalance(token, owner, blockNumber) {
       return client.readContract({ address: token, abi: erc20Abi, functionName: "balanceOf", args: [owner], blockNumber });
     },

@@ -7,6 +7,9 @@ import { ApprovalInputError, type AllowanceReader } from "./allowance-reader";
 import { PermitInputError, type PermitReader } from "./permit-reader";
 import { SwapPreparationInputError, type SwapPreparer } from "./swap-preparation";
 
+import type { WalletStateReader } from "./wallet-state";
+import { submissionSchema, type WalletObservationReader } from "./wallet-observation";
+
 const tradingIntentSchema = z.object({
   chainId: z.literal(137),
   swapper: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -23,8 +26,32 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer): Promise<Response> {
+export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer, wallet?: WalletStateReader, observations?: WalletObservationReader): Promise<Response> {
   const pathname = new URL(request.url).pathname;
+  if (pathname === "/api/v1/wallet-state" || pathname === "/api/v1/transaction-observation" || pathname === "/api/v1/swap-recheck") {
+    if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
+    let body: unknown; try { body = await request.json(); } catch { return json({ error: "Invalid observation request" }, 400); }
+    try {
+      if (pathname.endsWith("wallet-state")) {
+        const parsed = tradingIntentSchema.strict().safeParse(body);
+        if (!parsed.success) return json({ error: "Invalid wallet state request" }, 400);
+        if (!wallet) return json({ error: "Wallet state unavailable" }, 503);
+        return json({ state: await wallet.getState(parsed.data as TradingIntent) });
+      }
+      if (pathname.endsWith("swap-recheck")) {
+        const parsed = tradingIntentSchema.extend({ quoteId: z.string().regex(/^[0-9a-f]{48}$/) }).strict().safeParse(body);
+        if (!parsed.success) return json({ error: "Invalid recheck request" }, 400);
+        if (!swaps) return json({ error: "Swap recheck unavailable" }, 503);
+        const { quoteId, ...intent } = parsed.data;
+        return json({ preparation: await swaps.recheck(intent as TradingIntent, quoteId) });
+      }
+      const parsed = submissionSchema.safeParse(body);
+      if (!parsed.success) return json({ error: "Invalid submission record" }, 400);
+      if (!observations) return json({ error: "Receipt observation unavailable" }, 503);
+      const result = await observations.observe(parsed.data);
+      return json(JSON.parse(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value)));
+    } catch { return json({ error: "Polygon observation is unavailable" }, 503); }
+  }
   if (pathname === "/api/v1/swap-preparation") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
     if (!swaps) return json({ error: "Swap preparation is unavailable" }, 503);
