@@ -51,6 +51,7 @@
 - [x] Owner ran `smoke-approval-plan.mjs` against the local API: both zero-allowance Polygon reads returned exact unsigned Permit2 approval plans; no wallet transaction was submitted. See the live-evidence log.
 - [x] Harden read-only connection against malformed chains, silent account changes, delayed grant events and interrupted prompts; verify unit regressions, independent review and eight mock-wallet browser cases. See [wallet connection evidence](../../research/2026-09-28-wallet-connection-validation.md).
 - [ ] Verify read-only connection, account/network changes, rejection and quote invalidation in an installed wallet using the evidence document's steps.
+- [x] Owner reported quote display in both directions, amount/direction/slippage invalidation, expiry/refresh, network invalidation, wrong-network rejection and Polygon reconnection. Account-change and account-access rejection/retry remain pending; do not close the full installed-wallet gate yet.
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 
@@ -71,6 +72,8 @@
 ### Task 4: Receipts and release gate
 
 **Files:** Wallet state component and tests; `docs/research/` evidence; README/roadmap.
+
+- [x] Prepare a read-only Polygon receipt reader and pure receipt lifecycle helpers with explicit confirmations, canonical-block/identity checks, timeout recovery, original-account effects and deduplication. See the [focused receipt plan](2026-09-29-receipt-tracking-foundation.md). UI wiring, actual balance refresh and approval/signature states remain pending.
 
 - [ ] Test approval, permit, submission, confirmed, reverted and timeout states; observe failure.
 - [ ] Implement receipt tracking; refresh balances only on confirmed receipt. Rerun tests.
