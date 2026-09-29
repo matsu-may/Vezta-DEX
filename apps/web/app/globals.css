@@ -91,3 +91,10 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
 @media (max-width: 800px) { .site-header { gap: 20px; } .main-nav { gap: 16px; } .detail-grid { grid-template-columns: 1fr; } }
 @media (max-width: 800px) { .swap-layout { grid-template-columns: 1fr; } }
 @media (max-width: 600px) { .site-header { height: 68px; padding: 0 18px; } .brand { font-size: 13px; } .brand-mark { width: 25px; height: 25px; font-size: 16px; } .main-nav { margin-left: auto; font-size: 12px; } .network-pill { display: none; } main { width: min(100% - 32px, 1200px); } .page-stack { padding-top: 28px; gap: 18px; } .hero { min-height: 0; padding: 34px 26px; } .hero p { font-size: 14px; } .section-card { padding: 22px 18px; } .section-heading { align-items: start; flex-direction: column; gap: 5px; } .token-grid { grid-template-columns: 1fr; } .data-table { min-width: 660px; } .identity-list div { grid-template-columns: 1fr; gap: 3px; } .site-footer { padding: 20px 18px; flex-direction: column; gap: 5px; } }
+
+.rehearsal-fields { display: grid; gap: 10px; margin-top: 18px; max-width: 480px; }
+.rehearsal-layout .mono, .rehearsal-layout strong { overflow-wrap: anywhere; }
+.rehearsal-layout .button { margin-top: 12px; }
+@media (max-width: 600px) {
+  .rehearsal-layout .quote-details > div { align-items: flex-start; flex-direction: column; gap: 6px; }
+}

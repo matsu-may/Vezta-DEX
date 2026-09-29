@@ -8,7 +8,8 @@
     "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint apps packages",
-    "build": "pnpm -r --if-present build"
+    "build": "pnpm -r --if-present build",
+    "dev:rehearsal": "node scripts/start-rehearsal.mjs"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
