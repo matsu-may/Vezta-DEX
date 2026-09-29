@@ -56,3 +56,18 @@ The next gate was attempted after unsigned swap preparation passed its separate 
 - The installed-wallet gate remains **pending**, including permission grant/rejection, both live quote directions, expiry and account/network invalidation. Earlier mock-provider checks are not a substitute.
 
 Resume from a normal host Terminal with the two commands above, then open `http://127.0.0.1:3020/swap` in the browser that has the wallet installed. No compiler reinstall or router rebuild is needed for this gate. Record browser/wallet versions and the six checks above. On first handoff, report whether connection succeeds and whether each small quote is available; if a quote fails, provide only the visible error/code. Do not share a full wallet screenshot, signature, API key or recovery phrase. No funded action is required for this read-only gate.
+
+## Owner-reported MetaMask quote — 2026-09-29
+
+The owner supplied an installed MetaMask account (recorded here as `0xf662…D81A`) and the routed quote displayed by the app:
+
+| Field | Reported value |
+|---|---|
+| Estimated received | `0.037487543240842929 WETH` |
+| Minimum received | `0.037300105524638714 WETH` |
+| Route | `Uniswap AMM · Polygon · best price` |
+| Observed | `2026-09-29T05:00:04.068Z` |
+
+Integer arithmetic confirms that the minimum equals `floor(estimated base units × 9950 / 10000)`, consistent with 50 bps (0.5%) slippage. This is owner-reported connection and one-direction quote-display evidence, not agent-observed browser execution, price comparison or a transaction receipt. It does not establish that this MetaMask account has empty on-chain code.
+
+The input amount was not included. `swap-form.tsx` defaults to `100` USDC, whereas the handoff requested a 1 USDC example; exact input confirmation remains pending before labeling this a 1 USDC smoke result. Do not infer price correctness from output alone. Browser/wallet versions, the reverse direction, invalidation on input/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
