@@ -94,4 +94,8 @@ The owner confirmed the next requested sequence worked: request a fresh quote, l
 
 The owner confirmed the requested network-change sequence worked: obtain a Polygon quote, switch MetaMask to another network, observe the quote clear and the connection button return, and attempt connection on that network to receive the Polygon requirement. Switching back to Polygon, reconnecting and requesting a new quote also worked. Record network-change invalidation, wrong-network rejection and Polygon reconnection as passed by owner report. The alternative network was not specified; this result does not establish account-change handling.
 
-Browser/wallet versions, the reverse direction, invalidation on token/slippage/account changes and rejection/retry remain pending until reported. Wallet writes remain disabled.
+### Reverse direction and slippage invalidation — owner confirmed
+
+The owner confirmed the requested sequence worked: changing to WETH → USDC cleared the old quote, requesting a quote for 0.001 WETH displayed output in USDC, changing slippage from 0.5% to 1% cleared that quote, and requesting a replacement worked. Record direction/slippage invalidation and the reverse quote display as passed by owner report. No estimated/minimum output values were supplied for this sample; numerical checks at 1% remain unclaimed.
+
+Browser/wallet versions, invalidation on account changes and account-access rejection/retry remain pending until reported. Wallet writes remain disabled.
