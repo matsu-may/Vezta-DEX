@@ -38,11 +38,11 @@
 - Consumes: `TradingIntent`, curated token/router identities and a narrow viem public-client interface.
 - Produces: `SubmittedTransaction` (`kind: approval | swap`, `intent`, `hash`); `ReceiptObservation` (`pending | confirming | confirmed | reverted | unavailable`, original hash/chain, source and timestamp); `readTransactionReceipt(client, transaction, requiredConfirmations, now?): Promise<ReceiptObservation>`.
 
-- [ ] Write tests using a real viem public client over controlled JSON-RPC responses. Verify successful/reverted receipts at an explicit threshold, missing receipt, wrong identity/chain, malformed fields, insufficient confirmations, noncanonical block, head behind receipt and sanitized transport errors. Validate parameters before any RPC call.
-- [ ] Run `pnpm exec vitest run apps/web/lib/transaction-receipt.test.ts`. Expected: failure because the reader module is missing.
-- [ ] Implement the reader. Use `getChainId`, `getTransactionReceipt`, uncached `getBlockNumber` and `getBlock({ blockNumber })`. Check chain before/after receipt reads, validate sender/target/hash/status/gas/block fields, and compare canonical block hash and number. Only the typed not-found error represents an absent receipt.
-- [ ] Rerun the focused command. Expected: all receipt tests pass. Run `pnpm test`; expected: full suite passes.
-- [ ] Commit reader and tests with `feat(dex): validate Polygon transaction receipts`.
+- [x] Write tests using a real viem public client over controlled JSON-RPC responses. Verify successful/reverted receipts at an explicit threshold, missing receipt, wrong identity/chain, malformed fields, insufficient confirmations, noncanonical block, head behind receipt and sanitized transport errors. Validate parameters before any RPC call.
+- [x] Run `pnpm exec vitest run apps/web/lib/transaction-receipt.test.ts`. Expected: failure because the reader module is missing.
+- [x] Implement the reader. Use `getChainId`, `getTransactionReceipt`, uncached `getBlockNumber` and `getBlock({ blockNumber })`. Check chain before/after receipt reads, validate sender/target/hash/status/gas/block fields, and compare canonical block hash and number. Only the typed not-found error represents an absent receipt.
+- [x] Rerun the focused command. Expected: all receipt tests pass. Run `pnpm test`; expected: full suite passes.
+- [x] Commit reader and tests with `feat(dex): validate Polygon transaction receipts`.
 
 ### Task 2: Timeout, identity and balance-refresh lifecycle
 
@@ -52,12 +52,14 @@
 - Consumes: Task 1's submitted identity and receipt observation.
 - Produces: `startReceiptTracking(transaction, { requiredConfirmations, timeoutMs }, submittedAt): ReceiptTrackingState`; `invalidateReceiptIntent(state): ReceiptTrackingState`; `applyReceiptObservation(state, observation, now): { state, refreshBalancesFor, requiresFreshQuote }`.
 
-- [ ] Write tests proving missing receipt before/after timeout, late success/revert, RPC uncertainty, wrong-operation observations, changed intent, original-account refresh, approval requote, duplicate-confirmation suppression and reorg recovery. No signature, simulation or approval receipt can stand in for a swap receipt.
-- [ ] Run `pnpm exec vitest run apps/web/lib/receipt-tracking.test.ts`. Expected: failure because the lifecycle module is missing.
-- [ ] Implement immutable state transitions. Copy/freeze original intent. Retain hash through uncertainty and changed intent; do not request a new quote for an invalidated approval intent. Gate success again on matching receipt identity and the configured threshold. Successful receipt effects are deduplicated by canonical block hash.
-- [ ] Rerun focused tests, then `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`. Expected: exit 0; record existing warnings and any sandbox limitations accurately.
-- [ ] Record owner-reported wallet checks and the implementation's actual limits. Commit with `feat(dex): track receipt uncertainty and confirmation effects`.
+- [x] Write tests proving missing receipt before/after timeout, late success/revert, RPC uncertainty, wrong-operation observations, changed intent, original-account refresh, approval requote, duplicate-confirmation suppression and reorg recovery. No signature, simulation or approval receipt can stand in for a swap receipt.
+- [x] Run `pnpm exec vitest run apps/web/lib/receipt-tracking.test.ts`. Expected: failure because the lifecycle module is missing.
+- [x] Implement immutable state transitions. Copy/freeze original intent. Retain hash through uncertainty and changed intent; do not request a new quote for an invalidated approval intent. Gate success again on matching receipt identity and the configured threshold. Successful receipt effects are deduplicated by canonical block hash.
+- [x] Rerun focused tests, then `pnpm test`, `pnpm typecheck`, `pnpm lint`, `pnpm build`. Expected: exit 0; record existing warnings and any sandbox limitations accurately.
+- [x] Record owner-reported wallet checks and the implementation's actual limits. Commit with `feat(dex): track receipt uncertainty and confirmation effects`.
 
 ## Final gate
 
 Request one fresh-context code review of this plan's changes. Resolve Critical/Important findings with regression tests; record deferred minors. Keep UI read-only and retain the main wallet plan's remaining installed-wallet and funded receipt gates. Do not mark milestone 2 or the complete wallet flow finished.
+
+**Result:** Both tasks completed. Full suite: 336 Vitest + 28 Node tests; typecheck/lint/build passed. Fresh-context review found no Critical/Important issues and independently passed 66 focused tests. Deferred Minor: equal-timestamp overlapping reads can regress status; serialize reads or add monotonic sequencing before polling/UI integration. See [validation and rulings](../../research/2026-09-29-receipt-tracking-validation.md).
