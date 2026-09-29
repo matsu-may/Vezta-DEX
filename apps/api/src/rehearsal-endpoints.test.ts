@@ -16,7 +16,7 @@ describe("read-only rehearsal endpoints", () => {
     const a = await handleRequest(request("wallet-state", intent), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
     expect(a.status).toBe(200); expect(a.headers.get("cache-control")).toBe("no-store");
     expect(state.getState).toHaveBeenCalledWith(intent);
-    const b = await handleRequest(request("transaction-observation", { kind: "swap", intent, hash, dataHash: hash, minimumAmountOut: "995", submittedAt: 1000 }), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
+    const b = await handleRequest(request("transaction-observation", { kind: "swap", intent, hash, dataHash: hash, minimumAmountOut: "995", submittedAt: 1000, submissionId: "11111111-1111-4111-8111-111111111111", afterBlock: "122", expectedNonce: "7" }), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
     expect(b.status).toBe(200); expect(await b.json()).toEqual({ observation: { receipt: { blockNumber: "123" } }, execution: null });
   });
   it("rejects malformed metadata/unknown fields and sanitizes state failures", async () => {
@@ -24,7 +24,7 @@ describe("read-only rehearsal endpoints", () => {
     const receipt = { observe: vi.fn() } as unknown as WalletObservationReader;
     const a = await handleRequest(request("wallet-state", intent), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
     expect(a.status).toBe(503); expect(JSON.stringify(await a.json())).not.toContain("secret");
-    const b = await handleRequest(request("transaction-observation", { kind: "swap", intent, hash, dataHash: hash, minimumAmountOut: "995", submittedAt: 1000, arbitraryRpc: "eth_sendRawTransaction" }), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
+    const b = await handleRequest(request("transaction-observation", { kind: "swap", intent, hash, dataHash: hash, minimumAmountOut: "995", submittedAt: 1000, submissionId: "11111111-1111-4111-8111-111111111111", afterBlock: "122", expectedNonce: "7", arbitraryRpc: "eth_sendRawTransaction" }), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
     expect(b.status).toBe(400); expect(receipt.observe).not.toHaveBeenCalled();
   });
   it("rechecks a prepared quote without calling prepare again", async () => {

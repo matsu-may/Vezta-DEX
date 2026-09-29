@@ -26,8 +26,14 @@ export async function setup(allowance = "1000000") {
     if(action === "prepare" || action === "recheck") return {preparation:prep};
     return { observation:{chainId:137,hash:testHash,source:"polygon-rpc",observedAt:new Date(now).toISOString(),status:"confirmed",receipt:{from:testIntent.swapper,to:receiptKind === "approval" ? testIntent.tokenIn : prep.transaction.to,blockNumber:"123",blockHash:testBlockHash,confirmations:"2",outcome:"success",gasUsed:"100000",effectiveGasPrice:"30000000000"}},execution:{status:"verified",nonce:"7",amountIn:receiptKind === "swap" ? "1000000" : "0",amountOut:receiptKind === "swap" ? "1000" : "0",gasCost:"3000000000000000",balances:{USDC:"1000000",WETH:"1000",POL:"999000000000000000"},tokenAllowance:receiptKind === "approval" ? "1000000" : "0",permitAllowance:{amount:"0",expiration:"0",nonce:"8"}} };
   }) };
-  const controller = new RehearsalController(wallet,api,storage,()=>now);
-  return {controller,wallet,api,state,prep,values,storage,signature,advance:(ms:number)=>{now+=ms;},emit:(name:string,...args:unknown[])=>listeners.get(name)?.(...args),changeAccount:()=>{selected="0x1111111111111111111111111111111111111111";},changeChain:()=>{chain="0x1";},receiptKind:(k:"approval"|"swap")=>{receiptKind=k;} };
+  let occupied = false;
+  const coordination = { async run(action: () => Promise<void>) {
+    if (occupied) throw new Error("Another tab active");
+    occupied = true;
+    try { await action(); } finally { occupied = false; }
+  } };
+  const controller = new RehearsalController(wallet,api,storage,()=>now,coordination);
+  return {controller,wallet,api,state,prep,values,storage,signature,coordination,advance:(ms:number)=>{now+=ms;},emit:(name:string,...args:unknown[])=>listeners.get(name)?.(...args),changeAccount:()=>{selected="0x1111111111111111111111111111111111111111";},changeChain:()=>{chain="0x1";},receiptKind:(k:"approval"|"swap")=>{receiptKind=k;} };
 }
 async function prepared(s: Awaited<ReturnType<typeof setup>>) {
   await s.controller.connect(); await s.controller.quote(testIntent); await s.controller.reviewPermit(); await s.controller.sign(); await s.controller.prepare();
@@ -110,7 +116,7 @@ describe("receipt lifecycle integration and recovery",()=>{
     const s=await setup();await prepared(s);const old=s.wallet.request;
     s.wallet.request=async args=>{if(args.method === "eth_sendTransaction")throw new Error("transport");return old(args);};
     await s.controller.submit();s.controller.dispose();
-    const restored=new RehearsalController(s.wallet,s.api,s.storage,()=>testNow);
+    const restored=new RehearsalController(s.wallet,s.api,s.storage,()=>testNow,s.coordination);
     expect(restored.snapshot().stage).toBe("uncertain");await restored.connect();await restored.quote(testIntent);await restored.submit();
     expect(restored.snapshot().submission?.hash).toBeNull();await restored.recover(testHash);await restored.checkReceipt();expect(restored.snapshot().stage).toBe("confirmed");
   });
@@ -134,7 +140,7 @@ describe("receipt lifecycle integration and recovery",()=>{
     await s.controller.checkReceipt();expect(s.controller.snapshot().stage).toBe("reverted");expect(s.controller.snapshot().execution?.gasCost).toBeTruthy();
   });
   it("blocks malformed recovery storage and storage failure before any broadcast",async()=>{
-    const s=await setup();s.values.set("vezta-dex:local-submission:v1","bad");const restored=new RehearsalController(s.wallet,s.api,s.storage,()=>testNow);
+    const s=await setup();s.values.set("vezta-dex:local-submission:v1","bad");const restored=new RehearsalController(s.wallet,s.api,s.storage,()=>testNow,s.coordination);
     await restored.connect();expect(restored.snapshot().stage).toBe("recovery-blocked");
     const t=await setup();await prepared(t);t.storage.setItem=()=>{throw new Error("denied");};await t.controller.submit();
     expect(t.wallet.request).not.toHaveBeenCalledWith(expect.objectContaining({method:"eth_sendTransaction"}));
@@ -164,4 +170,79 @@ describe("remaining wallet integration failures",()=>{
   await s.controller.connect();await s.controller.quote(testIntent);await s.controller.reviewPermit();await s.controller.sign();expect(s.controller.snapshot().stage).toBe("error");await s.controller.prepare();
   expect(s.api.call).not.toHaveBeenCalledWith("prepare",expect.anything());
  });
+});
+
+
+describe("review regressions: shared recovery and candidate identity", () => {
+  it("prevents two already-open controllers from broadcasting concurrently", async () => {
+    const s = await setup();
+    const second = new RehearsalController(s.wallet, s.api, s.storage, () => testNow, s.coordination);
+    await prepared(s);
+    await second.connect(); await second.quote(testIntent); await second.reviewPermit(); await second.sign(); await second.prepare();
+    const old = s.wallet.request;
+    const resolves: ((value: unknown) => void)[] = [];
+    s.wallet.request = vi.fn(args => args.method === "eth_sendTransaction" ? new Promise(r => { resolves.push(r); }) : old(args));
+    const sending = s.controller.submit();
+    await vi.waitFor(() => expect(resolves.length).toBeGreaterThan(0));
+    const competing = second.submit();
+    await new Promise(r => setTimeout(r, 20));
+    const sends = vi.mocked(s.wallet.request).mock.calls.filter(([a]) => a.method === "eth_sendTransaction").length;
+    for (const resolve of resolves) resolve(testHash);
+    await Promise.all([sending, competing]);
+    s.controller.dispose(); second.dispose();
+    expect(sends).toBe(1);
+  });
+  it("a disposed controller's late rejection cannot delete another record", async () => {
+    const s = await setup(); await prepared(s); const old = s.wallet.request;
+    let reject!: (value: unknown) => void;
+    s.wallet.request = args => args.method === "eth_sendTransaction" ? new Promise((_, r) => { reject = r; }) : old(args);
+    const sending = s.controller.submit(); await vi.waitFor(() => expect(reject).toBeTruthy());
+    const key = "vezta-dex:local-submission:v1";
+    const other = JSON.stringify({ ...JSON.parse(s.storage.getItem(key)!), submittedAt: testNow + 1, hash: testHash });
+    s.storage.setItem(key, other); s.controller.dispose(); reject({ code: 4001 }); await sending;
+    expect(s.storage.getItem(key)).toBe(other);
+  });
+  it("does not let a stale verified controller clear a newer recovery record", async () => {
+    const s = await setup(); await prepared(s); await s.controller.submit(); await s.controller.checkReceipt();
+    const key = "vezta-dex:local-submission:v1";
+    const other = JSON.stringify({ ...JSON.parse(s.storage.getItem(key)!), submittedAt: testNow + 1 });
+    s.storage.setItem(key, other); await s.controller.clearVerified();
+    expect(s.storage.getItem(key)).toBe(other);
+  });
+  it("keeps an unverified candidate editable and accepts the correct original hash", async () => {
+    const s = await setup(); await prepared(s); const oldWallet = s.wallet.request;
+    s.wallet.request = async args => { if (args.method === "eth_sendTransaction") throw new Error("uncertain"); return oldWallet(args); };
+    await s.controller.submit(); const original = s.storage.getItem("vezta-dex:local-submission:v1");
+    const wrong = `0x${"33".repeat(32)}`;
+    const oldApi = s.api.call;
+    s.api.call = async (a, b) => a === "receipt" && (b as { hash: string }).hash === wrong
+      ? { observation: { chainId: 137, hash: wrong, source: "polygon-rpc", observedAt: new Date(testNow).toISOString(), status: "pending", reason: "not-found" }, execution: null }
+      : oldApi(a, b);
+    await s.controller.recover(wrong);
+    expect(s.controller.snapshot().submission?.hash).toBeNull();
+    expect(s.storage.getItem("vezta-dex:local-submission:v1")).toBe(original);
+    await s.controller.recover(testHash);
+    expect(s.controller.snapshot().submission?.hash).toBe(testHash);
+  });
+});
+
+it("retains a disposed controller's late hash without overwriting a different recovery identity", async () => {
+  const s = await setup(); await prepared(s); const old = s.wallet.request;
+  let resolve!: (value: unknown) => void;
+  s.wallet.request = args => args.method === "eth_sendTransaction" ? new Promise(r => { resolve = r; }) : old(args);
+  const sending = s.controller.submit(); await vi.waitFor(() => expect(resolve).toBeTruthy());
+  const key = "vezta-dex:local-submission:v1";
+  const other = JSON.stringify({ ...JSON.parse(s.storage.getItem(key)!), submissionId: "22222222-2222-4222-8222-222222222222", submittedAt: testNow + 1 });
+  s.storage.setItem(key, other); s.controller.dispose(); resolve(testHash); await sending;
+  expect(s.storage.getItem(key)).toBe(other);
+  expect(s.controller.snapshot().submission?.hash).toBe(testHash);
+  expect(s.controller.snapshot().message).toContain("Copy it now");
+});
+it("synchronizes another tab's marker into an already-mounted idle controller without prompting", async () => {
+  const s = await setup(); const idle = new RehearsalController(s.wallet, s.api, s.storage, () => testNow, s.coordination);
+  await prepared(s); await s.controller.submit(); vi.mocked(s.wallet.request).mockClear();
+  idle.synchronizeRecovery();
+  expect(idle.snapshot().submission?.hash).toBe(testHash);
+  await idle.quote(testIntent);
+  expect(s.wallet.request).not.toHaveBeenCalled();
 });

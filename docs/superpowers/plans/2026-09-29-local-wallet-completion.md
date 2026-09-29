@@ -71,11 +71,13 @@
 
 **Files:** evidence, decision log, owner checklist, README, roadmap and existing wallet plan.
 **Interfaces:** Handoff distinguishes deterministic proofs from all remaining installed-wallet/live/funded gates.
-- [ ] Dispatch one fresh read-only reviewer for this plan's complete range. Rule on declined items and fix Critical/Important issues with RED→GREEN plus full suite.
+- [x] Dispatch one fresh read-only reviewer for this plan's complete range. Rule on declined items and fix Critical/Important issues with RED→GREEN plus full suite.
 - [x] Record implementation alternatives, rationale, limitations and actual verification; review findings are appended after the final reviewer.
 - [x] Provide local launcher/runbook, wallet rejection/change checks, owner-only funded 1-USDC approval/swap checklist and sanitized evidence fields. Update existing plans accurately; commit.
-- [ ] Keep current feature branch and public writes gated. No live wallet action, merge or push.
+- [x] Keep current feature branch and public writes gated. No live wallet action, merge or push.
 
 ## Verification status
 
-Tasks1–5 are code-complete. Full415 Vitest +28 Node script tests, typecheck, lint and build passed. Task5 permits environmental browser blocks: local launch returned EPERM; the supplied desktop/mobile smoke script is syntax-checked but unexecuted. Task6 final independent review remains pending. Actual browser/installed-wallet/funded gates remain unchecked in the original wallet plan and owner checklist.
+Tasks1–5 are code-complete. Full415 Vitest +28 Node script tests, typecheck, lint and build passed. Task5 permits environmental browser blocks: local launch returned EPERM; the supplied desktop/mobile smoke script is syntax-checked but unexecuted. Task6 independent review found three Important issues; the single fix pass passed431 Vitest +28 Node tests and typecheck/lint/build. One Minor is documented for later UI work. Actual browser/installed-wallet/funded gates remain unchecked in the original wallet plan and owner checklist.
+
+**Review refinements:** canonical browser origin127.0.0.1, nonqueued Web Locks, synchronized identity-checked recovery, unique marker ID and exact nonce/pre-send block, historical inclusion/time rejection, and ephemeral manual candidates. These preserve original action boundaries; all choices and review exclusions are in the committed decision record.

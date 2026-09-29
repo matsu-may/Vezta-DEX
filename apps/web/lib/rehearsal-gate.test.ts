@@ -15,7 +15,7 @@ describe("development rehearsal boundary",()=>{
   const fetcher=vi.fn();const r=await createRehearsalProxy(enabled,fetcher)(req(intent,headers),"state");expect(r.status).toBe(403);expect(fetcher).not.toHaveBeenCalled();
  });
  it("forwards only validated exact actions to the fixed API with no-store, no redirects",async()=>{
-  const fetcher=vi.fn(async()=>Response.json({state:{chainId:137,account:intent.swapper,accountKind:"eoa",blockNumber:"123",observedAt:new Date().toISOString(),balances:{USDC:"1000000",WETH:"0",POL:"1000000000000000000"},tokenAllowance:"1000000",permitAllowance:{amount:"0",expiration:"0",nonce:"7"},approvalGas:null}}));const r=await createRehearsalProxy(enabled,fetcher)(req(),"state");expect(r.status).toBe(200);expect(r.headers.get("cache-control")).toBe("no-store");
+  const fetcher=vi.fn(async()=>Response.json({state:{chainId:137,account:intent.swapper,accountKind:"eoa",accountNonce:"7",blockNumber:"123",observedAt:new Date().toISOString(),balances:{USDC:"1000000",WETH:"0",POL:"1000000000000000000"},tokenAllowance:"1000000",permitAllowance:{amount:"0",expiration:"0",nonce:"7"},approvalGas:null}}));const r=await createRehearsalProxy(enabled,fetcher)(req(),"state");expect(r.status).toBe(200);expect(r.headers.get("cache-control")).toBe("no-store");
   expect(fetcher).toHaveBeenCalledWith("http://127.0.0.1:3021/api/v1/wallet-state",expect.objectContaining({redirect:"error",cache:"no-store",body:JSON.stringify(intent)}));
  });
  it("accepts consistent loopback forwarding headers inserted by Next",async()=>{
@@ -39,4 +39,12 @@ it("forwards a canonical permit plan while stripping no signed values and reject
   const r=await handler(req({...intent,quoteId:"ab".repeat(24)}),"permit");expect(r.status).toBe(200);expect((await r.json()).permitPlan.permit.data).toEqual(plan.permit.data);
   const leaked=createRehearsalProxy(enabled,vi.fn(async()=>Response.json({permitPlan:plan,apiKey:"secret"})));
   const fail=await leaked(req({...intent,quoteId:"ab".repeat(24)}),"permit");expect(fail.status).toBe(503);expect(await fail.text()).not.toContain("secret");
+});
+
+
+it("rejects the localhost alias so recovery and wallet locks have one canonical origin", async () => {
+  const fetcher = vi.fn(async () => Response.json({ permitPlan: testPlan() }));
+  const request = new Request("http://localhost:3020/api/rehearsal/permit", { method: "POST", headers: { Origin: "http://localhost:3020", "Content-Type": "application/json" }, body: JSON.stringify({ ...intent, quoteId: "ab".repeat(24) }) });
+  expect((await createRehearsalProxy(enabled, fetcher)(request, "permit")).status).toBe(403);
+  expect(fetcher).not.toHaveBeenCalled();
 });

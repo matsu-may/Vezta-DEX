@@ -19,7 +19,7 @@ export function testQuote(now = testNow) {
   return { ...testIntent, amountOut: "1000", minimumAmountOut: "995", routing: "CLASSIC" as const, routerVersion: "2.1.2" as const, requestId: "fixture", quotedAt: new Date(now).toISOString(), source: "uniswap-trading-api" as const };
 }
 export function testWalletState(now = testNow, allowance = "1000000") {
-  return { chainId: 137 as const, account: testAccount.address, accountKind: "eoa" as "eoa" | "blocked", blockNumber: "123", observedAt: new Date(now).toISOString(), balances: { USDC: "2000000", WETH: "0", POL: "1000000000000000000" }, tokenAllowance: allowance, permitAllowance: { amount: "0", expiration: "0", nonce: "7" }, approvalGas: allowance === "0" ? { gas: "60000", gasPrice: "36000000000" } : null };
+  return { chainId: 137 as const, account: testAccount.address, accountKind: "eoa" as "eoa" | "blocked", accountNonce: "7", blockNumber: "122", observedAt: new Date(now).toISOString(), balances: { USDC: "2000000", WETH: "0", POL: "1000000000000000000" }, tokenAllowance: allowance, permitAllowance: { amount: "0", expiration: "0", nonce: "7" }, approvalGas: allowance === "0" ? { gas: "60000", gasPrice: "36000000000" } : null };
 }
 export function testPlan(now = testNow) {
   return { chainId: 137, quoteId: "ab".repeat(24), quoteExpiresAt: new Date(now + 30000).toISOString(), blockNumber: "123", observedAt: new Date(now).toISOString(), permit: { kind: "sign", data: testPermit(now), allowanceExpiresAt: new Date((Math.floor(now/1000)+2592000)*1000).toISOString(), signatureDeadline: new Date((Math.floor(now/1000)+1800)*1000).toISOString() } };

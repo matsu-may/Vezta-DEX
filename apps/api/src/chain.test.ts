@@ -41,3 +41,19 @@ describe("raw account-code RPC boundary", () => {
     expect(calls[3].params[0]).toMatchObject({ from: owner, to: token, data: "0x1234", value: "0x0" });
   });
 });
+
+it("reads account nonce at the closed block and pending tag with explicit owner", async () => {
+  const calls: unknown[] = [];
+  vi.stubGlobal("fetch", async (_url: unknown, options: RequestInit) => {
+    const request = JSON.parse(options.body as string); calls.push(request);
+    return Response.json({ jsonrpc: "2.0", id: request.id, result: "0x7" });
+  });
+  const owner = "0x1111111111111111111111111111111111111111";
+  const source = createPolygonPoolSource("http://127.0.0.1:9999");
+  expect(await source.getAccountNonce(owner, 123n)).toBe(7n);
+  expect(await source.getPendingNonce(owner)).toBe(7n);
+  expect(calls).toEqual([
+    expect.objectContaining({ method: "eth_getTransactionCount", params: [owner, "0x7b"] }),
+    expect.objectContaining({ method: "eth_getTransactionCount", params: [owner, "pending"] }),
+  ]);
+});

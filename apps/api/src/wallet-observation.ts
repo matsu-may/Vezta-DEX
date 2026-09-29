@@ -8,6 +8,8 @@ export const submissionSchema = z.object({
   kind: z.enum(["approval", "swap"]), hash: hexHash, dataHash: hexHash,
   intent: z.object({ chainId: z.literal(137), swapper: z.string().regex(/^0x[0-9a-fA-F]{40}$/), tokenIn: z.string().regex(/^0x[0-9a-fA-F]{40}$/), tokenOut: z.string().regex(/^0x[0-9a-fA-F]{40}$/), amountIn: integer, slippageBps: z.number().int() }).strict(),
   minimumAmountOut: integer, submittedAt: z.number().int().nonnegative().max(8640000000000000),
+  submissionId: z.string().uuid(), afterBlock: integer,
+  expectedNonce: integer.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)),
 }).strict().superRefine((value, ctx) => {
   try {
     validateTradingIntent(value.intent as TradingIntent);
@@ -64,7 +66,8 @@ export class WalletObservationReader {
       const block = observation.receipt.blockNumber;
       if (!equal(tx.hash, query.hash) || !equal(tx.from, query.intent.swapper) || !equal(tx.to, observation.receipt.to)
         || tx.value !== 0n || !equal(tx.blockHash, observation.receipt.blockHash) || tx.blockNumber !== block
-        || !equal(keccak256(tx.input), query.dataHash) || !Number.isSafeInteger(tx.nonce) || tx.nonce < 0)
+        || !equal(keccak256(tx.input), query.dataHash) || !Number.isSafeInteger(tx.nonce) || tx.nonce < 0
+        || String(tx.nonce) !== query.expectedNonce || block <= BigInt(query.afterBlock))
         throw new Error();
       if (query.kind === "approval" && !equal(tx.input, encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [POLYGON_PERMIT2, BigInt(query.intent.amountIn)] })))
         throw new Error();
@@ -104,7 +107,10 @@ export class WalletObservationReader {
       if (query.kind === "approval" && observation.status === "confirmed" && allowance !== BigInt(query.intent.amountIn))
         throw new Error();
       const canonical = await client.getBlock({ blockNumber: block });
-      if (canonical.number !== block || !equal(canonical.hash, observation.receipt.blockHash) || await client.getChainId() !== 137)
+      if (canonical.number !== block || !equal(canonical.hash, observation.receipt.blockHash)
+        || typeof canonical.timestamp !== "bigint" || canonical.timestamp < 0n
+        || canonical.timestamp < BigInt(Math.floor(query.submittedAt / 1000)) - 5n
+        || await client.getChainId() !== 137)
         throw new Error();
       return { observation, execution: {
           status: observation.status === "reverted" ? "reverted" : "verified", nonce: String(tx.nonce), amountIn: uint(amountIn), amountOut: uint(amountOut),

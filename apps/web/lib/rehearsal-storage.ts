@@ -22,5 +22,21 @@ export function readSubmission(storage: Pick<Storage, "getItem">): {
     return { kind: "invalid" };
   }
 }
-export function saveSubmission(storage: SubmissionStorage, record: SubmissionRecord): void { storage.setItem(SUBMISSION_KEY, JSON.stringify(submissionRecordSchema.parse(record))); }
-export function clearSubmission(storage: SubmissionStorage): void { storage.removeItem(SUBMISSION_KEY); }
+export function sameSubmission(a: SubmissionRecord | null, b: SubmissionRecord | null): boolean {
+  return a === null || b === null ? a === b
+    : JSON.stringify(submissionRecordSchema.parse(a)) === JSON.stringify(submissionRecordSchema.parse(b));
+}
+function assertOwner(storage: SubmissionStorage, expected: SubmissionRecord | null): void {
+  const current = readSubmission(storage);
+  if (current.kind === "invalid" || !sameSubmission(current.kind === "record" ? current.record : null, expected))
+    throw new Error("Recovery record ownership changed");
+}
+/** Call only while holding the origin-wide exclusive lock; no await between check and mutation. */
+export function saveSubmission(storage: SubmissionStorage, record: SubmissionRecord, expected: SubmissionRecord | null = null): void {
+  assertOwner(storage, expected);
+  storage.setItem(SUBMISSION_KEY, JSON.stringify(submissionRecordSchema.parse(record)));
+}
+export function clearSubmission(storage: SubmissionStorage, expected: SubmissionRecord): void {
+  assertOwner(storage, expected);
+  storage.removeItem(SUBMISSION_KEY);
+}

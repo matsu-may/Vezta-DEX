@@ -65,6 +65,16 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
 
   return {
     receiptClient: client,
+    async getAccountNonce(owner, blockNumber) {
+      const nonce = await client.getTransactionCount({ address: owner, blockNumber });
+      if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Invalid account nonce");
+      return BigInt(nonce);
+    },
+    async getPendingNonce(owner) {
+      const nonce = await client.getTransactionCount({ address: owner, blockTag: "pending" });
+      if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Invalid pending nonce");
+      return BigInt(nonce);
+    },
     async simulateApproval(transaction, blockNumber) {
       const result = await client.request({ method: "eth_call", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0" }, toHex(blockNumber)] });
       if (result.toLowerCase() !== `0x${"0".repeat(63)}1`) throw new Error("Approval simulation failed");

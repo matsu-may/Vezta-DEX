@@ -4,16 +4,25 @@ import { formatUnits } from "viem";
 import { POLYGON_PERMIT2, TOKENS, parseExactInput } from "@vezta-dex/core";
 import { RehearsalController, type RehearsalWallet } from "../lib/rehearsal-controller";
 import { createRehearsalClient } from "../lib/rehearsal-client";
+import { SUBMISSION_KEY } from "../lib/rehearsal-storage";
 export function RehearsalPanelHost() {
   const [controller, setController] = useState<RehearsalController | null>(null);
   const [error, setError] = useState("");
   useEffect(() => {
     let instance: RehearsalController | undefined;
     let active = true;
+    const recoveryChanged = (event: StorageEvent) => {
+      if (event.key === null || event.key === SUBMISSION_KEY) instance?.synchronizeRecovery();
+    };
+    window.addEventListener("storage", recoveryChanged);
     queueMicrotask(() => {
       if (!active)
         return;
       try {
+        if (window.location.origin !== "http://127.0.0.1:3020" || !navigator.locks?.request) {
+          setError("Use http://127.0.0.1:3020/rehearsal in a browser with Web Locks. Wallet actions are unavailable here.");
+          return;
+        }
         const wallet = (window as Window & {
           ethereum?: RehearsalWallet;
         }).ethereum;
@@ -26,7 +35,7 @@ export function RehearsalPanelHost() {
         setError("Recovery storage is unavailable. Enable local storage before starting a wallet action.");
       }
     });
-    return () => { active = false; instance?.dispose(); };
+    return () => { active = false; window.removeEventListener("storage", recoveryChanged); instance?.dispose(); };
   }, []);
   return <>{error && <p className="form-error" role="alert">{error}</p>}{controller ? <RehearsalPanel controller={controller}/> : <p className="section-note">Loading local recovery…</p>}</>;
 }

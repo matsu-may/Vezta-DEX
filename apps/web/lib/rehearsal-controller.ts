@@ -2,7 +2,8 @@ import { keccak256, toHex, type Hex } from "viem";
 import { validateTradingQuoteSummary, verifyPermitSignature, type Address, type TradingIntent, type TradingQuoteSummary } from "@vezta-dex/core";
 import { applyReceiptObservation, startReceiptTracking, type ReceiptTrackingState } from "./receipt-tracking";
 import { parseApproval, parseObservation, parsePermit, parsePreparation, parseQuote, parseState, validateRehearsalIntent, hashSchema, type Approval, type Execution, type PermitPlan, type Preparation, type SubmissionRecord, type WalletState } from "./rehearsal-contracts";
-import { readSubmission, saveSubmission, clearSubmission, type SubmissionStorage } from "./rehearsal-storage";
+import { readSubmission, saveSubmission, clearSubmission, sameSubmission, type SubmissionStorage } from "./rehearsal-storage";
+import { browserCoordination, type RehearsalCoordination } from "./rehearsal-coordination";
 export type RehearsalAction = "quote" | "approval" | "state" | "permit" | "prepare" | "recheck" | "receipt";
 export interface RehearsalApi {
   call(action: RehearsalAction, body: unknown): Promise<unknown>;
@@ -67,7 +68,7 @@ export class RehearsalController {
     this.invalidate();
   };
   private readonly resetEvent = () => this.invalidate();
-  constructor(private readonly wallet: RehearsalWallet, private readonly api: RehearsalApi, private readonly storage: SubmissionStorage, private readonly now: () => number = Date.now) {
+  constructor(private readonly wallet: RehearsalWallet, private readonly api: RehearsalApi, private readonly storage: SubmissionStorage, private readonly now: () => number = Date.now, private readonly coordination: RehearsalCoordination = browserCoordination) {
     const saved = readSubmission(storage);
     if (saved.kind === "invalid")
       this.state = { ...initial, stage: "recovery-blocked", message: "Stored submission cannot be verified. Inspect wallet history before clearing local recovery data." };
@@ -106,18 +107,43 @@ export class RehearsalController {
     this.locked = true;
     this.publish({ busy: true, message: "" });
     try {
-      await action();
+      await this.coordination.run(async () => {
+        this.synchronizeRecovery();
+        if (this.disposed || this.state.stage === "recovery-blocked")
+          throw new FlowError("Recovery changed or is unavailable. Inspect wallet history before continuing.");
+        await action();
+      });
     }
     catch (error) {
-      if (this.state.submission) {
-        this.publish({ stage: this.state.submission.hash ? "unavailable" : "uncertain", message: "Submission status is uncertain. Check the original transaction; do not send again." });
+      if (this.state.stage === "recovery-blocked") {
+        this.publish({ message: "Recovery changed or is unavailable. Preserve original hashes and investigate before continuing." });
+      }
+      else if (this.state.submission) {
+        this.publish({ stage: this.state.submission.hash ? "unavailable" : "uncertain", message: error instanceof FlowError ? error.message : "Submission status is uncertain. Check the original transaction; do not send again." });
       }
       else
-        this.publish({ stage: this.state.stage === "recovery-blocked" ? "recovery-blocked" : "error", message: error instanceof FlowError ? error.message : "Action unavailable or rejected. Request and review a fresh quote." });
+        this.publish({ stage: "error", message: error instanceof FlowError ? error.message : "Action unavailable or rejected. Request and review a fresh quote." });
     }
     finally {
       this.locked = false;
       this.publish({ busy: false });
+    }
+  }
+  synchronizeRecovery(): void {
+    const saved = readSubmission(this.storage);
+    const record = saved.kind === "record" ? saved.record : null;
+    if (saved.kind !== "invalid" && sameSubmission(record, this.state.submission)) return;
+    this.generation++;
+    this.signature = undefined;
+    if (saved.kind === "invalid" || this.state.submission) {
+      this.publish({ stage: "recovery-blocked", quote: null, quoteId: null, permit: null, preparation: null,
+        message: "Recovery record changed. Preserve the original hash and inspect wallet history before continuing." });
+      return;
+    }
+    if (record) {
+      this.track(record);
+      this.publish({ ...initial, busy: this.state.busy, submission: record, stage: record.hash ? "pending" : "uncertain",
+        message: "Another tab recorded a submission. Follow its original identity; do not submit again." });
     }
   }
   private free(): void { if (this.state.stage === "recovery-blocked" || this.state.submission)
@@ -203,11 +229,11 @@ export class RehearsalController {
     this.publish({ submission: record, stage: "uncertain" });
     let result: unknown;
     try {
-      result = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0", chainId: "0x89", gas: toHex(BigInt(transaction.gas)), gasPrice: toHex(BigInt(transaction.gasPrice)) }] });
+      result = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: transaction.from, to: transaction.to, data: transaction.data, value: "0x0", chainId: "0x89", gas: toHex(BigInt(transaction.gas)), gasPrice: toHex(BigInt(transaction.gasPrice)), nonce: toHex(BigInt(record.expectedNonce)) }] });
     }
     catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === 4001) {
-        clearSubmission(this.storage);
+        clearSubmission(this.storage, record);
         this.publish({ submission: null });
       }
       throw error;
@@ -218,7 +244,7 @@ export class RehearsalController {
     this.track(submitted);
     this.publish({ submission: submitted, stage: "pending", message: "Submitted. Following the original Polygon transaction." });
     try {
-      saveSubmission(this.storage, submitted);
+      saveSubmission(this.storage, submitted, record);
     }
     catch {
       this.publish({ message: "Submitted hash retained in this page. Copy it now; recovery storage could not be updated." });
@@ -247,7 +273,7 @@ export class RehearsalController {
       await this.walletCheck(c.intent.swapper, c.generation);
       this.current();
       const tx = { ...approval.plan.transaction, ...state.approvalGas };
-      await this.broadcast({ kind: "approval", intent: c.intent, hash: null, dataHash: keccak256(tx.data), minimumAmountOut: "0", submittedAt: this.now() }, tx);
+      await this.broadcast({ kind: "approval", intent: c.intent, hash: null, submissionId: crypto.randomUUID(), afterBlock: state.blockNumber, expectedNonce: state.accountNonce, dataHash: keccak256(tx.data), minimumAmountOut: "0", submittedAt: this.now() }, tx);
     });
   }
   async reviewPermit(): Promise<void> {
@@ -329,8 +355,15 @@ export class RehearsalController {
       }
       await this.walletCheck(c.intent.swapper, c.generation);
       this.current();
-      await this.broadcast({ kind: "swap", intent: c.intent, hash: null, dataHash: keccak256(fresh.transaction.data), minimumAmountOut: c.quote.minimumAmountOut, submittedAt: this.now() }, fresh.transaction);
+      await this.broadcast({ kind: "swap", intent: c.intent, hash: null, submissionId: crypto.randomUUID(), afterBlock: state.blockNumber, expectedNonce: state.accountNonce, dataHash: keccak256(fresh.transaction.data), minimumAmountOut: c.quote.minimumAmountOut, submittedAt: this.now() }, fresh.transaction);
     });
+  }
+  private executionMatches(record: SubmissionRecord, evidence: Execution | null, expected: "verified" | "reverted"): boolean {
+    if (evidence?.status !== expected || !evidence.balances || !evidence.gasCost
+      || evidence.nonce !== record.expectedNonce || evidence.tokenAllowance === undefined || !evidence.permitAllowance) return false;
+    if (expected === "verified" && (record.kind === "approval" ? evidence.tokenAllowance !== record.intent.amountIn
+      : evidence.amountIn !== record.intent.amountIn || !evidence.amountOut || BigInt(evidence.amountOut) < BigInt(record.minimumAmountOut))) return false;
+    return true;
   }
   async recover(hash: unknown): Promise<void> {
     return this.run(async () => {
@@ -338,9 +371,18 @@ export class RehearsalController {
       if (!marker || marker.hash)
         throw new FlowError("No uncertain submission to recover.");
       const record = { ...marker, hash: hashSchema.parse(hash) };
-      saveSubmission(this.storage, record);
-      this.track(record);
-      this.publish({ submission: record, stage: "pending", message: "Checking supplied hash against the original transaction digest." });
+      // A manually supplied hash is only a read-only candidate until identity and execution are proven.
+      const response = parseObservation(await this.api.call("receipt", record));
+      const tracking = startReceiptTracking({ kind: record.kind, intent: record.intent, hash: record.hash }, { requiredConfirmations: 2, timeoutMs: 60000 }, record.submittedAt);
+      const update = applyReceiptObservation(tracking, response.observation, this.now());
+      const expected = update.state.status === "reverted" ? "reverted" : "verified";
+      if (!["confirmed", "reverted"].includes(update.state.status) || !this.executionMatches(record, response.execution, expected))
+        throw new FlowError("Candidate hash is not yet verified. Check wallet activity, correct it or retry this read; never resend.");
+      saveSubmission(this.storage, record, marker);
+      this.tracking = update.state;
+      this.publish({ submission: record, execution: response.execution,
+        stage: record.kind === "approval" && expected === "verified" ? "requote" : update.state.status,
+        message: "Original candidate verified against its nonce, inclusion and execution. No wallet action was requested." });
     });
   }
   async checkReceipt(): Promise<void> {
@@ -358,15 +400,10 @@ export class RehearsalController {
       if (update.state.status === "confirmed" || update.state.status === "reverted") {
         const expected = update.state.status === "reverted" ? "reverted" : "verified";
         const evidence = response.execution;
-        if (evidence?.status !== expected || !evidence.balances || !evidence.gasCost || !evidence.nonce || evidence.tokenAllowance === undefined || !evidence.permitAllowance) {
-          this.publish({ stage: "verification-needed", execution: evidence, message: "Receipt observed, but execution/allowance evidence is not verified. Do not repeat the transaction." });
+        if (!this.executionMatches(record, evidence, expected)) {
+          this.publish({ stage: "verification-needed", execution: evidence, message: "Receipt observed, but execution/nonce/allowance evidence is not verified. Do not repeat the transaction." });
           return;
         }
-        const amountMismatch = record.kind === "approval"
-          ? evidence.tokenAllowance !== record.intent.amountIn
-          : evidence.amountIn !== record.intent.amountIn || !evidence.amountOut || BigInt(evidence.amountOut) < BigInt(record.minimumAmountOut);
-        if (expected === "verified" && amountMismatch)
-          throw new FlowError("Execution amounts do not match the reviewed intent.");
         const approval = record.kind === "approval" && expected === "verified";
         this.publish({ execution: evidence, stage: approval ? "requote" : update.state.status, message: approval ? "Exact approval verified. Clear this verified record, then fetch and review a fresh quote." : "Canonical receipt and execution observed with two confirmations. This is not irreversible finality." });
       }
@@ -378,7 +415,7 @@ export class RehearsalController {
     return this.run(async () => {
       if (!this.state.submission || !this.state.execution || !["requote", "confirmed", "reverted"].includes(this.state.stage))
         throw new FlowError("Only a verified record can be cleared.");
-      clearSubmission(this.storage);
+      clearSubmission(this.storage, this.state.submission);
       this.tracking = null;
       this.signature = undefined;
       const account = this.state.account;

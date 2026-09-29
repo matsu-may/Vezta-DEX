@@ -3,6 +3,8 @@ import type { SwapPreparationChainSource, UnsignedSwapTransaction } from "./swap
 import { planExactApproval } from "./exact-approval";
 export interface WalletStateSource extends Pick<SwapPreparationChainSource, "getBlock" | "getAccountCode" | "getTokenBalance" | "getNativeBalance" | "getTokenAllowance" | "getPermitAllowance" | "getGasPrice" | "estimateSwapGas"> {
   simulateApproval(transaction: UnsignedSwapTransaction, block: bigint): Promise<void>;
+  getAccountNonce(owner: `0x${string}`, block: bigint): Promise<bigint>;
+  getPendingNonce(owner: `0x${string}`): Promise<bigint>;
 }
 export interface WalletState {
   chainId: 137;
@@ -10,6 +12,7 @@ export interface WalletState {
   accountKind: "eoa" | "blocked";
   blockNumber: string;
   observedAt: string;
+  accountNonce: string;
   balances: {
     USDC: string;
     WETH: string;
@@ -50,14 +53,18 @@ export class WalletStateReader {
     fresh();
     if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(code))
       throw new Error("Invalid account code");
-    const [usdc, weth, native, allowance, permit] = await Promise.all([
+    const [usdc, weth, native, allowance, permit, nonce, pendingNonce] = await Promise.all([
       this.source.getTokenBalance(TOKENS.USDC.address, intent.swapper, block.number),
       this.source.getTokenBalance(TOKENS.WETH.address, intent.swapper, block.number),
       this.source.getNativeBalance(intent.swapper, block.number),
       this.source.getTokenAllowance(intent.tokenIn, intent.swapper, POLYGON_PERMIT2, block.number),
       this.source.getPermitAllowance(intent.tokenIn, intent.swapper, POLYGON_UNIVERSAL_ROUTER_212, block.number),
+      this.source.getAccountNonce(intent.swapper, block.number),
+      this.source.getPendingNonce(intent.swapper),
     ]);
     fresh();
+    if (uint(nonce) > BigInt(Number.MAX_SAFE_INTEGER) || uint(pendingNonce) !== nonce)
+      throw new Error("Account has pending or changed nonce");
     const plan = planExactApproval(intent, uint(allowance).toString());
     let approvalGas: WalletState["approvalGas"] = null;
     if (code === "0x" && plan.kind === "approve") {
@@ -74,6 +81,7 @@ export class WalletStateReader {
     }
     return {
       chainId: 137, account: intent.swapper, accountKind: code === "0x" ? "eoa" : "blocked", blockNumber: block.number.toString(), observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
+      accountNonce: nonce.toString(),
       balances: { USDC: uint(usdc).toString(), WETH: uint(weth).toString(), POL: uint(native).toString() },
       tokenAllowance: allowance.toString(), permitAllowance: { amount: uint(permit.amount, 160).toString(), expiration: uint(permit.expiration, 48).toString(), nonce: uint(permit.nonce, 48).toString() }, approvalGas,
     };

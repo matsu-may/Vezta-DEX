@@ -7,6 +7,8 @@ function setup() {
   const source: WalletStateSource = {
     getBlock: vi.fn(async () => ({ number: 123n, timestamp: 1000n })),
     getAccountCode: vi.fn(async () => "0x"),
+    getAccountNonce: vi.fn(async () => 7n),
+    getPendingNonce: vi.fn(async () => 7n),
     getTokenBalance: vi.fn(async () => 2000000n),
     getNativeBalance: vi.fn(async () => 10000000000000000n),
     getTokenAllowance: vi.fn(async () => 0n),
@@ -52,4 +54,19 @@ describe("pinned wallet state", () => {
     s.source.getGasPrice = async () => { now += 120001; return 1n; };
     await expect(new WalletStateReader(s.source, () => now).getState(intent)).rejects.toThrow();
   });
+});
+
+
+it("includes pinned account transaction nonce for broadcast provenance", async () => {
+  const s = setup();
+  Object.assign(s.source, { getAccountNonce: vi.fn(async () => 7n), getPendingNonce: vi.fn(async () => 7n) });
+  expect(await s.reader.getState(intent)).toMatchObject({ accountNonce: "7" });
+});
+
+it("blocks pending or malformed account nonce before approval simulation", async () => {
+  for (const nonce of [8n, -1n, BigInt(Number.MAX_SAFE_INTEGER) + 1n]) {
+    const s = setup(); s.source.getPendingNonce = async () => nonce;
+    await expect(s.reader.getState(intent)).rejects.toThrow();
+    expect(s.source.simulateApproval).not.toHaveBeenCalled();
+  }
 });

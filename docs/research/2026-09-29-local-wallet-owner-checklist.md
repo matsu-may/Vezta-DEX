@@ -14,7 +14,7 @@ pnpm --filter @vezta-dex/api start
 pnpm dev:rehearsal
 ```
 
-Mở **http://127.0.0.1:3020/rehearsal**. Launcher chỉ bind `127.0.0.1:3020`; `DEX_API_URL` phải là `http://127.0.0.1:3021` hoặc `http://localhost:3021`. Không chép các flag rehearsal vào `.env.local`, proxy công khai hoặc server khác. Chạy `pnpm dev` bình thường và production không bật harness.
+Mở **http://127.0.0.1:3020/rehearsal**. Launcher chỉ bind `127.0.0.1:3020`; `DEX_API_URL` phải là `http://127.0.0.1:3021` hoặc `http://localhost:3021`. Dùng đúng browser origin `http://127.0.0.1:3020`; alias `localhost:3020` bị chặn để các tab dùng cùng storage/khóa. Dùng một profile/browser thử nghiệm cho account này, không mở nhiều profile cùng thao tác. Browser phải hỗ trợ Web Locks. Không chép các flag rehearsal vào `.env.local`, proxy công khai hoặc server khác. Chạy `pnpm dev` bình thường và production không bật harness.
 
 Agent bị môi trường chặn mở cổng local (`listen EPERM`), nên chưa xác nhận giao diện thực tế hoặc header do Next gửi. Nếu page/proxy lỗi, dừng tại đó và gửi HTTP status/thông báo đã che thông tin nhạy cảm; không bỏ gate để tiếp tục.
 
@@ -39,6 +39,8 @@ Dùng tab trình duyệt bình thường riêng; ghi phiên bản browser và Me
 - Đổi account/network hoặc amount/slippage: quote/permit cũ phải mất. Sai chain không được mở prompt gửi.
 - Chờ quote quá 30 giây: yêu cầu quote mới, không dùng quote/signature cũ.
 - Từ chối prompt kết nối/approval/signature/broadcast khi gặp bước đó: không tự tiếp tục, không tự gửi lại. Một số trường hợp cần có allowance đúng hoặc balance thử nghiệm trước mới tới được prompt.
+- Mở hai tab cùng origin/profile: một tab đang có thao tác hoặc marker pending thì tab kia không được mở broadcast thứ hai hoặc xóa recovery. Storage thay đổi phải đồng bộ trạng thái; lỗi ownership cần giữ hash và điều tra.
+- Account đang có pending nonce hoặc có hoạt động khác giữa snapshot phải bị chặn. Không chỉnh nonce trong MetaMask; nonce được gắn với bản ghi trước gửi.
 - Allowance ERC20 khác zero và khác đúng amount phải bị chặn; không tự revoke/reset. Thiếu USDC/POL, lỗi RPC hoặc simulation phải chặn hành động.
 
 Không cố tạo failure bằng giao dịch thật; chỉ các trạng thái an toàn có sẵn cần kiểm tra thủ công. Account đổi trong prompt phải hủy các bước tiếp theo; nếu giao dịch đã gửi, giữ và kiểm tra hash của account ban đầu.
@@ -47,7 +49,7 @@ Không cố tạo failure bằng giao dịch thật; chỉ các trạng thái an
 
 Bạn tự quyết định nạp tối đa 1 native USDC và lượng POL nhỏ đủ cho gas hiển thị. Không có chi phí gas cố định được cam kết. Hãy xem kỹ từng prompt; có thể từ chối bất cứ lúc nào.
 
-1. Lấy quote cho **1 USDC**. Nếu allowance zero, **Approve exact USDC amount**; kiểm tra chain Polygon, token USDC, spender Permit2 `0x000000000022D473030F116dDEE9F6B43aC78BA3`, đúng 1,000,000 base units, không unlimited, value 0, gas trong ví.
+1. Lấy quote cho **1 USDC**. Ghi lại minimum dạng integer trước khi gửi; recovery panel hiện chưa hiển thị lại minimum/allowances (mục Minor đã ghi). Nếu allowance zero, **Approve exact USDC amount**; kiểm tra chain Polygon, token USDC, spender Permit2 `0x000000000022D473030F116dDEE9F6B43aC78BA3`, đúng 1,000,000 base units, không unlimited, value 0, gas trong ví.
 2. Giữ hash; **Check original transaction**. Chờ hai canonical confirmations và trạng thái **Approval verified; requote required**. Backend phải xác minh calldata, receipt và allowance thực tế. Nếu đã exact allowance, không cần approval mới.
 3. **Clear verified record for a new quote**, lấy và đọc quote mới. **Review Permit2** → **Sign reviewed Permit2** khi cần: đúng token/amount/router, lifetime allowance tối đa 30 ngày, signature deadline tối đa 30 phút. Quote chỉ 30 giây; prompt lâu có thể yêu cầu quote mới, không nới TTL.
 4. **Prepare and simulate swap**: thấy minimum output, router `0xDc264714F68d84CF29BC605589405E78bDBE7C9f`, value 0 POL, gas và simulation block. Lỗi/expired không được mở prompt broadcast.
@@ -57,9 +59,10 @@ Bạn tự quyết định nạp tối đa 1 native USDC và lượng POL nhỏ 
 ## 5. Chậm, reload, revert và replacement
 
 - 60 giây chưa có kết quả là delayed; dùng **Check original transaction**, không gửi lại. Hai confirmations chỉ là tiêu chí quan sát local, không phải finality không thể đảo ngược.
-- Reload sau hash: chỉ phục hồi metadata và theo dõi account/hash cũ, không tự ký/gửi. Reload khi wallet chưa trả hash: kiểm tra MetaMask Activity trước, nhập **Original transaction hash** → **Recover original hash**. Actual calldata digest/owner/amount phải khớp trước khi xác nhận.
+- Reload sau hash: chỉ phục hồi metadata và theo dõi account/hash cũ, không tự ký/gửi. Reload khi wallet chưa trả hash: kiểm tra MetaMask Activity trước, nhập **Original transaction hash** → **Recover original hash**. Candidate nhập tay chỉ được lưu khi receipt có đủ confirmations và đúng digest/owner/amount/nonce/block/time. Hash sai hoặc chưa xác minh vẫn giữ marker uncertain, cho sửa hash hoặc đọc lại; không mở prompt ký/gửi. Đừng lấy hash approval cũ có cùng amount để giải quyết giao dịch mới.
 - Revert đã được xác minh: xem gas và balances; receipt thành công không tự chứng minh đủ output. Trạng thái unverified cần điều tra, không clear để thử lại.
 - Speed-up/cancel/replacement chưa có tự động xác minh. Giữ các hash liên quan và kiểm tra activity/explorer; không thay hash bằng giao dịch khác để vượt gate.
+- Marker cũ thiếu ID/nonce/block sẽ bị chặn, không tự migrate hoặc đoán provenance.
 - Recovery storage lỗi hoặc hash không rõ: kiểm tra lịch sử ví trước. Không xóa localStorage để bỏ qua một giao dịch có thể đã gửi. Nếu xác minh được wallet chưa gửi nhưng marker vẫn uncertain, báo lại để lập cách khôi phục cụ thể.
 
 ## 6. Evidence bạn có thể gửi

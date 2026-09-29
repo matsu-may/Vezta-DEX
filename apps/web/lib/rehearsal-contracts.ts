@@ -20,7 +20,7 @@ export function recent(observed: string, now: number): void {
 }
 const gasSchema = z.object({ gas: positive, gasPrice: positive }).strict().refine(v => BigInt(v.gas) <= 30000000n);
 const transactionSchema = z.object({ chainId: z.literal(137), from: address, to: address, data: z.string().regex(/^0x(?:[0-9a-fA-F]{2})+$/).max(256002).transform(v => v as Hex), value: z.literal("0") }).strict();
-const walletSchema = z.object({ ...provenance, account: address, accountKind: z.enum(["eoa", "blocked"]), balances: z.object({ USDC: uintString, WETH: uintString, POL: uintString }).strict(), tokenAllowance: uintString, permitAllowance: z.object({ amount: uintString, expiration: uintString, nonce: uintString }).strict().refine(v => BigInt(v.amount) < 1n << 160n && BigInt(v.expiration) < 1n << 48n && BigInt(v.nonce) < 1n << 48n), approvalGas: gasSchema.nullable() }).strict();
+const walletSchema = z.object({ ...provenance, account: address, accountKind: z.enum(["eoa", "blocked"]), accountNonce: uintString.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)), balances: z.object({ USDC: uintString, WETH: uintString, POL: uintString }).strict(), tokenAllowance: uintString, permitAllowance: z.object({ amount: uintString, expiration: uintString, nonce: uintString }).strict().refine(v => BigInt(v.amount) < 1n << 160n && BigInt(v.expiration) < 1n << 48n && BigInt(v.nonce) < 1n << 48n), approvalGas: gasSchema.nullable() }).strict();
 export type WalletState = z.infer<typeof walletSchema>;
 export function parseState(value: unknown, intent: TradingIntent, now: number): WalletState {
   const { state } = z.object({ state: walletSchema }).strict().parse(value);
@@ -100,7 +100,7 @@ export function parsePreparation(value: unknown, intent: TradingIntent, quoteId:
   validateSwapCalldata(p.transaction.data, { intent, summary: quote, permitData: permit, signature, deadline: BigInt(p.deadline), now });
   return p;
 }
-export const submissionRecordSchema = z.object({ kind: z.enum(["approval", "swap"]), intent: intentSchema, hash: hashSchema.nullable(), dataHash: hashSchema, minimumAmountOut: uintString, submittedAt: z.number().int().nonnegative().max(8640000000000000) }).strict().superRefine((v, ctx) => { try {
+export const submissionRecordSchema = z.object({ kind: z.enum(["approval", "swap"]), intent: intentSchema, hash: hashSchema.nullable(), dataHash: hashSchema, minimumAmountOut: uintString, submittedAt: z.number().int().nonnegative().max(8640000000000000), submissionId: z.string().uuid(), afterBlock: uintString, expectedNonce: uintString.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)) }).strict().superRefine((v, ctx) => { try {
   validateRehearsalIntent(v.intent);
   if (v.kind === "swap" && v.minimumAmountOut === "0")
     throw new Error();

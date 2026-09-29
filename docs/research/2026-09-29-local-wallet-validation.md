@@ -34,6 +34,28 @@ Browser desktop/mobile smoke and screenshots remain **unexecuted** because no lo
 
 ## Review and remaining gates
 
-Independent whole-change review is pending; this document will record its findings and verified fixes before handoff. The approved local test uses two canonical confirmations and a 60-second wait, not irreversible finality. RPC observation is trusted; concurrent chain changes can still cause a revert. Metadata restored from local storage is untrusted tracking input, never signing authority.
+One independent fresh-context whole-change review (gpt-6-astra) covered `d09bff1..3bb1a52`. No Critical finding; three Important findings were fixed in one author pass with regressions observed RED→GREEN:
+
+1. Competing controllers could overwrite/remove another marker. Browser actions now use one canonical origin, exclusive nonqueued Web Locks, fresh recovery synchronization and complete identity-checked storage mutations. Regressions cover competing prompts, stale clearing, late rejection/hash after disposal and mounted synchronization.
+2. Identical historical approval receipts could resolve a new marker. State now reads pinned/pending EOA nonces; any difference blocks. Each marker stores a unique ID, exact nonce and pre-send block. The wallet receives the explicit nonce, and receipt proof rejects wrong nonce, old inclusion or a receipt block timestamp preceding submission beyond five seconds of clock tolerance. This does not remove RPC or wallet trust.
+3. A mistyped candidate hash became permanent. Candidate hashes now remain ephemeral/read-only until canonical nonce/inclusion/execution is proven; a wrong or pending candidate preserves the uncertainty marker and can be corrected/rechecked. Wallet-returned hashes stay fixed.
+
+After fixes: **431/431 Vitest tests in 38 files +28/28 Node script tests**, `pnpm typecheck`, `pnpm lint`, `pnpm build`, browser-artifact syntax check and `git diff --check` passed. One full-suite run also follows the task completion contract. No second independent review was dispatched; fixes were verified by regressions and the complete suite.
+
+Deferred Minor: the recovery panel does not redisplay the persisted minimum or returned allowances. The owner checklist requires recording minimum before submission and checking allowance evidence separately. See [all rulings and limitations](2026-09-29-local-wallet-decisions.md).
+
+Existing markers lacking the new provenance fail closed; no nonce/block identity is guessed or silently migrated. Separate browser profiles do not share Web Locks/storage; use one test profile/account session. Actual browser lock/header/lifecycle behavior remains an owner check. The approved local test uses two canonical confirmations and a 60-second wait, not irreversible finality. RPC observation is trusted; concurrent chain changes can still cause a revert. Metadata restored from local storage is untrusted tracking input, never signing authority.
 
 Installed-wallet rejection/change/reload checks, exact funded approval, unchanged Permit2 signature accepted by the real Trading API, actual swap output/gas/post-allowance and reverse funded direction remain open. Production requires its own finality/replacement policy, shared quote/replay/limiter state, abuse controls and release review. LP workflows and main Vezta integration are outside this plan.
+
+## Reproducible implementation history
+
+- `8c15699`: approved local design and six-step plan.
+- `8e4d611`: shared security extraction and narrow wallet APIs.
+- `543b934`: explicit controller and recovery contracts.
+- `133772a`: opt-in local gate/UI/launcher.
+- `1fb2a7d`: transition regression, browser artifact and frozen CI.
+- `3bb1a52`: initial owner checklist/evidence, reviewed head.
+- The following fix commit binds shared recovery ownership and inclusion provenance; final handoff documents actual pending owner gates.
+
+This session's scratch ledger is archived as [execution record](2026-09-29-local-wallet-execution-record.md); other plans' compiler/evidence directories are preserved.

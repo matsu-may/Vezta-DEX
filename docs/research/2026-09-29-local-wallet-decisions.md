@@ -24,6 +24,30 @@ These choices implement the owner-approved [plan](../superpowers/plans/2026-09-2
 
 11. Replace permissive CI installation with frozen-lockfile installation — the pinned manifests/lock install successfully offline and CI must check the same dependency graph — cost if wrong: a manifest-only change now fails CI until its lock is updated.
 
-## Review rulings
+12. Restrict browser actions to canonical http://127.0.0.1:3020 and use a nonqueued origin-wide Web Lock plus identity-checked storage mutations — fixes multiple-controller and alias-origin recovery races — cost if wrong: unsupported lock environments and localhost-alias tabs must stop; separate profiles still require the owner to use one test session.
 
-Pending the single independent whole-change review; any declined findings or deferred minors will be recorded here.
+13. Bind each marker to a unique ID, exact EOA nonce and a closed pre-send block; reject an account with pending/different nonce and historical inclusion — distinguishes identical approval attempts — cost if wrong: concurrent account activity/RPC nonce disagreement blocks rehearsal; manual nonce overrides remain unverified.
+
+14. Keep manually entered hashes ephemeral until canonical execution evidence validates the candidate, while wallet-returned hashes remain fixed — permits correcting typos without replacing original transactions or authorizing sends — cost if wrong: pending/reorged candidates require another manual read and are lost on reload until verified.
+
+15. Actual installed MetaMask and signed Trading API compatibility stay owner-run gates — deterministic code tests cannot establish live compatibility — cost if wrong: wallet/API incompatibility remains undiscovered until owner checks, public release remains blocked.
+
+16. Production finality and automatic replacement handling remain outside this local observation policy — retain two canonical confirmations/60-second wait with uncertainty preserved — cost if wrong: local confirmed observations may reorg and replacement needs manual investigation.
+
+17. Reverse funded swaps remain a separate runbook and gate — accepted first rehearsal is capped USDC→WETH — cost if wrong: no funded WETH→USDC evidence before later implementation.
+
+18. Public multi-instance caches, distributed limiting and abuse controls remain release work — approved flow is one local API process and public writes disabled — cost if wrong: current stores/limiter cannot support replicas or unrestricted public load.
+
+19. No provable original hash retains uncertainty and requires wallet-history investigation — no evidence authorizes another send — cost if wrong: recovery can remain blocked indefinitely without owner/explorer evidence.
+
+20. Compromise of both application and wallet provider remains outside this local protection — no independent signing authority can be established inside those compromised components — cost if wrong: a compromised wallet/app can still cause loss; do not infer a security certification.
+
+21. Do not migrate older recovery markers by inventing missing nonce/block/ID provenance — incomplete legacy metadata must block pending wallet-history investigation — cost if wrong: previous local test markers require manual investigation rather than automatic recovery.
+
+## Deferred minor
+
+- recovery panel omits the persisted accepted minimum and returned allowances; owner must note the quote minimum before submission and inspect actual allowance evidence separately.
+
+## Coordination source
+
+The browser adapter uses an exclusive Web Lock with `ifAvailable: true`, avoiding queued wallet actions, and holds it through completion of the asynchronous callback. Locks coordinate one origin; canonical browser-origin enforcement and owner use of one profile remain necessary. See [MDN LockManager.request](https://developer.mozilla.org/en-US/docs/Web/API/LockManager/request).

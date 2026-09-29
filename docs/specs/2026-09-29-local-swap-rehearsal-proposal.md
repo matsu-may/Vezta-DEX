@@ -65,3 +65,9 @@ Persist only validated transaction metadata (hash, expected calldata digest, ori
 | Malicious site reaches local proxy | API quota/signature confidentiality | Proxy abuse | Opt-in dev loopback process, exact origin/host/content type, bounded request/response, no redirects or logging | Web server |
 
 A provider compromised together with the application is outside this local test's protection. No AI review or simulation is described as a security certification. Real wallet, signed API compatibility and economic evidence remain owner checks.
+
+## Review refinements before handoff
+
+The browser action origin is exclusively `http://127.0.0.1:3020`; the local API may still use loopback localhost3021. Web Locks serialize all controller work across tabs in one profile without queuing an action, and storage changes synchronize recovery. Every marker mutation checks the complete expected identity. Each submission has a unique ID, exact EOA nonce and closed pre-send block. Pinned/pending nonce disagreement blocks; the wallet request carries the selected nonce. Receipt evidence also rejects historical inclusion/time/nonce. Legacy markers missing this provenance block rather than inventing it. Use one test profile; separate profiles do not share those browser resources.
+
+Manual recovery hashes remain editable ephemeral candidates until canonical execution is proven. A pending, historical or unrelated candidate cannot replace the uncertain marker or authorize resubmission. Original wallet-returned hashes remain fixed. Owner nonce overrides or concurrent account activity may leave an unverified result requiring investigation.
