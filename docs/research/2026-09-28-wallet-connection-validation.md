@@ -86,4 +86,8 @@ For this sample, integer arithmetic also confirms `37276521867148979 = floor(374
 
 After being asked to change the amount from 100 to 1 USDC, verify that the old quote disappears immediately, and request a fresh quote, the owner confirmed that the flow worked as described. Record amount-change invalidation and requesting a replacement quote as passed by owner report. No replacement quote values were supplied; this confirmation does not establish a new numerical quote sample or token-direction/slippage invalidation.
 
-Browser/wallet versions, the reverse direction, invalidation on token/slippage/account/network changes, quote expiry and rejection/retry remain pending until reported. Wallet writes remain disabled.
+### Quote expiry and refresh — owner confirmed
+
+The owner confirmed the next requested sequence worked: request a fresh quote, leave the inputs unchanged for approximately 30 seconds, observe the quote clear with `Routed quote expired. Request a fresh quote.`, and request a replacement quote successfully. Record expiry and refresh as passed by owner report; no exact elapsed-time measurement or replacement quote values were supplied.
+
+Browser/wallet versions, the reverse direction, invalidation on token/slippage/account/network changes and rejection/retry remain pending until reported. Wallet writes remain disabled.
