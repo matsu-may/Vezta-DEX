@@ -98,4 +98,8 @@ The owner confirmed the requested network-change sequence worked: obtain a Polyg
 
 The owner confirmed the requested sequence worked: changing to WETH → USDC cleared the old quote, requesting a quote for 0.001 WETH displayed output in USDC, changing slippage from 0.5% to 1% cleared that quote, and requesting a replacement worked. Record direction/slippage invalidation and the reverse quote display as passed by owner report. No estimated/minimum output values were supplied for this sample; numerical checks at 1% remain unclaimed.
 
-Browser/wallet versions, invalidation on account changes and account-access rejection/retry remain pending until reported. Wallet writes remain disabled.
+### Account change and account-access rejection/retry — owner confirmed
+
+The owner explicitly confirmed both final requested scenarios passed: changing the account connected to the site cleared the quote and allowed reconnection/requoting; rejecting an account-access prompt left the app disconnected and retryable, with subsequent connection working.
+
+All requested read-only functional scenarios are now passed **by owner report**. Browser and MetaMask versions remain unrecorded, and agent-observed installed-wallet execution remains unavailable. This functional confirmation does not cover approval/signature prompts, allowance changes, account code, signed calldata or funded receipts. Wallet writes remain disabled.

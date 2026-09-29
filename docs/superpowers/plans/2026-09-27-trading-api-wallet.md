@@ -48,10 +48,11 @@
 - [x] Test deterministic `approve(Permit2, amountIn)` calldata, wrong chain/token/amount and `uint256.max` existing-allowance blocking; observed missing-module failure.
 - [x] Implement pure exact approval builder; no API call or wallet submission. Focused tests pass.
 - [x] Add Polygon allowance read at a pinned block and zero/exact/other-nonzero states; expose only an unsigned `POST /api/v1/approval-plan`. Unit and handler tests cover stale blocks, wrong chain, excessive allowance and RPC failure.
+- [x] Apply the approved EOA boundary to approval preparation: explicit empty code at the allowance block, deployed/delegated account blocking, snapshot intent and recheck freshness after RPC. Regression tests and full verification are recorded in [approval EOA evidence](../../research/2026-09-29-approval-eoa-validation.md).
 - [x] Owner ran `smoke-approval-plan.mjs` against the local API: both zero-allowance Polygon reads returned exact unsigned Permit2 approval plans; no wallet transaction was submitted. See the live-evidence log.
 - [x] Harden read-only connection against malformed chains, silent account changes, delayed grant events and interrupted prompts; verify unit regressions, independent review and eight mock-wallet browser cases. See [wallet connection evidence](../../research/2026-09-28-wallet-connection-validation.md).
-- [ ] Verify read-only connection, account/network changes, rejection and quote invalidation in an installed wallet using the evidence document's steps.
-- [x] Owner reported quote display in both directions, amount/direction/slippage invalidation, expiry/refresh, network invalidation, wrong-network rejection and Polygon reconnection. Account-change and account-access rejection/retry remain pending; do not close the full installed-wallet gate yet.
+- [x] Owner verified the read-only functional scenarios in installed MetaMask: connection, account/network changes, rejection/retry, quote invalidation and expiry. Results are owner-reported; browser/wallet versions remain unrecorded and agent-observed execution remains unclaimed.
+- [x] Owner reported quote display in both directions, amount/direction/slippage invalidation, expiry/refresh, wrong-network rejection and Polygon reconnection; subsequently explicitly confirmed account-change and account-access rejection/retry too. Signing and funded gates remain separate.
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 

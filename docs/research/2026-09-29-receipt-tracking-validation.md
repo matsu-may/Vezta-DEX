@@ -23,7 +23,7 @@ No live receipt, wallet signature, token approval or swap was generated. These t
 
 ## Required follow-up
 
-1. Complete remaining installed-wallet account-change and account-access rejection/retry checks, recording browser/MetaMask versions. Existing owner-reported checks are in the [wallet validation record](2026-09-28-wallet-connection-validation.md).
+1. The owner has now confirmed all installed-wallet read-only functional checks, including account change and account-access rejection/retry. Record browser/MetaMask versions when available; results retain owner attribution in the [wallet validation record](2026-09-28-wallet-connection-validation.md). Wallet-write checks are separate.
 2. Implement the approval/Permit2/submission component and use a fixed Polygon receipt source with bounded transport timeout and serialized polling (or a monotonic read sequence). Retain submitted transactions independently of form state, and apply effects to the original account's cache. Equal millisecond timestamps alone do not order overlapping reads.
 3. Handle wallet speed-up/cancel/replacement explicitly. This reader follows the original hash only; a replacement cannot be counted as success without validating its transaction intent.
 4. Select and document production confirmation/wait policy and recovery across reloads before enabling writes.

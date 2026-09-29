@@ -102,6 +102,7 @@ describe("DEX HTTP handler", () => {
   it("returns only an exact unsigned approval plan from a pinned Polygon allowance", async () => {
     const approval = new AllowanceReader({
       getBlock: async () => ({ number: 123n, timestamp: 1_000n }),
+      getAccountCode: async () => "0x",
       getTokenAllowance: async () => 0n,
     }, () => 1_000_000);
     const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
@@ -119,15 +120,43 @@ describe("DEX HTTP handler", () => {
   it("blocks existing excessive allowance and hides RPC failures", async () => {
     const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
     const request = () => new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify(body) });
-    const existing = new AllowanceReader({ getBlock: async () => ({ number: 123n, timestamp: 1_000n }), getTokenAllowance: async () => (1n << 256n) - 1n }, () => 1_000_000);
+    const existing = new AllowanceReader({ getBlock: async () => ({ number: 123n, timestamp: 1_000n }), getAccountCode: async () => "0x", getTokenAllowance: async () => (1n << 256n) - 1n }, () => 1_000_000);
     const blocked = await handleRequest(request(), reader, quotes, undefined, existing);
     expect(blocked.status).toBe(200);
     const result = await blocked.json();
     expect(result.approval.plan.kind).toBe("blocked-existing");
     expect(result.approval.plan.transaction).toBeUndefined();
-    const broken = new AllowanceReader({ getBlock: async () => { throw new Error("secret RPC URL"); }, getTokenAllowance: async () => 0n });
+    const broken = new AllowanceReader({ getBlock: async () => { throw new Error("secret RPC URL"); }, getAccountCode: async () => "0x", getTokenAllowance: async () => 0n });
     const unavailable = await handleRequest(request(), reader, quotes, undefined, broken);
     expect(unavailable.status).toBe(503);
     expect(await unavailable.text()).not.toContain("secret RPC URL");
+  });
+
+  it("returns blocked-account approval without calldata or raw account code", async () => {
+    const approval = new AllowanceReader({
+      getBlock: async () => ({ number: 123n, timestamp: 1_000n }),
+      getAccountCode: async () => "0x6000",
+      getTokenAllowance: async () => { throw new Error("Allowance read must not happen for blocked account"); },
+    }, () => 1_000_000);
+    const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
+    const response = await handleRequest(new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify(body) }), reader, quotes, undefined, approval);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    const result = await response.json();
+    expect(result.approval).toMatchObject({ currentAllowance: null, plan: { kind: "blocked-account" } });
+    expect(result.approval.plan.transaction).toBeUndefined();
+    expect(JSON.stringify(result)).not.toContain("0x6000");
+  });
+
+  it("hides account-code RPC failure instead of preparing an approval", async () => {
+    const approval = new AllowanceReader({
+      getBlock: async () => ({ number: 123n, timestamp: 1_000n }),
+      getAccountCode: async () => { throw new Error("secret account-code endpoint"); },
+      getTokenAllowance: async () => 0n,
+    }, () => 1_000_000);
+    const body = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
+    const response = await handleRequest(new Request("http://localhost/api/v1/approval-plan", { method: "POST", body: JSON.stringify(body) }), reader, quotes, undefined, approval);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Polygon approval state is unavailable" });
   });
 });
