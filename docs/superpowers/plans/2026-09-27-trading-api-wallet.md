@@ -56,6 +56,8 @@
 - [ ] Browser-test account changes, zero-first tokens and allowance changes between preparation and wallet prompt before enabling writes.
 - [ ] With a disposable funded wallet, verify exact approval receipt and allowance, requote, Permit2 signature, swap preparation and allowance after the swap before enabling UI writes.
 
+The [local rehearsal proposal](../../specs/2026-09-29-local-swap-rehearsal-proposal.md) is awaiting owner decision. It proposes a distinct development harness to gather funded evidence while public controls stay disabled; this is not approval to build or activate that exception.
+
 ### Task 3: Permit2 and swap preparation
 
 **Files:** Create `apps/api/src/swap-preparation.ts` and tests; modify `apps/web/lib/`, `apps/web/components/` and tests.
