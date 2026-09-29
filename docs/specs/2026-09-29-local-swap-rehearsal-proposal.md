@@ -1,6 +1,6 @@
 # Local funded swap rehearsal — proposal
 
-**Status:** Awaiting owner decision. This document does not enable wallet writes or authorize spending.
+**Status:** Implementation approved by the owner on 2026-09-29, together with the six-step wallet completion plan. Local controls remain opt-in; the owner alone authorizes each funded wallet action. Public write release remains gated.
 
 ## Purpose and boundary
 
@@ -44,3 +44,24 @@ Proposal A adds a separate, explicit local development rehearsal to collect it. 
 Record browser/MetaMask versions, masked account, accepted integer quote amounts, chain/block/time, public transaction hashes, status, gas and validated executed amounts/allowances. Never save raw signatures, sensitive calldata, API keys or wallet secrets.
 
 A first successful USDC → WETH rehearsal does not prove the reverse direction or all failure cases. Keep the public release gate open until the remaining wallet scenarios, production receipt/recovery policy, both required trade directions and independent review are complete. The owner may stop at any wallet prompt without changing the software's transaction state to success.
+
+## Implementation contract approved with the six-step plan
+
+First local rehearsal fixes USDC → WETH, at most 1 USDC per selected intent and 0.5% slippage by default. Read-only public previews retain both directions. Reverse funded rehearsal is a separate owner checklist item before release, not an automatic follow-on trade. No production finality default is selected.
+
+A loopback launcher opts in only a development Next.js process. The rehearsal page and its narrow same-origin POST proxy are unavailable in production or without launcher configuration. RPC/API keys stay in the API process. Explicit browser actions are required for approval, signature, preparation and broadcast. The controller serializes prompts and receipt reads, discards stale responses by generation, and preserves original submitted identity independently of form/connection state.
+
+Move the existing pure router decoder, signature verifier and receipt reader into the shared core with compatibility exports at their existing import paths. Browser and server then enforce the same calldata policy, independently on each side, without importing server modules into the browser. Add precise read-only wallet-state and receipt-observation endpoints; do not expose a general RPC relay. Add a short-lived preparation cache so a recheck can refresh state, local simulation and gas without another signed Uniswap request. Quote expiration and single-use upstream dispatch stay unchanged.
+
+Persist only validated transaction metadata (hash, expected calldata digest, original intent, accepted minimum, timestamps and status). Persist an uncertain submission marker before requesting broadcast; an interrupted or ambiguous response never permits automatic retry. No signature, raw transaction calldata, private key, API key or fresh quote survives reload. Restored metadata can request chain verification but cannot authorize signing or sending.
+
+| Scenario | Asset / trust assumption | Impact | Mitigation and verification | Owner |
+|---|---|---|---|---|
+| Wrong provider, account or chain during prompt | Tokens; injected wallet is untrusted | Bad owner or stale action | Verify account/chain before and after reads; event generation invalidation; mocked prompt-change tests | Web |
+| Tampered approval, permit or calldata | Tokens; API is data, not authorization | Excess permission or wrong swap | Shared strict validators, exact allowance, unchanged typed data, independent decoder tests | Core + web + API |
+| Stale state before send | Tokens/gas; RPC snapshots do not reserve state | Revert or outdated permission | Fresh state and local simulation recheck, quote/deadline check, no signed upstream replay | API + web |
+| Lost/ambiguous broadcast or reload | Gas/tokens; wallet may send before returning hash | Duplicate spend | Persist uncertainty first, retain hash when returned, block retry, recovery metadata validated | Web |
+| Reorg, delayed receipt or unrelated hash | Incorrect balances; RPC remains a trusted observation source | False success | Canonical receipt checks plus actual transaction digest; serialized reads; economic fields verified from curated token logs | API + web |
+| Malicious site reaches local proxy | API quota/signature confidentiality | Proxy abuse | Opt-in dev loopback process, exact origin/host/content type, bounded request/response, no redirects or logging | Web server |
+
+A provider compromised together with the application is outside this local test's protection. No AI review or simulation is described as a security certification. Real wallet, signed API compatibility and economic evidence remain owner checks.
