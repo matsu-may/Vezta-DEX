@@ -45,3 +45,14 @@ pnpm --filter @vezta-dex/web dev
 6. Record the browser/wallet versions and pass/fail result for each case. Share sanitized error text if a check fails; do not share keys or wallet recovery phrases.
 
 This check needs no token approval or transfer. Exact approval receipts, allowance changes, Permit2 signatures, swap payload simulation, and swap receipts remain separate funded-wallet gates. All wallet writes remain disabled.
+
+## Installed-wallet attempt — 2026-09-29
+
+The next gate was attempted after unsigned swap preparation passed its separate review. No code or wallet transaction behavior was changed for this attempt.
+
+- Chrome is running, but Computer Use refused access with `Computer Use was not approved to use Google Chrome`. No wallet extension was inspected or operated; its identity/version remains unknown.
+- No listening processes were observed on ports 3020/3021. Local health/page requests returned unavailable.
+- `pnpm --filter @vezta-dex/api start` was blocked by sandbox `listen EPERM` at the tsx IPC pipe. `pnpm --filter @vezta-dex/web dev` was blocked by `listen EPERM` on `127.0.0.1:3020`. Neither server was left running by this attempt. These results do not establish an application or wallet failure.
+- The installed-wallet gate remains **pending**, including permission grant/rejection, both live quote directions, expiry and account/network invalidation. Earlier mock-provider checks are not a substitute.
+
+Resume from a normal host Terminal with the two commands above, then open `http://127.0.0.1:3020/swap` in the browser that has the wallet installed. No compiler reinstall or router rebuild is needed for this gate. Record browser/wallet versions and the six checks above. On first handoff, report whether connection succeeds and whether each small quote is available; if a quote fails, provide only the visible error/code. Do not share a full wallet screenshot, signature, API key or recovery phrase. No funded action is required for this read-only gate.
