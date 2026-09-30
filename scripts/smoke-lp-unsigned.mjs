@@ -17,8 +17,9 @@ const valueKind = value => {
   if (/^0x[0-9a-fA-F]{1,64}$/.test(value)) return BigInt(value) === 0n ? "zero-hex" : "positive-hex";
   return "malformed";
 };
+const zeroValue = value => valueKind(value) === "zero-decimal" || valueKind(value) === "zero-hex";
 const txShape = (tx, wallet, target) => tx && tx.chainId === 137 && sameAddress(tx.from, wallet)
-  && (target ? sameAddress(tx.to, target) : address(tx.to)) && uint(tx.value) && tx.value === "0"
+  && (target ? sameAddress(tx.to, target) : address(tx.to)) && zeroValue(tx.value)
   && typeof tx.data === "string" && /^0x(?:[0-9a-fA-F]{2}){4,}$/.test(tx.data);
 const errorKind = status => [401, 403].includes(status) ? "AUTH" : status === 429 ? "RATE_LIMIT" : status >= 500 ? "UPSTREAM" : "HTTP";
 
@@ -67,7 +68,7 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
     fromType: typeof transaction?.from,
     targetMatchesManager: sameAddress(transaction?.to, MANAGER),
     ...(address(transaction?.to) ? { targetAddress: transaction.to } : {}),
-    valueZero: transaction?.value === "0",
+    valueZero: zeroValue(transaction?.value),
     valueType: typeof transaction?.value,
     valueKind: valueKind(transaction?.value),
     calldataShapeValid: typeof transaction?.data === "string" && /^0x(?:[0-9a-fA-F]{2}){4,}$/.test(transaction.data),

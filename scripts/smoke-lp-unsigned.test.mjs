@@ -66,17 +66,38 @@ test("a wrong create target stops before approval", async () => {
       valueZero: true, valueType: "string", valueKind: "zero-decimal", calldataShapeValid: true, calldataType: "string" } }]);
 });
 
-test("classifies a hex-encoded zero value without treating it as approved", async () => {
+test("accepts hex-encoded zero for unsigned create and approval shapes", async () => {
+  const lines = [];
+  const calls = [];
+  const result = await probeLpUnsigned({ apiKey: "secret", wallet, write: line => lines.push(JSON.parse(line)),
+    fetcher: async url => {
+      calls.push(url);
+      if (url.endsWith("/lp/create")) return Response.json(createResponse({ create: {
+        chainId: 137, from: wallet, to: manager, value: "0x0", data: "0x12345678",
+      } }));
+      return Response.json({ transactions: [{ action: "CREATE", cancelApproval: false,
+        transaction: { chainId: 137, from: wallet, to: usdc, value: "0x00", data: "0x095ea7b3" } }] });
+    },
+  });
+  assert.equal(result, true);
+  assert.equal(calls.length, 2);
+  assert.deepEqual(lines, [
+    { stage: "create", status: 200, shapeValid: true, tokenAmountsValid: true, transactionShapeValid: true },
+    { stage: "check_approval", status: 200, shapeValid: true, transactionCount: 1 },
+  ]);
+});
+
+test("a positive native value still blocks approval lookup", async () => {
   const lines = [];
   const calls = [];
   const result = await probeLpUnsigned({ apiKey: "secret", wallet, write: line => lines.push(JSON.parse(line)),
     fetcher: async url => { calls.push(url); return Response.json(createResponse({ create: {
-      chainId: 137, from: wallet, to: manager, value: "0x0", data: "0x12345678",
+      chainId: 137, from: wallet, to: manager, value: "0x1", data: "0x12345678",
     } })); },
   });
   assert.equal(result, false);
   assert.equal(calls.length, 1);
-  assert.equal(lines[0].transactionChecks.valueKind, "zero-hex");
+  assert.equal(lines[0].transactionChecks.valueKind, "positive-hex");
   assert.equal(lines[0].transactionChecks.valueZero, false);
 });
 
