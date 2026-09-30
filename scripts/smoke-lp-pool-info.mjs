@@ -44,7 +44,28 @@ export async function probeLpPoolInfo({ apiKey, fetcher = fetch, write = line =>
   const stateShapeValid = poolMatches && Number.isInteger(state?.currentTick) && Number.isInteger(state?.tickSpacing) && state.tickSpacing > 0
     && uintString(state?.poolLiquidity) && uintString(state?.sqrtRatioX96) && BigInt(state.sqrtRatioX96) > 0n;
   const activeLiquidityPositive = stateShapeValid && BigInt(state.poolLiquidity) > 0n;
-  write(JSON.stringify({ status: response.status, poolCount: pools.length, poolMatches, stateShapeValid: Boolean(stateShapeValid), activeLiquidityPositive: Boolean(activeLiquidityPositive) }));
+  // Mismatch-only public-field diagnostics. Never print the raw response, key, request ID or arbitrary provider strings.
+  const poolChecks = poolMatches ? undefined : pools.slice(0, 3).map(pool => {
+    const forward = addressEquals(pool?.tokenAddressA, USDC) && addressEquals(pool?.tokenAddressB, WETH);
+    const reverse = addressEquals(pool?.tokenAddressA, WETH) && addressEquals(pool?.tokenAddressB, USDC);
+    const poolAddress = typeof pool?.poolReferenceIdentifier === "string" && /^0x[0-9a-fA-F]{40}$/.test(pool.poolReferenceIdentifier)
+      ? pool.poolReferenceIdentifier : undefined;
+    return {
+      chainIdMatches: pool?.chainId === 137, chainIdType: typeof pool?.chainId,
+      protocolMatches: pool?.poolProtocol === "V3",
+      poolAddressMatches: addressEquals(pool?.poolReferenceIdentifier, POOL), poolAddress,
+      tokenPairMatches: forward || reverse,
+      tokenDecimalsMatch: (forward && pool?.tokenDecimalsA === 6 && pool?.tokenDecimalsB === 18)
+        || (reverse && pool?.tokenDecimalsA === 18 && pool?.tokenDecimalsB === 6),
+      tokenDecimalsTypes: [typeof pool?.tokenDecimalsA, typeof pool?.tokenDecimalsB],
+      feeMatches: String(pool?.fee) === "500",
+      currentTickValid: Number.isInteger(pool?.currentTick),
+      tickSpacingValid: Number.isInteger(pool?.tickSpacing) && pool.tickSpacing > 0,
+      liquidityShapeValid: uintString(pool?.poolLiquidity),
+      sqrtRatioShapeValid: uintString(pool?.sqrtRatioX96) && /[1-9]/.test(pool.sqrtRatioX96),
+    };
+  });
+  write(JSON.stringify({ status: response.status, poolCount: pools.length, poolMatches, stateShapeValid: Boolean(stateShapeValid), activeLiquidityPositive: Boolean(activeLiquidityPositive), ...(poolChecks ? { poolChecks } : {}) }));
   return Boolean(poolMatches && stateShapeValid && activeLiquidityPositive);
 }
 

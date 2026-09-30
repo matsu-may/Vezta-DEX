@@ -37,8 +37,9 @@
 ## Phase 4 — Liquidity foundation
 
 - [x] Prepare a fixed, read-only `/lp/pool_info` probe with sanitization and tests; local agent network returned `NETWORK`, so this is not live Polygon LP evidence.
+- [x] Owner host reached the LP API twice with HTTP 200 and one returned pool, but both responses failed the fixed candidate identity check. Add bounded mismatch diagnostics without accepting an unknown pool; see [LP feasibility](../../research/2026-09-30-lp-api-feasibility.md).
 - [x] Record the v3 position identity, read/write boundaries, threat model and UI reference in the [LP design](../../specs/2026-09-30-polygon-v3-lp-design.md); write implementation remains gated.
-- [ ] Confirm Polygon native-USDC/WETH v3 pool identity and LP API `/lp/pool_info` read access with a sanitized, read-only probe. The v3 0.05% pool is a candidate, not an approved LP target.
+- [ ] Use the bounded mismatch output to identify the differing field, then independently confirm Polygon native-USDC/WETH v3 pool identity against a pinned on-chain read. HTTP 200 alone does not approve the v3 0.05% candidate as an LP target.
 - [ ] Verify Polygon unsigned `/lp/check_approval`, `/lp/create`, `/lp/increase`, `/lp/decrease` and `/lp/claim_fees` responses before building write controls. Use the official [LP integration guide](https://developers.uniswap.org/docs/liquidity/liquidity-provisioning-api/integration-guide) and [Polygon v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments).
 - [ ] Design chain-aware position ownership, ticks/range, principal, current amounts and uncollected fees separately. Never infer APR or USD TVL from raw `liquidity()`.
 

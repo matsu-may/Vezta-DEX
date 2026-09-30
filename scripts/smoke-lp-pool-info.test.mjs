@@ -51,10 +51,40 @@ test("a mismatched pool and upstream auth error fail without claiming LP readine
   });
   assert.equal(wrong, false);
   assert.equal(unauthorized, false);
-  assert.deepEqual(lines, [
-    { status: 200, poolCount: 1, poolMatches: false, stateShapeValid: false, activeLiquidityPositive: false },
-    { status: 401, errorKind: "AUTH" },
-  ]);
+  const [{ poolChecks, ...mismatch }, auth] = lines;
+  assert.deepEqual(mismatch, { status: 200, poolCount: 1, poolMatches: false, stateShapeValid: false, activeLiquidityPositive: false });
+  assert.equal(poolChecks.length, 1);
+  assert.deepEqual(auth, { status: 401, errorKind: "AUTH" });
+});
+
+test("a mismatch reports only bounded public identity checks, never upstream details", async () => {
+  const lines = [];
+  const returnedPool = "0x1111111111111111111111111111111111111111";
+  const matched = await probeLpPoolInfo({
+    apiKey: "private-key",
+    fetcher: async () => Response.json({ requestId: "private-request", pools: [{
+      chainId: "137", poolProtocol: "V3", poolReferenceIdentifier: returnedPool,
+      tokenAddressA: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
+      tokenAddressB: "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619",
+      tokenDecimalsA: "6", tokenDecimalsB: "18", fee: "500", tickSpacing: 10,
+      poolLiquidity: "123", sqrtRatioX96: "456", currentTick: 22,
+      secret: "hidden",
+    }] }),
+    write: line => lines.push(JSON.parse(line)),
+  });
+  assert.equal(matched, false);
+  assert.deepEqual(lines, [{
+    status: 200, poolCount: 1, poolMatches: false, stateShapeValid: false, activeLiquidityPositive: false,
+    poolChecks: [{
+      chainIdMatches: false, chainIdType: "string", protocolMatches: true,
+      poolAddressMatches: false, poolAddress: returnedPool,
+      tokenPairMatches: true, tokenDecimalsMatch: false, tokenDecimalsTypes: ["string", "string"],
+      feeMatches: true, currentTickValid: true, tickSpacingValid: true,
+      liquidityShapeValid: true, sqrtRatioShapeValid: true,
+    }],
+  }]);
+  assert.ok(!JSON.stringify(lines).includes("private"));
+  assert.ok(!JSON.stringify(lines).includes("hidden"));
 });
 
 test("a matching pool with zero active liquidity is not marked ready", async () => {
