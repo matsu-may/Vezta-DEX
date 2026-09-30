@@ -2,7 +2,7 @@
 
 Standalone development project for Vezta's Uniswap spot trading and liquidity experience. The first chain is Polygon. Native USDC/WETH v3 pools are the read-only starting set; no pool is approved for live trading yet.
 
-Start with [the roadmap](docs/roadmap.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [Trading API swap spec](docs/specs/2026-09-27-trading-api-swap.md). The current app implements read-only pool discovery, an indicative v3 single-pool comparison, and a wallet-bound Trading API quote preview. `apps/api` reads Polygon RPC and calls Uniswap Trading API; `apps/web` renders `/explore`, `/pools`, pool detail and `/swap`; `packages/core` holds chain-aware IDs, the curated token registry and quote validation.
+Start with [the roadmap](docs/roadmap.md), [six-phase standalone plan](docs/superpowers/plans/2026-09-30-standalone-dex-next-phases.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [Trading API swap spec](docs/specs/2026-09-27-trading-api-swap.md). The current app implements read-only pool discovery, an indicative v3 single-pool comparison, and a wallet-bound Trading API quote preview. `apps/api` reads Polygon RPC and calls Uniswap Trading API; `apps/web` renders `/explore`, `/pools`, pool detail and `/swap`; `packages/core` holds chain-aware IDs, the curated token registry and quote validation.
 
 ## Local setup
 
@@ -17,8 +17,10 @@ pnpm dev
 
 The API listens on `127.0.0.1:3021`, and the web app on `127.0.0.1:3020`; these avoid Vezta's existing `3000`/`3001` and launchpad's `3010`. `POLYGON_RPC_URL` can point to another trusted Polygon RPC; use HTTPS except for local development. `DEX_API_URL` is server-only and must be reachable by the Next.js process. Set `UNISWAP_API_KEY` in `apps/api/.env` to enable wallet-bound Trading API quotes; never put it in `NEXT_PUBLIC_*` or share it in logs. Without a key, pool discovery and the indicative QuoterV2 comparison still work, while the routed quote returns a controlled unavailable state.
 
+The current public RPC returned two `eth_getBlockByNumber` timeouts in five direct probes; the rehearsal fails closed on those reads. Use `node scripts/diagnose-polygon-rpc.mjs` to remeasure with the URL in `apps/api/.env`. A funded wallet rehearsal needs a dependable Polygon RPC first; see [RPC evidence](docs/research/2026-09-30-intermittent-rehearsal-reads.md). The independent read-only LP access probe is `node scripts/smoke-lp-pool-info.mjs`; it checks one curated v3 pool without signing and uses `UNISWAP_LP_API_KEY` if set, otherwise `UNISWAP_API_KEY`. A matching pool-info response does not authorize LP writes; see [LP feasibility](docs/research/2026-09-30-lp-api-feasibility.md).
+
 ```bash
-pnpm test       # Vitest and approval-calldata summary tests
+pnpm test       # Vitest and read-only diagnostic/script tests
 pnpm typecheck  # TypeScript across all packages
 pnpm lint       # ESLint/Next rules
 pnpm build      # Production Next.js build
@@ -55,4 +57,4 @@ pnpm dev:rehearsal                 # terminal2; http://127.0.0.1:3020/rehearsal
 
 This page requests real wallet actions only after explicit clicks, capped at 1 native USDC → WETH on Polygon137. Use only `http://127.0.0.1:3020` with a Web Locks-capable browser and one test profile; localhost browser alias is rejected. It uses exact ERC20 allowance, validated unchanged Permit2 messages, fresh simulation/gas, retained uncertain/submitted identity, origin-wide coordination, nonce/inclusion proof and read-only reload recovery. Pending account activity blocks; manual hashes are candidates until verified. Normal development and production do not enable it. Do not copy launcher flags into a public server or `.env.local`. `DEX_API_URL` must use fixed loopback port3021.
 
-Read the [owner checklist](docs/research/2026-09-29-local-wallet-owner-checklist.md) before opening a wallet prompt. It includes a mock-only browser command, rejection/identity checks, owner-only approval/swap steps and sanitized evidence fields. The agent environment blocked the local listener (`EPERM`), so browser smoke, screenshots and funded execution remain unconfirmed. See [verification](docs/research/2026-09-29-local-wallet-validation.md) and [decisions](docs/research/2026-09-29-local-wallet-decisions.md). Public trading, reverse funded execution, LP and main Vezta integration stay gated.
+Read the [owner checklist](docs/research/2026-09-29-local-wallet-owner-checklist.md) before opening a wallet prompt. It includes a mock-only browser command, rejection/identity checks, owner-only approval/swap steps and sanitized evidence fields. The owner completed read-only installed MetaMask checks and the browser mock run (nine checks and 41 intercepted API calls); real signing, broadcast and funded execution remain unconfirmed. The agent environment still cannot reach the owner's local listener. See [verification](docs/research/2026-09-29-local-wallet-validation.md) and [decisions](docs/research/2026-09-29-local-wallet-decisions.md). Public trading, reverse funded execution, LP and main Vezta integration stay gated.

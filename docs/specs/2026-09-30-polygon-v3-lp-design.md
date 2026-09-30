@@ -1,0 +1,39 @@
+# Polygon v3 Liquidity Position Design
+
+**Status:** Design and evidence gates only. Do not enable LP wallet writes from this document. **Scope:** the standalone `vezta-dex` app, Polygon 137, native USDC/WETH, Uniswap v3 0.05% candidate pool. Main Vezta integration, v4 positions and other chains are separate work.
+
+## Product behavior
+
+`/pools` and a future position page should identify the pool by `chainId + V3 + pool address` and each position by `chainId + NonfungiblePositionManager + NFT tokenId`. A connected EOA can discover its positions, inspect tick bounds and whether the current pool tick is inside `[tickLower, tickUpper)`, then explicitly create, increase, decrease, collect fees or close a position. A position can contain only one token when out of range. Show token addresses, decimals, range, two token amounts, current block/time and the data source. Keep deposited principal, current token amounts and uncollected fees separate. If one cannot be calculated from a verified source, label it unavailable; raw `liquidity()` is not USD TVL or APR.
+
+The candidate pool address is `0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9`; the official [Polygon v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments) list `NonfungiblePositionManager` at `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`. Reconfirm pool/token/fee/tick spacing from current on-chain state and the [LP pool-info API](https://developers.uniswap.org/docs/api-reference/pool_info) before a write. The current read-only probe checks identity and positive active liquidity but does not certify depth, fees or freshness.
+
+## Data and transaction boundaries
+
+The API owns the LP key and exposes narrowly validated data/preparation endpoints. It must not expose a general RPC or LP API proxy. Position discovery may use NFT manager `balanceOf`, `tokenOfOwnerByIndex`, and `positions(tokenId)` at a pinned block as described by Uniswap's [v3 position-fetching guide](https://developers.uniswap.org/docs/sdks/v3/guides/managing-liquidity/position-fetching). Page/cap owner enumeration; return an explicit incomplete page if the cap is reached. Read pool tick and ownership at the same block; stale or inconsistent data is unavailable. An indexer can improve browsing later, but its positions/fee estimates must never authorize a write.
+
+For writes, first establish Polygon access and actual unsigned responses for `/lp/check_approval`, `/lp/create`, `/lp/increase`, `/lp/decrease`, and `/lp/claim_fees` from the official [LP guide](https://developers.uniswap.org/docs/liquidity/liquidity-provisioning-api/integration-guide). Do not reuse swap Permit2 assumptions: LP spender, NFT approval and permit shapes differ. Decode every returned `to`, `from`, `value`, selector/calldata, token pair, NFT ID, owner/recipient, exact maximum token inputs, minimum outputs, ticks, deadline and slippage against the user's displayed intent and verified deployments. Reject unknown multicall actions or unlimited approvals; a third-party API response is data, not authorization. Requote/recheck after approval and immediately before each explicit wallet prompt. The wallet signs and submits; API never does.
+
+After a transaction, retain the original account/hash and inspect canonical receipt plus the actual NFT owner, position liquidity, token transfers and allowance at a pinned block. A successful receipt alone does not establish economic output. A partial decrease must not be described as close; fee collection must not be counted as principal withdrawal. Uniswap's guide says v3 decrease may collect fees in the same call, so the receipt parser must distinguish those amounts. Reorg, delayed receipt, replacement or indexer lag preserve an uncertain status until reconcilable evidence exists.
+
+## Threat model
+
+| Scenario | Affected asset / trust assumption | Impact | Mitigation and verification | Owner |
+|---|---|---|---|---|
+| API returns wrong spender, manager or calldata | Both deposit tokens; LP API is untrusted input | Excess allowance or funds sent elsewhere | Allowlist deployment, decode full action, exact amount limits; tampered-payload tests | Core + API + web |
+| Pool/token order or decimals are wrong | USDC/WETH; symbols are not identities | Wrong range or token amount | Pin chain/address/fee, verify on-chain decimals and adjusted ticks; reversed-order tests | API + core |
+| Stale pool tick, price bounds or API result | Both tokens; RPC/API can lag | Out-of-range mint or worse amount | Fresh pinned reads, strict deadline and user review of adjusted bounds; stale/requote tests | API + web |
+| Indexed position/fee amount is delayed | Principal and fees; indexer is eventual | Misleading earnings or double count | Separate estimates from chain-confirmed amounts; index-lag and decrease-plus-claim tests | API + web |
+| Wallet/account changes during approval or send | NFT and tokens; injected wallet can change | Wrong owner or unresolved send | Recheck account/chain, serialize prompts, preserve original hash and block retries; change/reload tests | Web |
+| Receipt succeeds but liquidity/amounts differ | NFT and tokens; receipt status is insufficient | False success or hidden loss | Verify NFT owner/liquidity and token deltas at canonical block; revert/reorg/partial tests | API + web |
+
+## Exit gates
+
+1. Qualify a dependable Polygon RPC. The configured endpoint timed out on two of five latest-block reads; do not use it to approve a funded LP rehearsal.
+2. Observe a matching `/lp/pool_info` result and verify current pool identity/decimals/tick spacing against a pinned on-chain read. Confirm LP API key entitlement and rate budget separately from the 6 RPS Trading API key.
+3. Capture sanitized unsigned responses for all five LP actions on Polygon, then write an action-specific validator and tests **before** adding wallet buttons. If an action is unavailable, document the supported subset rather than substituting another protocol silently.
+4. Verify position discovery, in/out-of-range, single-sided, partial/full decrease, fee collection and delayed indexer states with official fixtures or a fork. Complete owner-operated small funded checks and independent security review before public LP writes.
+
+## UI reference
+
+When implementation reaches UI, follow `vezta-tokenlaunchpad/.../TokenLaunchpad-fe`: black `#000000` canvas, `#111111` cards, lime `#D4FF2B` primary action, restrained corner radius, Space Grotesk labels and JetBrains Mono values. Keep wallet actions visibly separate from read-only data and show chain, pool version, token addresses, source/block freshness and transaction state on desktop and mobile. This design direction does not claim the current DEX pages already match that reference.
