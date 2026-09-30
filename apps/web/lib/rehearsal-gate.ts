@@ -19,9 +19,16 @@ export function createRehearsalProxy(env: Environment = process.env, fetcher: ty
     const forwardedHost = request.headers.get("x-forwarded-host");
     const forwardedProto = request.headers.get("x-forwarded-proto");
     const forwardedFor = request.headers.get("x-forwarded-for");
-    if (host !== "127.0.0.1:3020" || url.origin !== origin || request.headers.get("origin") !== origin || request.headers.get("content-type")?.split(";", 1)[0].trim() !== "application/json"
-      || (forwardedHost !== null && forwardedHost !== host) || (forwardedProto !== null && forwardedProto !== "http") || (forwardedFor !== null && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(forwardedFor)) || request.headers.has("forwarded"))
-      return json({ error: "Local same-origin JSON required" }, 403);
+    const boundaryCode = host !== "127.0.0.1:3020" ? "LOCAL_HOST"
+      : url.origin !== origin ? "LOCAL_URL_ORIGIN"
+      : request.headers.get("origin") !== origin ? "LOCAL_ORIGIN"
+      : request.headers.get("content-type")?.split(";", 1)[0].trim() !== "application/json" ? "LOCAL_CONTENT_TYPE"
+      : forwardedHost !== null && forwardedHost !== host ? "LOCAL_FORWARDED_HOST"
+      : forwardedProto !== null && forwardedProto !== "http" ? "LOCAL_FORWARDED_PROTO"
+      : forwardedFor !== null && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(forwardedFor) ? "LOCAL_FORWARDED_FOR"
+      : request.headers.has("forwarded") ? "LOCAL_FORWARDED" : null;
+    if (boundaryCode)
+      return json({ error: "Local same-origin JSON required", code: boundaryCode }, 403);
     let body: unknown;
     try {
       body = await boundedJson(new Response(request.body), 4096);

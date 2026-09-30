@@ -11,8 +11,17 @@ describe("development rehearsal boundary",()=>{
  it("returns404 before any API request when disabled",async()=>{
   const fetcher=vi.fn();const r=await createRehearsalProxy({},fetcher)(req(),"state");expect(r.status).toBe(404);expect(fetcher).not.toHaveBeenCalled();
  });
- it.each<Record<string,string>>([{Origin:"https://evil.example"},{Origin:"null"},{Host:"evil.example:3020"},{"X-Forwarded-Host":"evil.example"},{"Content-Type":"text/plain"}])("rejects unsafe origin/content/forwarding %o",async headers=>{
-  const fetcher=vi.fn();const r=await createRehearsalProxy(enabled,fetcher)(req(intent,headers),"state");expect(r.status).toBe(403);expect(fetcher).not.toHaveBeenCalled();
+ it.each<[Record<string,string>,string]>([
+  [{Origin:"https://evil.example"},"LOCAL_ORIGIN"],
+  [{Origin:"null"},"LOCAL_ORIGIN"],
+  [{Host:"evil.example:3020"},"LOCAL_HOST"],
+  [{"X-Forwarded-Host":"evil.example"},"LOCAL_FORWARDED_HOST"],
+  [{"X-Forwarded-Proto":"https"},"LOCAL_FORWARDED_PROTO"],
+  [{"X-Forwarded-For":"192.0.2.1"},"LOCAL_FORWARDED_FOR"],
+  [{Forwarded:"for=192.0.2.1"},"LOCAL_FORWARDED"],
+  [{"Content-Type":"text/plain"},"LOCAL_CONTENT_TYPE"],
+ ])("rejects unsafe local request %o with a non-sensitive reason code",async(headers,code)=>{
+  const fetcher=vi.fn();const r=await createRehearsalProxy(enabled,fetcher)(req(intent,headers),"state");expect(r.status).toBe(403);expect(await r.json()).toEqual({error:"Local same-origin JSON required",code});expect(fetcher).not.toHaveBeenCalled();
  });
  it("forwards only validated exact actions to the fixed API with no-store, no redirects",async()=>{
   const fetcher=vi.fn(async()=>Response.json({state:{chainId:137,account:intent.swapper,accountKind:"eoa",accountNonce:"7",blockNumber:"123",observedAt:new Date().toISOString(),balances:{USDC:"1000000",WETH:"0",POL:"1000000000000000000"},tokenAllowance:"1000000",permitAllowance:{amount:"0",expiration:"0",nonce:"7"},approvalGas:null}}));const r=await createRehearsalProxy(enabled,fetcher)(req(),"state");expect(r.status).toBe(200);expect(r.headers.get("cache-control")).toBe("no-store");
