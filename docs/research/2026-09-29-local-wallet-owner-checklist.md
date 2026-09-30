@@ -1,6 +1,6 @@
 # Checklist kiểm tra ví local — Polygon USDC → WETH
 
-**Trạng thái:** Các kiểm tra tự động của browser mock đã được chủ dự án chạy thành công ngày 2026-09-30; ảnh mobile cần chụp lại để hoàn tất kiểm tra hình ảnh. Kiểm tra ví thật và giao dịch có tiền vẫn chưa thực hiện. `/swap` công khai tiếp tục chỉ đọc. Đây là checklist do bạn thao tác; agent không ký, gửi giao dịch hay nạp tiền.
+**Trạng thái:** Browser mock đã hoàn tất ngày 2026-09-30: 9 checks qua, 41 API calls giả lập, ảnh desktop/mobile đã kiểm tra. Kiểm tra ví thật và giao dịch có tiền vẫn chưa thực hiện. `/swap` công khai tiếp tục chỉ đọc. Đây là checklist do bạn thao tác; agent không ký, gửi giao dịch hay nạp tiền.
 
 ## 1. Khởi động đúng chế độ
 
@@ -16,7 +16,7 @@ pnpm dev:rehearsal
 
 Mở **http://127.0.0.1:3020/rehearsal**. Launcher chỉ bind `127.0.0.1:3020`; `DEX_API_URL` phải là `http://127.0.0.1:3021` hoặc `http://localhost:3021`. Dùng đúng browser origin `http://127.0.0.1:3020`; alias `localhost:3020` bị chặn để các tab dùng cùng storage/khóa. Dùng một profile/browser thử nghiệm cho account này, không mở nhiều profile cùng thao tác. Browser phải hỗ trợ Web Locks. Không chép các flag rehearsal vào `.env.local`, proxy công khai hoặc server khác. Chạy `pnpm dev` bình thường và production không bật harness.
 
-Agent bị môi trường chặn mở cổng local (`listen EPERM`), nên chưa xác nhận giao diện thực tế hoặc header do Next gửi. Nếu page/proxy lỗi, dừng tại đó và gửi HTTP status/thông báo đã che thông tin nhạy cảm; không bỏ gate để tiếp tục.
+Agent bị môi trường chặn mở cổng local (`listen EPERM`), nên không tự chạy được browser hoặc kiểm tra header do Next gửi. Ảnh browser do chủ dự án chạy đã được agent xem. Nếu page/proxy lỗi, dừng tại đó và gửi HTTP status/thông báo đã che thông tin nhạy cảm; không bỏ gate để tiếp tục.
 
 ## 2. Browser mock trước, chưa dùng ví thật
 
@@ -28,7 +28,7 @@ playwright-cli -s=dex-mock run-code --filename=scripts/smoke-rehearsal-browser.j
 playwright-cli -s=dex-mock close
 ```
 
-Kết quả mong đợi: object `mockOnly: true`, các checks qua, ảnh desktop/mobile trong `.playwright-cli/`. Kiểm tra ảnh: không tràn ngang, amount/minimum/gas/hash đọc được, các nút có tên rõ. Chủ dự án đã chạy script trong browser ngày 2026-09-30: không có assertion hoặc wait thất bại, ảnh desktop/mobile đã tạo, kiểm tra mobile không tràn ngang đã qua. Console có 404 favicon và 503 `/api/rehearsal/prepare` do script cố ý giả lập simulation thất bại. Phiên chạy này dùng `console.log` ở dòng cuối nên CLI không in object tổng kết; script đã đổi sang `return` để các lần chạy sau hiển thị kết quả. Ảnh mobile `fullPage` bị lặp phần đầu trang nên chưa xác minh được quote trên mobile; script đã đổi sang ảnh viewport tại phần minimum để chạy lại. Agent chưa tự chạy được browser vì sandbox. Nếu công cụ chưa cài, dùng bộ Playwright CLI đã cấu hình cho workspace; không tự thêm extension vào profile ví.
+Kết quả mong đợi: object `mockOnly: true`, các checks qua, ảnh desktop/mobile trong `.playwright-cli/`. Ngày 2026-09-30, chủ dự án chạy lại và nhận `mockOnly: true`, 9 checks, 41 API calls. Agent đã xem ảnh desktop (quote, permission, gas) và ảnh mobile 390 × 844 (input, estimated/minimum output, allowance): nội dung đọc được, không lặp phần đầu trang. Console chỉ có 404 favicon và 503 `/api/rehearsal/prepare` do script cố ý giả lập simulation thất bại. Nếu công cụ chưa cài, dùng bộ Playwright CLI đã cấu hình cho workspace; không tự thêm extension vào profile ví.
 
 ## 3. Kiểm tra ví thật trước khi gửi tiền
 
