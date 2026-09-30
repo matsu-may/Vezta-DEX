@@ -25,7 +25,7 @@ async page => {
     mock.emit = (event, value) => { for (const fn of listeners.get(event) || []) fn(value); };
   }, fixture);
   await page.route("**/api/rehearsal/**", async route => {
-    const action = new URL(route.request().url()).pathname.split("/").at(-1);
+    const action = route.request().url().split("/api/rehearsal/")[1]?.split(/[?#]/)[0];
     apiCalls.push(action);
     let response;
     if (action === "quote") response = { quote: fixture.quote, quoteId: fixture.preparation.quoteId };
