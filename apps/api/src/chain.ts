@@ -8,6 +8,7 @@ import type { PermitChainSource } from "./permit-reader";
 import type { WalletStateSource } from "./wallet-state";
 import type { WalletObservationSource } from "./wallet-observation";
 import type { SwapPreparationChainSource } from "./swap-preparation";
+import { V3_LP_POOL, V3_POSITION_MANAGER, type LpPositionSource } from "./lp-position";
 
 const permit2Abi = [{
   type: "function", name: "allowance", stateMutability: "view",
@@ -33,6 +34,22 @@ const poolAbi = [
   { type: "function", name: "liquidity", stateMutability: "view", inputs: [], outputs: [{ type: "uint128" }] },
 ] as const;
 
+const positionManagerAbi = [
+  { type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ type: "address" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "tokenOfOwnerByIndex", stateMutability: "view", inputs: [{ type: "address" }, { type: "uint256" }], outputs: [{ type: "uint256" }] },
+  { type: "function", name: "ownerOf", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [{ type: "address" }] },
+  { type: "function", name: "positions", stateMutability: "view", inputs: [{ type: "uint256" }], outputs: [
+    { type: "uint96" }, { type: "address" }, { type: "address" }, { type: "address" },
+    { type: "uint24" }, { type: "int24" }, { type: "int24" }, { type: "uint128" },
+    { type: "uint256" }, { type: "uint256" }, { type: "uint128" }, { type: "uint128" },
+  ] },
+] as const;
+
+const lpPoolAbi = [{ type: "function", name: "slot0", stateMutability: "view", inputs: [], outputs: [
+  { type: "uint160" }, { type: "int24" }, { type: "uint16" }, { type: "uint16" },
+  { type: "uint16" }, { type: "uint8" }, { type: "bool" },
+] }] as const;
+
 const quoterAbi = [{
   type: "function",
   name: "quoteExactInputSingle",
@@ -56,7 +73,7 @@ const quoterAbi = [{
   ],
 }] as const;
 
-export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource & SwapPreparationChainSource & WalletStateSource & WalletObservationSource {
+export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & QuoteChainSource & AllowanceChainSource & PermitChainSource & SwapPreparationChainSource & WalletStateSource & WalletObservationSource & LpPositionSource {
   const url = new URL(rpcUrl);
   if (url.protocol !== "https:" && !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("POLYGON_RPC_URL must be HTTPS or local HTTP");
@@ -65,6 +82,33 @@ export function createPolygonPoolSource(rpcUrl: string): PoolChainSource & Quote
 
   return {
     receiptClient: client,
+    getChainId() { return client.getChainId(); },
+    async getPositionBlock(request) {
+      const block = await client.getBlock(request);
+      return { number: block.number, timestamp: block.timestamp, hash: block.hash ?? "" };
+    },
+    getPositionCount(owner, blockNumber) {
+      return client.readContract({ address: V3_POSITION_MANAGER, abi: positionManagerAbi,
+        functionName: "balanceOf", args: [owner], blockNumber });
+    },
+    getPositionId(owner, index, blockNumber) {
+      return client.readContract({ address: V3_POSITION_MANAGER, abi: positionManagerAbi,
+        functionName: "tokenOfOwnerByIndex", args: [owner, index], blockNumber });
+    },
+    getPositionOwner(id, blockNumber) {
+      return client.readContract({ address: V3_POSITION_MANAGER, abi: positionManagerAbi,
+        functionName: "ownerOf", args: [id], blockNumber });
+    },
+    async getPosition(id, blockNumber) {
+      const result = await client.readContract({ address: V3_POSITION_MANAGER, abi: positionManagerAbi,
+        functionName: "positions", args: [id], blockNumber });
+      return { token0: result[2], token1: result[3], fee: result[4], tickLower: result[5], tickUpper: result[6],
+        liquidity: result[7], tokensOwed0: result[10], tokensOwed1: result[11] };
+    },
+    async getPoolTick(blockNumber) {
+      const result = await client.readContract({ address: V3_LP_POOL, abi: lpPoolAbi, functionName: "slot0", blockNumber });
+      return result[1];
+    },
     async getAccountNonce(owner, blockNumber) {
       const nonce = await client.getTransactionCount({ address: owner, blockNumber });
       if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Invalid account nonce");

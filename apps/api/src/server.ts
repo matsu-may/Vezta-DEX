@@ -1,4 +1,4 @@
-import { TOKENS, parsePoolKey, summarizeTradingFailure, type TradingIntent } from "@vezta-dex/core";
+import { TOKENS, parsePoolKey, summarizeTradingFailure, type Address, type TradingIntent } from "@vezta-dex/core";
 import { z } from "zod";
 import type { PoolReader } from "./pools";
 import { QuoteInputError, type QuoteReader } from "./quote";
@@ -26,7 +26,11 @@ function json(body: unknown, status = 200): Response {
   });
 }
 
-export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer, wallet?: WalletStateReader, observations?: WalletObservationReader): Promise<Response> {
+export interface PositionPageReader {
+  getPage(input: { owner: Address; cursor: bigint; limit: number }): Promise<unknown>;
+}
+
+export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer, wallet?: WalletStateReader, observations?: WalletObservationReader, positions?: PositionPageReader): Promise<Response> {
   const pathname = new URL(request.url).pathname;
   if (pathname === "/api/v1/wallet-state" || pathname === "/api/v1/transaction-observation" || pathname === "/api/v1/swap-recheck") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -120,6 +124,25 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
 
   if (pathname === "/health") return json({ status: "ok" });
   if (pathname === "/api/v1/tokens") return json({ tokens: [TOKENS.USDC, TOKENS.WETH] });
+
+  if (pathname === "/api/v1/lp/positions") {
+    const params = new URL(request.url).searchParams;
+    if ([...params.keys()].some(key => !["chainId", "owner", "cursor", "limit"].includes(key))
+      || ["chainId", "owner", "cursor", "limit"].some(key => params.getAll(key).length !== 1)) {
+      return json({ error: "Invalid LP position request" }, 400);
+    }
+    const parsed = z.object({ chainId: z.literal("137"), owner: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
+      cursor: z.string().regex(/^(0|[1-9]\d{0,6})$/), limit: z.coerce.number().int().min(1).max(5) })
+      .safeParse(Object.fromEntries(params));
+    if (!parsed.success) return json({ error: "Invalid LP position request" }, 400);
+    if (!positions) return json({ error: "LP position read is unavailable" }, 503);
+    try {
+      return json({ page: await positions.getPage({ owner: parsed.data.owner as Address,
+        cursor: BigInt(parsed.data.cursor), limit: parsed.data.limit }) });
+    } catch {
+      return json({ error: "Polygon LP positions are unavailable" }, 503);
+    }
+  }
 
   if (pathname === "/api/v1/quote") {
     if (!quotes) return json({ error: "Quote service is unavailable" }, 503);

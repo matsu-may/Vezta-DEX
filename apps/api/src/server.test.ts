@@ -21,6 +21,19 @@ const quotes = new QuoteReader({
 });
 
 describe("DEX HTTP handler", () => {
+  it("serves a bounded read-only LP position page and rejects malformed pagination", async () => {
+    const owner = "0x1111111111111111111111111111111111111111";
+    const positions = { getPage: async () => ({ chainId: 137, positions: [], nextCursor: null, incomplete: false }) };
+    const url = `http://localhost/api/v1/lp/positions?chainId=137&owner=${owner}&cursor=0&limit=5`;
+    const valid = await handleRequest(new Request(url), reader, undefined, undefined, undefined, undefined, undefined, undefined, undefined, positions);
+    expect(valid.status).toBe(200);
+    expect(await valid.json()).toEqual({ page: { chainId: 137, positions: [], nextCursor: null, incomplete: false } });
+    expect(valid.headers.get("Cache-Control")).toBe("no-store");
+    const invalid = await handleRequest(new Request(url.replace("limit=5", "limit=6")), reader, undefined, undefined, undefined, undefined, undefined, undefined, undefined, positions);
+    expect(invalid.status).toBe(400);
+    const missing = await handleRequest(new Request(url), reader);
+    expect(missing.status).toBe(503);
+  });
   it("serves curated tokens without an RPC call", async () => {
     const response = await handleRequest(new Request("http://localhost/api/v1/tokens"), reader);
     expect(response.status).toBe(200);

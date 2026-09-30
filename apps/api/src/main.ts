@@ -13,6 +13,7 @@ import { SwapPreparer } from "./swap-preparation";
 
 import { WalletStateReader } from "./wallet-state";
 import { WalletObservationReader } from "./wallet-observation";
+import { LpPositionReader } from "./lp-position";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -27,6 +28,7 @@ const reader = new PoolReader(source);
 const quotes = new QuoteReader(source);
 const wallet = new WalletStateReader(source);
 const observations = new WalletObservationReader(source);
+const positions = new LpPositionReader(source);
 const approval = new AllowanceReader(source);
 const quoteStore = new QuoteStore();
 const tradingClient = process.env.UNISWAP_API_KEY?.trim() ? new TradingApiClient(process.env.UNISWAP_API_KEY) : undefined;
@@ -51,7 +53,7 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps, wallet, observations);
+    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps, wallet, observations, positions);
     response.writeHead(result.status, Object.fromEntries(result.headers));
     response.end(Buffer.from(await result.arrayBuffer()));
   } catch {
