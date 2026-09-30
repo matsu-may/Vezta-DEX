@@ -32,7 +32,7 @@ Kết quả mong đợi: object `mockOnly: true`, các checks qua, ảnh desktop
 
 ## 3. Kiểm tra ví thật trước khi gửi tiền
 
-Dùng tab trình duyệt bình thường riêng; ghi phiên bản browser và MetaMask. Chọn một EOA thử nghiệm riêng trên Polygon 137, không có deployed code/delegation. Harness chỉ nhận native USDC → WETH, tối đa **1 USDC**, mặc định slippage 0.5%.
+Dùng tab trình duyệt bình thường riêng; ghi phiên bản browser và MetaMask. Chọn một EOA thử nghiệm riêng trên Polygon 137, không có deployed code/delegation. Harness chỉ nhận native USDC → WETH, tối đa **1 USDC**, mặc định slippage 0.5%. **Hiện tại `Get rehearsal quote` chỉ hoàn tất khi ví có ít nhất số USDC đã nhập**, vì controller kiểm tra balance trước khi hiển thị quote; ví chưa có USDC chỉ kiểm tra được kết nối và đổi account/network. Thông báo lỗi chung cần tra HTTP status của `/api/rehearsal/{quote,state,approval}` trước khi kết luận là thiếu tiền.
 
 - Mở trang không được tự yêu cầu ký hoặc gửi giao dịch.
 - **Connect Polygon wallet** → **Get rehearsal quote**: đúng account, token, chain; thấy input, estimated/minimum output, allowance, expiry.
