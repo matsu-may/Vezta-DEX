@@ -11,6 +11,12 @@ const API = "https://liquidity.api.uniswap.org/lp/";
 const address = value => typeof value === "string" && /^0x[0-9a-fA-F]{40}$/.test(value);
 const sameAddress = (value, expected) => address(value) && value.toLowerCase() === expected.toLowerCase();
 const uint = value => typeof value === "string" && /^(0|[1-9]\d*)$/.test(value);
+const valueKind = value => {
+  if (typeof value !== "string") return "wrong-type";
+  if (/^(0|[1-9]\d{0,77})$/.test(value)) return BigInt(value) === 0n ? "zero-decimal" : "positive-decimal";
+  if (/^0x[0-9a-fA-F]{1,64}$/.test(value)) return BigInt(value) === 0n ? "zero-hex" : "positive-hex";
+  return "malformed";
+};
 const txShape = (tx, wallet, target) => tx && tx.chainId === 137 && sameAddress(tx.from, wallet)
   && (target ? sameAddress(tx.to, target) : address(tx.to)) && uint(tx.value) && tx.value === "0"
   && typeof tx.data === "string" && /^0x(?:[0-9a-fA-F]{2}){4,}$/.test(tx.data);
@@ -63,6 +69,7 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
     ...(address(transaction?.to) ? { targetAddress: transaction.to } : {}),
     valueZero: transaction?.value === "0",
     valueType: typeof transaction?.value,
+    valueKind: valueKind(transaction?.value),
     calldataShapeValid: typeof transaction?.data === "string" && /^0x(?:[0-9a-fA-F]{2}){4,}$/.test(transaction.data),
     calldataType: typeof transaction?.data,
   };

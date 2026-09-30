@@ -63,7 +63,21 @@ test("a wrong create target stops before approval", async () => {
   assert.deepEqual(lines, [{ stage: "create", status: 200, shapeValid: false, tokenAmountsValid: true, transactionShapeValid: false,
     transactionChecks: { present: true, chainMatches: true, chainType: "number", fromMatchesWallet: true, fromType: "string",
       targetMatchesManager: false, targetAddress: "0x1111111111111111111111111111111111111111",
-      valueZero: true, valueType: "string", calldataShapeValid: true, calldataType: "string" } }]);
+      valueZero: true, valueType: "string", valueKind: "zero-decimal", calldataShapeValid: true, calldataType: "string" } }]);
+});
+
+test("classifies a hex-encoded zero value without treating it as approved", async () => {
+  const lines = [];
+  const calls = [];
+  const result = await probeLpUnsigned({ apiKey: "secret", wallet, write: line => lines.push(JSON.parse(line)),
+    fetcher: async url => { calls.push(url); return Response.json(createResponse({ create: {
+      chainId: 137, from: wallet, to: manager, value: "0x0", data: "0x12345678",
+    } })); },
+  });
+  assert.equal(result, false);
+  assert.equal(calls.length, 1);
+  assert.equal(lines[0].transactionChecks.valueKind, "zero-hex");
+  assert.equal(lines[0].transactionChecks.valueZero, false);
 });
 
 test("a changed independent token amount cannot feed an approval request", async () => {
