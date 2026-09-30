@@ -61,6 +61,13 @@ export function reviewCreateCalldata(data, { wallet, amounts, nowSeconds }) {
   }
 }
 
+/** Internal preparation input: the caller must keep these raw ceilings out of diagnostic output. */
+export function qualifiedMintInputs(data, context) {
+  if (!reviewCreateCalldata(data, context).decodedChecksPassed) throw new Error("Unqualified LP mint");
+  const { args } = decodeFunctionData({ abi: mintAbi, data });
+  return { USDC: args[0].amount0Desired, WETH: args[0].amount1Desired };
+}
+
 export function reviewApprovalCalldata(transaction, amounts) {
   const token = sameAddress(transaction?.to, USDC) ? "USDC" : sameAddress(transaction?.to, WETH) ? "WETH" : "unknown";
   if (typeof transaction?.data !== "string" || transaction.data.slice(0, 10).toLowerCase() !== "0x095ea7b3") {

@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs scripts/diagnose-rehearsal-reads.test.mjs scripts/diagnose-polygon-rpc.test.mjs scripts/smoke-lp-pool-info.test.mjs scripts/smoke-lp-onchain.test.mjs scripts/lp-calldata-review.test.mjs scripts/smoke-lp-unsigned.test.mjs",
+    "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs scripts/diagnose-rehearsal-reads.test.mjs scripts/diagnose-polygon-rpc.test.mjs scripts/smoke-lp-pool-info.test.mjs scripts/smoke-lp-onchain.test.mjs scripts/smoke-lp-allowances.test.mjs scripts/lp-calldata-review.test.mjs scripts/lp-exact-approval-plan.test.mjs scripts/smoke-lp-unsigned.test.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint apps packages",
     "build": "pnpm -r --if-present build",
