@@ -30,6 +30,17 @@ describe("development rehearsal boundary",()=>{
  it("accepts consistent loopback forwarding headers inserted by Next",async()=>{
   const fetcher=vi.fn(async()=>new Response("failure",{status:503}));const r=await createRehearsalProxy(enabled,fetcher)(req(intent,{"X-Forwarded-Host":"127.0.0.1:3020","X-Forwarded-Proto":"http","X-Forwarded-For":"127.0.0.1"}),"state");expect(r.status).toBe(503);expect(fetcher).toHaveBeenCalledTimes(1);
  });
+ it("accepts a rewritten route URL when the browser Host and Origin remain canonical",async()=>{
+  const headers={Host:"127.0.0.1:3020",Origin:"http://127.0.0.1:3020","Content-Type":"application/json"};
+  const request=new Request("http://localhost:3020/api/rehearsal/state",{method:"POST",headers,body:JSON.stringify(intent)});
+  const fetcher=vi.fn(async()=>new Response("upstream unavailable",{status:503}));
+  const response=await createRehearsalProxy(enabled,fetcher)(request,"state");
+  expect(response.status).toBe(503);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  const forged=new Request("http://localhost:3020/api/rehearsal/state",{method:"POST",headers:{...headers,Origin:"https://example.com"},body:JSON.stringify(intent)});
+  expect((await createRehearsalProxy(enabled,fetcher)(forged,"state")).status).toBe(403);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+ });
  it("rejects unknown/extra fields and oversized requests",async()=>{
   const fetcher=vi.fn();const handler=createRehearsalProxy(enabled,fetcher);
   expect((await handler(req(),"eth_sendRawTransaction")).status).toBe(404);

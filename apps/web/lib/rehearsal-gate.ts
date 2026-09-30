@@ -19,8 +19,8 @@ export function createRehearsalProxy(env: Environment = process.env, fetcher: ty
     const forwardedHost = request.headers.get("x-forwarded-host");
     const forwardedProto = request.headers.get("x-forwarded-proto");
     const forwardedFor = request.headers.get("x-forwarded-for");
+    // The route Request.url may use Next's internal origin; browser Host and Origin remain the boundary.
     const boundaryCode = host !== "127.0.0.1:3020" ? "LOCAL_HOST"
-      : url.origin !== origin ? "LOCAL_URL_ORIGIN"
       : request.headers.get("origin") !== origin ? "LOCAL_ORIGIN"
       : request.headers.get("content-type")?.split(";", 1)[0].trim() !== "application/json" ? "LOCAL_CONTENT_TYPE"
       : forwardedHost !== null && forwardedHost !== host ? "LOCAL_FORWARDED_HOST"
