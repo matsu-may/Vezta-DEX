@@ -29,8 +29,9 @@ function mintData(overrides = {}) {
 test("v3 mint calldata must bind token pair, amounts, range, recipient and deadline", () => {
   const review = reviewCreateCalldata(mintData(), { wallet: WALLET, amounts, nowSeconds: 900 });
   assert.deepEqual(review, { callKind: "mint", decodedChecksPassed: true, checks: {
-    tokenPairMatches: true, feeMatches: true, ticksMatch: true, desiredAmountsMatch: true,
-    minimumsBounded: true, minimumsWithin50Bps: true, recipientMatchesWallet: true, deadlineValid: true,
+    tokenPairMatches: true, feeMatches: true, ticksMatch: true, inputCapsRespected: true,
+    minimumsBounded: true, minimumsWithin50Bps: true, minimumsWithinDisplayed50Bps: true,
+    recipientMatchesWallet: true, deadlineValid: true,
   } });
   const wrongRecipient = reviewCreateCalldata(mintData({ recipient: "0x1111111111111111111111111111111111111111" }),
     { wallet: WALLET, amounts, nowSeconds: 900 });
@@ -38,7 +39,7 @@ test("v3 mint calldata must bind token pair, amounts, range, recipient and deadl
   assert.equal(wrongRecipient.checks.recipientMatchesWallet, false);
   const excessSpend = reviewCreateCalldata(mintData({ amount1Desired: 744000000000000n }),
     { wallet: WALLET, amounts, nowSeconds: 900 });
-  assert.equal(excessSpend.checks.desiredAmountsMatch, false);
+  assert.equal(excessSpend.checks.inputCapsRespected, false);
   assert.equal(excessSpend.decodedChecksPassed, false);
   const looseMinima = reviewCreateCalldata(mintData({ amount0Min: 1n }),
     { wallet: WALLET, amounts, nowSeconds: 900 });
@@ -46,15 +47,30 @@ test("v3 mint calldata must bind token pair, amounts, range, recipient and deadl
   assert.equal(looseMinima.decodedChecksPassed, false);
 });
 
-test("mint mismatch reports only bounded direction and size while remaining rejected", () => {
+test("WETH desired below the returned amount within 50 bps respects input caps", () => {
   const review = reviewCreateCalldata(mintData({ amount0Desired: 1000001n, amount1Desired: 371000000000000n,
     amount1Min: 370000000000000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
   assert.equal(review.decodedChecksPassed, false);
-  assert.deepEqual(review.desiredAmountDiagnostics, {
-    USDC: { relation: "higher", differenceBand: "one-unit" },
+  assert.equal(review.checks.inputCapsRespected, false);
+  const bounded = reviewCreateCalldata(mintData({ amount1Desired: 371000000000000n,
+    amount1Min: 370200000000000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.equal(bounded.decodedChecksPassed, true);
+  assert.equal(bounded.checks.inputCapsRespected, true);
+  assert.equal(bounded.checks.minimumsWithinDisplayed50Bps, true);
+  assert.deepEqual(bounded.desiredAmountDiagnostics, {
+    USDC: { relation: "equal", differenceBand: "equal" },
     WETH: { relation: "lower", differenceBand: "within-50-bps" },
   });
-  assert.ok(!JSON.stringify(review).includes("371000000000000"));
+  assert.ok(!JSON.stringify(bounded).includes("371000000000000"));
+});
+
+test("mint minima cannot compound a WETH amount adjustment beyond displayed slippage", () => {
+  const review = reviewCreateCalldata(mintData({ amount1Desired: 371000000000000n,
+    amount1Min: 369145000000000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.equal(review.checks.inputCapsRespected, true);
+  assert.equal(review.checks.minimumsWithin50Bps, true);
+  assert.equal(review.checks.minimumsWithinDisplayed50Bps, false);
+  assert.equal(review.decodedChecksPassed, false);
 });
 
 test("mint diagnostic distinguishes differences above 50 bps", () => {
@@ -64,6 +80,21 @@ test("mint diagnostic distinguishes differences above 50 bps", () => {
     USDC: { relation: "equal", differenceBand: "equal" },
     WETH: { relation: "higher", differenceBand: "over-50-bps" },
   });
+  assert.equal(review.checks.inputCapsRespected, false);
+  assert.equal(review.decodedChecksPassed, false);
+});
+
+test("WETH desired below the returned amount by over 50 bps is rejected", () => {
+  const review = reviewCreateCalldata(mintData({ amount1Desired: 360000000000000n,
+    amount1Min: 358200000000000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.equal(review.checks.inputCapsRespected, false);
+  assert.equal(review.decodedChecksPassed, false);
+});
+
+test("mint cannot silently lower the independently requested USDC amount", () => {
+  const review = reviewCreateCalldata(mintData({ amount0Desired: 999999n,
+    amount0Min: 995000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.equal(review.checks.inputCapsRespected, false);
   assert.equal(review.decodedChecksPassed, false);
 });
 

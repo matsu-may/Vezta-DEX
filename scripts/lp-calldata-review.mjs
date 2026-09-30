@@ -36,20 +36,24 @@ export function reviewCreateCalldata(data, { wallet, amounts, nowSeconds }) {
     const amount0 = BigInt(amounts.USDC);
     const amount1 = BigInt(amounts.WETH);
     const now = BigInt(nowSeconds);
+    const desiredAmountsMatch = p.amount0Desired === amount0 && p.amount1Desired === amount1;
     const checks = {
       tokenPairMatches: sameAddress(p.token0, USDC) && sameAddress(p.token1, WETH),
       feeMatches: p.fee === 500,
       ticksMatch: p.tickLower === -887270 && p.tickUpper === 887270,
-      desiredAmountsMatch: p.amount0Desired === amount0 && p.amount1Desired === amount1,
+      inputCapsRespected: p.amount0Desired === amount0 && p.amount1Desired > 0n
+        && p.amount1Desired <= amount1 && (amount1 - p.amount1Desired) * 10000n <= amount1 * 50n,
       minimumsBounded: p.amount0Min > 0n && p.amount0Min <= p.amount0Desired
         && p.amount1Min > 0n && p.amount1Min <= p.amount1Desired,
       minimumsWithin50Bps: p.amount0Min * 10000n >= p.amount0Desired * 9950n
         && p.amount1Min * 10000n >= p.amount1Desired * 9950n,
+      minimumsWithinDisplayed50Bps: p.amount0Min * 10000n >= amount0 * 9950n
+        && p.amount1Min * 10000n >= amount1 * 9950n,
       recipientMatchesWallet: sameAddress(p.recipient, wallet),
       deadlineValid: p.deadline > now && p.deadline <= now + 3600n,
     };
     return { callKind: "mint", decodedChecksPassed: Object.values(checks).every(Boolean), checks,
-      ...(!checks.desiredAmountsMatch ? { desiredAmountDiagnostics: {
+      ...(!desiredAmountsMatch ? { desiredAmountDiagnostics: {
         USDC: amountDifference(p.amount0Desired, amount0), WETH: amountDifference(p.amount1Desired, amount1),
       } } : {}) };
   } catch {
