@@ -46,6 +46,27 @@ test("v3 mint calldata must bind token pair, amounts, range, recipient and deadl
   assert.equal(looseMinima.decodedChecksPassed, false);
 });
 
+test("mint mismatch reports only bounded direction and size while remaining rejected", () => {
+  const review = reviewCreateCalldata(mintData({ amount0Desired: 1000001n, amount1Desired: 371000000000000n,
+    amount1Min: 370000000000000n }), { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.equal(review.decodedChecksPassed, false);
+  assert.deepEqual(review.desiredAmountDiagnostics, {
+    USDC: { relation: "higher", differenceBand: "one-unit" },
+    WETH: { relation: "lower", differenceBand: "within-50-bps" },
+  });
+  assert.ok(!JSON.stringify(review).includes("371000000000000"));
+});
+
+test("mint diagnostic distinguishes differences above 50 bps", () => {
+  const review = reviewCreateCalldata(mintData({ amount1Desired: 744000000000000n }),
+    { wallet: WALLET, amounts, nowSeconds: 900 });
+  assert.deepEqual(review.desiredAmountDiagnostics, {
+    USDC: { relation: "equal", differenceBand: "equal" },
+    WETH: { relation: "higher", differenceBand: "over-50-bps" },
+  });
+  assert.equal(review.decodedChecksPassed, false);
+});
+
 test("unknown create selectors cannot pass decoded checks", () => {
   const review = reviewCreateCalldata("0x095ea7b3", { wallet: WALLET, amounts, nowSeconds: 900 });
   assert.deepEqual(review, { callKind: "unknown", decodedChecksPassed: false });

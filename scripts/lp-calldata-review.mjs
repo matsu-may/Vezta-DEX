@@ -7,6 +7,13 @@ const WETH = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619";
 const MANAGER = "0xC36442b4a4522E871399CD717aBDD847Ab11FE88";
 const UINT256_MAX = (1n << 256n) - 1n;
 const sameAddress = (a, b) => typeof a === "string" && a.toLowerCase() === b.toLowerCase();
+const amountDifference = (desired, quoted) => {
+  if (desired === quoted) return { relation: "equal", differenceBand: "equal" };
+  const difference = desired > quoted ? desired - quoted : quoted - desired;
+  return { relation: desired > quoted ? "higher" : "lower",
+    differenceBand: difference === 1n ? "one-unit"
+      : quoted > 0n && difference * 10000n <= quoted * 50n ? "within-50-bps" : "over-50-bps" };
+};
 
 const mintAbi = [{ type: "function", name: "mint", stateMutability: "payable", inputs: [{ name: "params", type: "tuple", components: [
   { name: "token0", type: "address" }, { name: "token1", type: "address" }, { name: "fee", type: "uint24" },
@@ -41,7 +48,10 @@ export function reviewCreateCalldata(data, { wallet, amounts, nowSeconds }) {
       recipientMatchesWallet: sameAddress(p.recipient, wallet),
       deadlineValid: p.deadline > now && p.deadline <= now + 3600n,
     };
-    return { callKind: "mint", decodedChecksPassed: Object.values(checks).every(Boolean), checks };
+    return { callKind: "mint", decodedChecksPassed: Object.values(checks).every(Boolean), checks,
+      ...(!checks.desiredAmountsMatch ? { desiredAmountDiagnostics: {
+        USDC: amountDifference(p.amount0Desired, amount0), WETH: amountDifference(p.amount1Desired, amount1),
+      } } : {}) };
   } catch {
     return { callKind: "mint", decodedChecksPassed: false, decodeFailed: true };
   }
