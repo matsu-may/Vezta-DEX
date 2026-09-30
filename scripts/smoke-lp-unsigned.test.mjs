@@ -30,7 +30,7 @@ test("reads unsigned create and approval shapes without leaking payload or sendi
         transaction: { chainId: 137, from: wallet, to: usdc, value: "0", data: "0x095ea7b3" } }] });
     },
   });
-  assert.equal(result, true);
+  assert.equal(result, false);
   assert.deepEqual(requests.map(x => x.url), [
     "https://liquidity.api.uniswap.org/lp/create",
     "https://liquidity.api.uniswap.org/lp/check_approval",
@@ -38,13 +38,15 @@ test("reads unsigned create and approval shapes without leaking payload or sendi
   assert.deepEqual(requests[0].body, { walletAddress: wallet, protocol: "V3", chainId: 137,
     existingPool: { token0Address: usdc, token1Address: weth, poolReference: "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9" },
     independentToken: { tokenAddress: usdc, amount: "1000000" },
-    tickBounds: { tickLower: -887270, tickUpper: 887270 }, simulateTransaction: false });
+    tickBounds: { tickLower: -887270, tickUpper: 887270 }, slippageTolerance: 0.5, simulateTransaction: false });
   assert.deepEqual(requests[1].body, { walletAddress: wallet, protocol: "V3", chainId: 137,
     lpTokens: [{ tokenAddress: usdc, amount: "1000000" }, { tokenAddress: weth, amount: "372000000000000" }], action: "CREATE" });
   assert.ok(requests.every(x => x.method === "POST"));
   assert.deepEqual(lines, [
-    { stage: "create", status: 200, shapeValid: true, tokenAmountsValid: true, transactionShapeValid: true },
-    { stage: "check_approval", status: 200, shapeValid: true, transactionCount: 1 },
+    { stage: "create", status: 200, shapeValid: true, tokenAmountsValid: true, transactionShapeValid: true,
+      calldataReview: { callKind: "unknown", decodedChecksPassed: false } },
+    { stage: "check_approval", status: 200, shapeValid: true, transactionCount: 1,
+      approvalPolicyMatches: false, calldataReviews: [{ token: "USDC", callKind: "approve", exactPolicyMatches: false, decodeFailed: true }] },
   ]);
   assert.ok(!JSON.stringify(lines).includes("private"));
   assert.ok(!JSON.stringify(lines).includes("0x095ea7b3"));
@@ -79,11 +81,13 @@ test("accepts hex-encoded zero for unsigned create and approval shapes", async (
         transaction: { chainId: 137, from: wallet, to: usdc, value: "0x00", data: "0x095ea7b3" } }] });
     },
   });
-  assert.equal(result, true);
+  assert.equal(result, false);
   assert.equal(calls.length, 2);
   assert.deepEqual(lines, [
-    { stage: "create", status: 200, shapeValid: true, tokenAmountsValid: true, transactionShapeValid: true },
-    { stage: "check_approval", status: 200, shapeValid: true, transactionCount: 1 },
+    { stage: "create", status: 200, shapeValid: true, tokenAmountsValid: true, transactionShapeValid: true,
+      calldataReview: { callKind: "unknown", decodedChecksPassed: false } },
+    { stage: "check_approval", status: 200, shapeValid: true, transactionCount: 1,
+      approvalPolicyMatches: false, calldataReviews: [{ token: "USDC", callKind: "approve", exactPolicyMatches: false, decodeFailed: true }] },
   ]);
 });
 

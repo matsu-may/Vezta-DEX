@@ -30,7 +30,7 @@ After a transaction, retain the original account/hash and inspect canonical rece
 ## Exit gates
 
 1. Qualify a dependable Polygon RPC. The original endpoint timed out on two of five latest-block reads. The replacement passed 15/15 direct reads and 4/4 wallet-state reads in one preflight, but pinned/receipt reliability and tail latency are still open; do not use this limited sample to approve a funded LP rehearsal.
-2. **Read-only pool gate passed:** matching `/lp/pool_info` and pinned on-chain identity/decimals/tick spacing at block `94721672`. LP API key entitlement for action endpoints and its rate budget remain unverified separately from the 6 RPS Trading API key.
+2. **Read-only pool gate passed:** matching `/lp/pool_info` and pinned on-chain identity/decimals/tick spacing at block `94721672`. The LP key reached `/lp/create` and `/lp/check_approval` with HTTP 200; their rate budget and the other action endpoints remain unverified separately from the 6 RPS Trading API key.
 3. Capture sanitized unsigned responses for all five LP actions on Polygon, then write an action-specific validator and tests **before** adding wallet buttons. If an action is unavailable, document the supported subset rather than substituting another protocol silently.
 4. Verify position discovery, in/out-of-range, single-sided, partial/full decrease, fee collection and delayed indexer states with official fixtures or a fork. Complete owner-operated small funded checks and independent security review before public LP writes.
 

@@ -2,6 +2,7 @@
 import { existsSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { selectLpApiKey } from "./smoke-lp-pool-info.mjs";
+import { reviewCreateCalldata, reviewApprovalCalldata } from "./lp-calldata-review.mjs";
 
 const USDC = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
 const WETH = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619";
@@ -53,7 +54,7 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
   const create = await post("create", { walletAddress: wallet, protocol: "V3", chainId: 137,
     existingPool: { token0Address: USDC, token1Address: WETH, poolReference: POOL },
     independentToken: { tokenAddress: USDC, amount: "1000000" },
-    tickBounds: { tickLower: -887270, tickUpper: 887270 }, simulateTransaction: false });
+    tickBounds: { tickLower: -887270, tickUpper: 887270 }, slippageTolerance: 0.5, simulateTransaction: false });
   if (!create) return false;
   const { token0, token1 } = create.body ?? {};
   const tokenAmountsValid = sameAddress(token0?.tokenAddress, USDC) && token0?.amount === "1000000"
@@ -77,8 +78,12 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
   const ticksValid = Number.isInteger(create.body?.tickLower) && Number.isInteger(create.body?.tickUpper)
     && create.body.tickLower === -887270 && create.body.tickUpper === 887270;
   const createShapeValid = Boolean(tokenAmountsValid && transactionShapeValid && ticksValid);
+  const amounts = tokenAmountsValid ? { USDC: token0.amount, WETH: token1.amount } : null;
+  const calldataReview = createShapeValid
+    ? reviewCreateCalldata(transaction.data, { wallet, amounts, nowSeconds: Math.floor(Date.now() / 1000) }) : null;
   write(JSON.stringify({ stage: "create", status: create.status, shapeValid: createShapeValid,
-    tokenAmountsValid: Boolean(tokenAmountsValid), transactionShapeValid, ...(transactionChecks ? { transactionChecks } : {}) }));
+    tokenAmountsValid: Boolean(tokenAmountsValid), transactionShapeValid, ...(transactionChecks ? { transactionChecks } : {}),
+    ...(calldataReview ? { calldataReview } : {}) }));
   if (!createShapeValid) return false;
 
   const approval = await post("check_approval", { walletAddress: wallet, protocol: "V3", chainId: 137,
@@ -88,9 +93,15 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
   const approvalShapeValid = Array.isArray(transactions) && transactions.length <= 4
     && transactions.every(item => item?.action === "CREATE" && typeof item?.cancelApproval === "boolean"
       && txShape(item.transaction, wallet));
+  const calldataReviews = approvalShapeValid ? transactions.map(item => reviewApprovalCalldata(item.transaction, amounts)) : null;
+  const approvalPolicyMatches = Boolean(calldataReviews && calldataReviews.length === 2
+    && calldataReviews.every(review => review.exactPolicyMatches)
+    && new Set(calldataReviews.map(review => review.token)).size === 2
+    && transactions.every(item => item.cancelApproval === false));
   write(JSON.stringify({ stage: "check_approval", status: approval.status, shapeValid: Boolean(approvalShapeValid),
-    transactionCount: Array.isArray(transactions) ? transactions.length : null }));
-  return Boolean(approvalShapeValid);
+    transactionCount: Array.isArray(transactions) ? transactions.length : null, approvalPolicyMatches,
+    ...(calldataReviews ? { calldataReviews } : {}) }));
+  return Boolean(createShapeValid && calldataReview.decodedChecksPassed && approvalShapeValid && approvalPolicyMatches);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

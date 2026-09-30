@@ -44,7 +44,9 @@
 - [x] Owner ran `node scripts/smoke-lp-onchain.mjs` at Polygon block `94721672` (`2026-09-30T17:00:48.000Z`): `verified:true` and all pinned factory, pool, token, decimal, fee, tick, initialization and liquidity checks passed. This qualifies the candidate for read-only discovery; LP action validation remains open.
 - [x] Prepare a bounded, no-wallet shape probe for unsigned Polygon v3 `/lp/create` and `/lp/check_approval`, with sanitization and tests. The probe does not authorize returned calldata.
 - [x] Resolve unsigned `/lp/create` value encoding: owner host confirmed HTTP 200, token amounts, chain, wallet, position-manager target and calldata shape; `valueKind` was `zero-hex`. The bounded probe now accepts decimal or hex zero and still rejects positive native value.
-- [ ] Run the updated probe on the owner's host to qualify `/lp/check_approval` access and outer shape. Then independently decode and validate create/approval calldata before LP wallet controls. Do not sign or broadcast a probe payload.
+- [x] Owner host returned HTTP 200 and `shapeValid:true` for unsigned `/lp/create` and `/lp/check_approval`; approval returned two transaction envelopes. This does not qualify their calldata.
+- [x] Add a local, sanitized decoder for direct v3 mint and ERC20 approval payloads, with tests for wrong recipient, excess input, wrong spender and unlimited allowance. Unknown create selectors remain unqualified.
+- [ ] Rerun the probe on the owner's host and review decoded create/approval flags. If create is a multicall or either approval is unlimited, investigate the actual action or build a separately validated exact-approval path. Independently qualify current allowance, simulation and freshness before LP wallet controls. Do not sign or broadcast a probe payload.
 - [ ] Obtain an owner-controlled v3 position ID or a verified fork fixture before qualifying unsigned increase, decrease and fee-claim flows; do not infer access from the endpoint documentation.
 - [ ] Design chain-aware position ownership, ticks/range, principal, current amounts and uncollected fees separately. Never infer APR or USD TVL from raw `liquidity()`.
 
