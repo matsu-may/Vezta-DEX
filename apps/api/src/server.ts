@@ -7,7 +7,7 @@ import { ApprovalInputError, type AllowanceReader } from "./allowance-reader";
 import { PermitInputError, type PermitReader } from "./permit-reader";
 import { SwapPreparationInputError, type SwapPreparer } from "./swap-preparation";
 
-import type { WalletStateReader } from "./wallet-state";
+import { WalletStateUnavailableError, type WalletStateReader } from "./wallet-state";
 import { submissionSchema, type WalletObservationReader } from "./wallet-observation";
 
 const tradingIntentSchema = z.object({
@@ -50,7 +50,9 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
       if (!observations) return json({ error: "Receipt observation unavailable" }, 503);
       const result = await observations.observe(parsed.data);
       return json(JSON.parse(JSON.stringify(result, (_key, value) => typeof value === "bigint" ? value.toString() : value)));
-    } catch { return json({ error: "Polygon observation is unavailable" }, 503); }
+    } catch (error) {
+      return json({ error: "Polygon observation is unavailable", ...(pathname.endsWith("wallet-state") && error instanceof WalletStateUnavailableError ? { code: error.code } : {}) }, 503);
+    }
   }
   if (pathname === "/api/v1/swap-preparation") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);

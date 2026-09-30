@@ -5,7 +5,7 @@
   "packageManager": "pnpm@10.33.2",
   "scripts": {
     "dev": "pnpm -r --parallel dev",
-    "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs",
+    "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs scripts/diagnose-rehearsal-reads.test.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint apps packages",
     "build": "pnpm -r --if-present build",

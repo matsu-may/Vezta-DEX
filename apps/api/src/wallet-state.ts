@@ -29,6 +29,21 @@ export interface WalletState {
     gasPrice: string;
   } | null;
 }
+export type WalletStateFailureCode =
+  | "WALLET_STATE_BLOCK_UNAVAILABLE"
+  | "WALLET_STATE_ACCOUNT_CODE_UNAVAILABLE"
+  | "WALLET_STATE_READS_UNAVAILABLE"
+  | "WALLET_STATE_STALE_BLOCK"
+  | "WALLET_STATE_NONCE_UNAVAILABLE"
+  | "WALLET_STATE_APPROVAL_SIMULATION_UNAVAILABLE"
+  | "WALLET_STATE_APPROVAL_GAS_UNAVAILABLE";
+export class WalletStateUnavailableError extends Error {
+  constructor(readonly code: WalletStateFailureCode) { super("Polygon wallet state is unavailable"); }
+}
+async function providerRead<T>(code: WalletStateFailureCode, read: () => Promise<T>): Promise<T> {
+  try { return await read(); }
+  catch { throw new WalletStateUnavailableError(code); }
+}
 function uint(n: bigint, bits = 256): bigint {
   if (typeof n !== "bigint" || n < 0n || n >= 1n << BigInt(bits))
     throw new Error("Invalid wallet state");
@@ -39,21 +54,21 @@ export class WalletStateReader {
   async getState(value: TradingIntent): Promise<WalletState> {
     const intent = { ...value };
     validateTradingIntent(intent);
-    const block = await this.source.getBlock();
+    const block = await providerRead("WALLET_STATE_BLOCK_UNAVAILABLE", () => this.source.getBlock());
     const fresh = () => {
       uint(block.number);
       uint(block.timestamp);
       const observed = Number(block.timestamp) * 1000;
       const now = this.now();
       if (!Number.isSafeInteger(observed) || !Number.isSafeInteger(now) || observed > now + 5000 || now - observed > 120000)
-        throw new Error("Stale wallet state");
+        throw new WalletStateUnavailableError("WALLET_STATE_STALE_BLOCK");
     };
     fresh();
-    const code = await this.source.getAccountCode(intent.swapper, block.number);
+    const code = await providerRead("WALLET_STATE_ACCOUNT_CODE_UNAVAILABLE", () => this.source.getAccountCode(intent.swapper, block.number));
     fresh();
     if (typeof code !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/.test(code))
       throw new Error("Invalid account code");
-    const [usdc, weth, native, allowance, permit, nonce, pendingNonce] = await Promise.all([
+    const [usdc, weth, native, allowance, permit, nonce, pendingNonce] = await providerRead("WALLET_STATE_READS_UNAVAILABLE", () => Promise.all([
       this.source.getTokenBalance(TOKENS.USDC.address, intent.swapper, block.number),
       this.source.getTokenBalance(TOKENS.WETH.address, intent.swapper, block.number),
       this.source.getNativeBalance(intent.swapper, block.number),
@@ -61,16 +76,18 @@ export class WalletStateReader {
       this.source.getPermitAllowance(intent.tokenIn, intent.swapper, POLYGON_UNIVERSAL_ROUTER_212, block.number),
       this.source.getAccountNonce(intent.swapper, block.number),
       this.source.getPendingNonce(intent.swapper),
-    ]);
+    ]));
     fresh();
-    if (uint(nonce) > BigInt(Number.MAX_SAFE_INTEGER) || uint(pendingNonce) !== nonce)
-      throw new Error("Account has pending or changed nonce");
+    try {
+      if (uint(nonce) > BigInt(Number.MAX_SAFE_INTEGER) || uint(pendingNonce) !== nonce)
+        throw new Error("Account has pending or changed nonce");
+    } catch { throw new WalletStateUnavailableError("WALLET_STATE_NONCE_UNAVAILABLE"); }
     const plan = planExactApproval(intent, uint(allowance).toString());
     let approvalGas: WalletState["approvalGas"] = null;
     if (code === "0x" && plan.kind === "approve") {
-      await this.source.simulateApproval(plan.transaction, block.number);
+      await providerRead("WALLET_STATE_APPROVAL_SIMULATION_UNAVAILABLE", () => this.source.simulateApproval(plan.transaction, block.number));
       fresh();
-      const [estimate, price] = await Promise.all([this.source.estimateSwapGas(plan.transaction, block.number), this.source.getGasPrice()]);
+      const [estimate, price] = await providerRead("WALLET_STATE_APPROVAL_GAS_UNAVAILABLE", () => Promise.all([this.source.estimateSwapGas(plan.transaction, block.number), this.source.getGasPrice()]));
       fresh();
       if (!uint(estimate) || estimate > 25000000n || !uint(price))
         throw new Error("Invalid approval gas");

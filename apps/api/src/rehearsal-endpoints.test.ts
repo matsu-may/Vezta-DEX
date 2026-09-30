@@ -3,6 +3,7 @@ import { TOKENS } from "@vezta-dex/core";
 import { handleRequest } from "./server";
 import type { PoolReader } from "./pools";
 import type { WalletStateReader } from "./wallet-state";
+import { WalletStateUnavailableError } from "./wallet-state";
 import type { WalletObservationReader } from "./wallet-observation";
 import type { SwapPreparer } from "./swap-preparation";
 const intent = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
@@ -26,6 +27,12 @@ describe("read-only rehearsal endpoints", () => {
     expect(a.status).toBe(503); expect(JSON.stringify(await a.json())).not.toContain("secret");
     const b = await handleRequest(request("transaction-observation", { kind: "swap", intent, hash, dataHash: hash, minimumAmountOut: "995", submittedAt: 1000, submissionId: "11111111-1111-4111-8111-111111111111", afterBlock: "122", expectedNonce: "7", arbitraryRpc: "eth_sendRawTransaction" }), reader, undefined, undefined, undefined, undefined, undefined, state, receipt);
     expect(b.status).toBe(400); expect(receipt.observe).not.toHaveBeenCalled();
+  });
+  it("returns only a safe wallet-state stage code on provider failure", async () => {
+    const state = { getState: vi.fn(async () => { throw new WalletStateUnavailableError("WALLET_STATE_READS_UNAVAILABLE"); }) } as unknown as WalletStateReader;
+    const response = await handleRequest(request("wallet-state", intent), reader, undefined, undefined, undefined, undefined, undefined, state);
+    expect(response.status).toBe(503);
+    expect(await response.json()).toEqual({ error: "Polygon observation is unavailable", code: "WALLET_STATE_READS_UNAVAILABLE" });
   });
   it("rechecks a prepared quote without calling prepare again", async () => {
     const swaps = { recheck: vi.fn(async () => ({ quoteId: "ab".repeat(24) })), prepare: vi.fn() } as unknown as SwapPreparer;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { TOKENS, POLYGON_PERMIT2, type TradingIntent } from "@vezta-dex/core";
-import { WalletStateReader, type WalletStateSource } from "./wallet-state";
+import { WalletStateReader, WalletStateUnavailableError, type WalletStateSource } from "./wallet-state";
 
 const intent: TradingIntent = { chainId: 137, swapper: "0x1111111111111111111111111111111111111111", tokenIn: TOKENS.USDC.address, tokenOut: TOKENS.WETH.address, amountIn: "1000000", slippageBps: 50 };
 function setup() {
@@ -52,7 +52,7 @@ describe("pinned wallet state", () => {
   it("rechecks freshness after slow reads", async () => {
     const s = setup(); let now = 1000000;
     s.source.getGasPrice = async () => { now += 120001; return 1n; };
-    await expect(new WalletStateReader(s.source, () => now).getState(intent)).rejects.toThrow();
+    await expect(new WalletStateReader(s.source, () => now).getState(intent)).rejects.toMatchObject({ code: "WALLET_STATE_STALE_BLOCK" });
   });
 });
 
@@ -66,7 +66,23 @@ it("includes pinned account transaction nonce for broadcast provenance", async (
 it("blocks pending or malformed account nonce before approval simulation", async () => {
   for (const nonce of [8n, -1n, BigInt(Number.MAX_SAFE_INTEGER) + 1n]) {
     const s = setup(); s.source.getPendingNonce = async () => nonce;
-    await expect(s.reader.getState(intent)).rejects.toThrow();
+    await expect(s.reader.getState(intent)).rejects.toMatchObject({ code: "WALLET_STATE_NONCE_UNAVAILABLE" });
     expect(s.source.simulateApproval).not.toHaveBeenCalled();
   }
+});
+
+it.each([
+  ["getBlock", "WALLET_STATE_BLOCK_UNAVAILABLE"],
+  ["getAccountCode", "WALLET_STATE_ACCOUNT_CODE_UNAVAILABLE"],
+  ["getNativeBalance", "WALLET_STATE_READS_UNAVAILABLE"],
+  ["simulateApproval", "WALLET_STATE_APPROVAL_SIMULATION_UNAVAILABLE"],
+  ["getGasPrice", "WALLET_STATE_APPROVAL_GAS_UNAVAILABLE"],
+] as const)("classifies %s provider failure without exposing provider details", async (method, code) => {
+  const s = setup();
+  Object.assign(s.source, { [method]: async () => { throw new Error("secret-provider-url"); } });
+  let failure: unknown;
+  try { await s.reader.getState(intent); } catch (error) { failure = error; }
+  expect(failure).toBeInstanceOf(WalletStateUnavailableError);
+  expect((failure as WalletStateUnavailableError).code).toBe(code);
+  expect(JSON.stringify(failure)).not.toContain("secret-provider-url");
 });
