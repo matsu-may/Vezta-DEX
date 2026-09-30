@@ -101,12 +101,13 @@ async page => {
   await fresh(); await quoted();
   await page.setViewportSize({ width: 390, height: 844 });
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Mobile has no horizontal overflow");
-  await page.screenshot({ path: ".playwright-cli/rehearsal-mobile.png", fullPage: true });
+  await page.getByText("Minimum received", { exact: true }).scrollIntoViewIfNeeded();
+  await page.screenshot({ path: ".playwright-cli/rehearsal-mobile.png" });
   await page.evaluate(() => {
     window.__dexRehearsalMock.account = "0x1111111111111111111111111111111111111111";
     window.__dexRehearsalMock.emit("accountsChanged", [window.__dexRehearsalMock.account]);
   });
   await page.getByRole("heading", { name: "Wallet or input changed", exact: true }).waitFor();
   check(await page.getByText("Minimum received", { exact: true }).count() === 0, "Account change invalidates quote");
-  console.log(JSON.stringify({ mockOnly: true, checks, apiCalls: apiCalls.length }));
+  return { mockOnly: true, checks, apiCalls: apiCalls.length };
 }

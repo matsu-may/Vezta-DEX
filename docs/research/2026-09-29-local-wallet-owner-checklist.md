@@ -1,6 +1,6 @@
 # Checklist kiểm tra ví local — Polygon USDC → WETH
 
-**Trạng thái:** Đã triển khai harness được chủ dự án duyệt; kiểm tra browser thật và giao dịch có tiền vẫn chưa thực hiện. `/swap` công khai tiếp tục chỉ đọc. Đây là checklist do bạn thao tác; agent không ký, gửi giao dịch hay nạp tiền.
+**Trạng thái:** Các kiểm tra tự động của browser mock đã được chủ dự án chạy thành công ngày 2026-09-30; ảnh mobile cần chụp lại để hoàn tất kiểm tra hình ảnh. Kiểm tra ví thật và giao dịch có tiền vẫn chưa thực hiện. `/swap` công khai tiếp tục chỉ đọc. Đây là checklist do bạn thao tác; agent không ký, gửi giao dịch hay nạp tiền.
 
 ## 1. Khởi động đúng chế độ
 
@@ -28,7 +28,7 @@ playwright-cli -s=dex-mock run-code --filename=scripts/smoke-rehearsal-browser.j
 playwright-cli -s=dex-mock close
 ```
 
-Kết quả mong đợi: JSON `mockOnly: true`, các checks qua, ảnh desktop/mobile trong `.playwright-cli/`. Kiểm tra ảnh: không tràn ngang, amount/minimum/gas/hash đọc được, các nút có tên rõ. Script **chưa được agent chạy trong browser**, chỉ đã kiểm tra cú pháp. Nếu công cụ chưa cài, dùng bộ Playwright CLI đã cấu hình cho workspace; không tự thêm extension vào profile ví.
+Kết quả mong đợi: object `mockOnly: true`, các checks qua, ảnh desktop/mobile trong `.playwright-cli/`. Kiểm tra ảnh: không tràn ngang, amount/minimum/gas/hash đọc được, các nút có tên rõ. Chủ dự án đã chạy script trong browser ngày 2026-09-30: không có assertion hoặc wait thất bại, ảnh desktop/mobile đã tạo, kiểm tra mobile không tràn ngang đã qua. Console có 404 favicon và 503 `/api/rehearsal/prepare` do script cố ý giả lập simulation thất bại. Phiên chạy này dùng `console.log` ở dòng cuối nên CLI không in object tổng kết; script đã đổi sang `return` để các lần chạy sau hiển thị kết quả. Ảnh mobile `fullPage` bị lặp phần đầu trang nên chưa xác minh được quote trên mobile; script đã đổi sang ảnh viewport tại phần minimum để chạy lại. Agent chưa tự chạy được browser vì sandbox. Nếu công cụ chưa cài, dùng bộ Playwright CLI đã cấu hình cho workspace; không tự thêm extension vào profile ví.
 
 ## 3. Kiểm tra ví thật trước khi gửi tiền
 
