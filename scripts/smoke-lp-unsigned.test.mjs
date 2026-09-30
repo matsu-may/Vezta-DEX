@@ -60,7 +60,10 @@ test("a wrong create target stops before approval", async () => {
   });
   assert.equal(result, false);
   assert.equal(urls.length, 1);
-  assert.deepEqual(lines, [{ stage: "create", status: 200, shapeValid: false, tokenAmountsValid: true, transactionShapeValid: false }]);
+  assert.deepEqual(lines, [{ stage: "create", status: 200, shapeValid: false, tokenAmountsValid: true, transactionShapeValid: false,
+    transactionChecks: { present: true, chainMatches: true, chainType: "number", fromMatchesWallet: true, fromType: "string",
+      targetMatchesManager: false, targetAddress: "0x1111111111111111111111111111111111111111",
+      valueZero: true, valueType: "string", calldataShapeValid: true, calldataType: "string" } }]);
 });
 
 test("a changed independent token amount cannot feed an approval request", async () => {

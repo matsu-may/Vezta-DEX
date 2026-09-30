@@ -52,11 +52,25 @@ export async function probeLpUnsigned({ apiKey, wallet, fetcher = fetch, write =
   const tokenAmountsValid = sameAddress(token0?.tokenAddress, USDC) && token0?.amount === "1000000"
     && sameAddress(token1?.tokenAddress, WETH) && uint(token1?.amount) && BigInt(token1.amount) > 0n;
   const transactionShapeValid = Boolean(txShape(create.body?.create, wallet, MANAGER));
+  const transaction = create.body?.create;
+  const transactionChecks = transactionShapeValid ? undefined : {
+    present: Boolean(transaction && typeof transaction === "object" && !Array.isArray(transaction)),
+    chainMatches: transaction?.chainId === 137,
+    chainType: typeof transaction?.chainId,
+    fromMatchesWallet: sameAddress(transaction?.from, wallet),
+    fromType: typeof transaction?.from,
+    targetMatchesManager: sameAddress(transaction?.to, MANAGER),
+    ...(address(transaction?.to) ? { targetAddress: transaction.to } : {}),
+    valueZero: transaction?.value === "0",
+    valueType: typeof transaction?.value,
+    calldataShapeValid: typeof transaction?.data === "string" && /^0x(?:[0-9a-fA-F]{2}){4,}$/.test(transaction.data),
+    calldataType: typeof transaction?.data,
+  };
   const ticksValid = Number.isInteger(create.body?.tickLower) && Number.isInteger(create.body?.tickUpper)
     && create.body.tickLower === -887270 && create.body.tickUpper === 887270;
   const createShapeValid = Boolean(tokenAmountsValid && transactionShapeValid && ticksValid);
   write(JSON.stringify({ stage: "create", status: create.status, shapeValid: createShapeValid,
-    tokenAmountsValid: Boolean(tokenAmountsValid), transactionShapeValid }));
+    tokenAmountsValid: Boolean(tokenAmountsValid), transactionShapeValid, ...(transactionChecks ? { transactionChecks } : {}) }));
   if (!createShapeValid) return false;
 
   const approval = await post("check_approval", { walletAddress: wallet, protocol: "V3", chainId: 137,
