@@ -1,0 +1,16 @@
+# Standalone DEX handoff — 2026-09-30
+
+## Evidence and decisions
+
+The owner ran the local read probe: 4/4 Trading API quotes returned HTTP 200, while 3/4 wallet-state reads failed at the Polygon block-read stage. A separate probe against the configured RPC returned valid `eth_chainId` in 5/5 cycles and valid `eth_getBlockByNumber` in 3/5; the other two block calls timed out at about eight seconds. This local RPC path is **not ready for a funded rehearsal**. The exact contribution of provider load versus the owner's network remains unproven. Keep wallet preparation fail-closed; do not raise the timeout beyond the local proxy's total 18-second budget or add an unmeasured public fallback.
+
+The [six-phase plan](../superpowers/plans/2026-09-30-standalone-dex-next-phases.md) keeps the DEX in this repo. The owner-confirmed mock browser run and read-only installed-wallet checks remain valid evidence, but no real signature, broadcast or funded receipt was observed. The [LP design](../specs/2026-09-30-polygon-v3-lp-design.md) selects Polygon v3 native-USDC/WETH 0.05% only as a research candidate. The new `/lp/pool_info` probe is read-only and sanitizes output; the agent sandbox got `NETWORK`, so API access and pool state remain unverified. Uniswap's [LP guide](https://developers.uniswap.org/docs/liquidity/liquidity-provisioning-api/integration-guide) lists all desired lifecycle endpoints, but this does not establish access or correct unsigned transactions for this account/chain.
+
+No UI was edited. Future DEX UI changes follow the standalone token launchpad's black/lime, square-control and numeric typography reference, with desktop/mobile checks. GitHub CI was not observed because this branch was not pushed; the existing workflow runs test, typecheck, lint and build. Local `pnpm test` passed 441 Vitest and 36 Node tests; typecheck, lint, build and frozen offline installation exited 0.
+
+## Owner checks, in order
+
+1. Configure a dependable Polygon HTTPS RPC in ignored `apps/api/.env` without sharing the credential-bearing URL. Restart the API. Run `node scripts/diagnose-polygon-rpc.mjs` repeatedly; latest-block reads should stop timing out. Then run `DEX_SMOKE_WALLET=<public EOA> node scripts/diagnose-rehearsal-reads.mjs`; quote and state should remain HTTP 200. A short success streak is a local preflight, not a production uptime guarantee.
+2. Run `node scripts/smoke-lp-pool-info.mjs`. Expected read-only evidence: `status:200`, `poolMatches:true`, `stateShapeValid:true`, `activeLiquidityPositive:true`. An `AUTH` result means key access must be resolved; any mismatch keeps the LP gate open. No wallet/funds are needed.
+3. Only after step 1, use the [local wallet checklist](2026-09-29-local-wallet-owner-checklist.md) for owner-operated MetaMask signing and one capped native-USDC → WETH rehearsal if a test EOA has native USDC and enough POL for gas. Do not share private keys, API keys or raw signatures. Preserve transaction hashes and economic receipt fields.
+4. Run the separate reverse-direction and LP action gates only after their specs, unsigned payload validators and live source responses exist. Observe GitHub CI on a future push/PR before standalone release. Main Vezta integration is out of scope.
