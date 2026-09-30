@@ -18,7 +18,7 @@ Mở **http://127.0.0.1:3020/rehearsal**. Launcher chỉ bind `127.0.0.1:3020`; 
 
 Agent bị môi trường chặn mở cổng local (`listen EPERM`), nên không tự chạy được browser hoặc kiểm tra header do Next gửi. Ảnh browser do chủ dự án chạy đã được agent xem. Nếu page/proxy lỗi, dừng tại đó và gửi HTTP status/thông báo đã che thông tin nhạy cảm; không bỏ gate để tiếp tục.
 
-**Kiểm tra RPC trước phiên có tiền:** `node scripts/diagnose-polygon-rpc.mjs` dùng RPC trong `apps/api/.env` và chỉ đọc block/chain. Ngày 2026-09-30, RPC hiện tại trả `eth_chainId` 5/5 thành công nhưng `eth_getBlockByNumber` timeout 2/5 lần. Chưa nên thử approval/swap có tiền với nguồn đọc block này. Nếu đổi sang RPC đáng tin cậy hơn, chỉ sửa URL trong `.env` cục bộ, không gửi URL có khóa; khởi động lại API và kiểm tra lặp lại block, wallet-state, quote trước khi tiếp tục. Không tự nới timeout hoặc bỏ kiểm tra block để vượt lỗi.
+**Kiểm tra RPC và quote trước phiên có tiền:** `node scripts/diagnose-polygon-rpc.mjs` dùng RPC trong `apps/api/.env` và chỉ đọc block/chain. RPC ban đầu timeout 2/5 lần đọc block. RPC thay thế đã qua 15/15 lần đọc chain/block và 4/4 lần đọc wallet-state, nhưng một quote Trading API timeout và một lần đọc state mất 13,1 giây. Chưa nên thử approval/swap có tiền; chạy tiếp phép thử Trading API trực tiếp và lặp lại quote/state. Không gửi URL có khóa, tự nới timeout hoặc bỏ kiểm tra block để vượt lỗi.
 
 ## 2. Browser mock trước, chưa dùng ví thật
 

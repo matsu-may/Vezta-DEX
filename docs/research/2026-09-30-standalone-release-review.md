@@ -10,7 +10,8 @@ The public `/swap` page is read-only. The development wallet rehearsal is enable
 
 | Gate | Current evidence | Required result before public wallet writes |
 |---|---|---|
-| Polygon data availability | Latest-block read timed out in 2/5 direct RPC attempts; wallet-state read failed in 3/4 local cycles | Qualify a dependable RPC using repeated latest/pinned reads, contract state and receipts; measure tail latency and failover behavior without weakening freshness checks |
+| Polygon data availability | Original RPC timed out on 2/5 latest-block calls; replacement passed 15/15 direct reads and 4/4 wallet-state reads, with one 13.1-second state tail | Complete pinned/receipt qualification and measure tail latency without weakening freshness checks |
+| Trading API availability | Replacement-RPC local probe had one `TRADING_API_TIMEOUT` among four quotes after eight seconds | Compare direct Trading API and repeated local probes; preserve quote TTL and fail-closed behavior while diagnosing transport versus upstream latency |
 | Wallet execution | Mock browser lifecycle passed; no funded signature, broadcast or economic receipt | Owner-operated capped forward and separate reverse checks, tampered/expired/rejected paths, canonical economic receipt evidence |
 | Shared state | `QuoteStore`, consumed permits and Trading API limiter are process-local | Define one shared quota, quote/replay state and atomic consumption across replicas, or explicitly deploy one constrained instance and test restart/loss behavior before any scale-out |
 | API exposure and abuse | Local rehearsal proxy is narrow; direct API preparation endpoints have no user-level access control | Keep private endpoints unreachable from the public internet until authentication, per-client quotas, request budgets and abuse tests are in place |

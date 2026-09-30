@@ -18,7 +18,8 @@
 ## Phase 1 — RPC reliability and diagnosis
 
 - [x] Capture direct read evidence: 4/4 local Trading API quotes succeeded; 3/4 wallet-state reads failed at `getBlock`. Direct RPC probe: `eth_chainId` 5/5 success, `eth_getBlockByNumber` timed out twice at 8 seconds.
-- [ ] Qualify a dependable Polygon RPC endpoint with repeated block, pinned contract-read and receipt checks. Keep the currently configured endpoint fail-closed until an alternative is measured. Do not lengthen the 8-second viem timeout past the 18-second local proxy budget.
+- [x] Observe the replacement RPC preflight: 15/15 direct chain and block calls valid; restarted API wallet-state 4/4 HTTP 200, but one state read took 13.1 seconds. Local Trading API quotes were 3/4 HTTP 200 with one 8-second `TRADING_API_TIMEOUT`. See [read evidence](../../research/2026-09-30-intermittent-rehearsal-reads.md).
+- [ ] Finish qualification of the replacement Polygon RPC with repeated pinned contract-read and receipt checks, and investigate the 13.1-second state tail. Keep wallet preparation fail-closed; do not lengthen the 8-second viem timeout past the 18-second local proxy budget from one sample.
 - [ ] Rerun local quote/state and desktop browser checks after a qualified endpoint is configured; record statuses and latencies, never URL credentials.
 
 ## Phase 2 — Local swap completion
