@@ -29,7 +29,7 @@
 
 ## Phase 3 — Reverse swap and public swap gate
 
-- [ ] Specify a separate WETH → USDC funded rehearsal, including WETH allowance and reverse token amounts. Do not turn the existing 1-USDC harness into an automatic reverse trade.
+- [x] Specify a [separate WETH → USDC funded rehearsal](../../specs/2026-09-30-reverse-swap-rehearsal.md), including WETH allowance, an exact token-unit cap and reverse decimal handling. Do not turn the existing 1-USDC harness into an automatic reverse trade.
 - [ ] Complete both-direction live evidence, production finality/replacement policy, shared quote/replay/rate-limit state, abuse controls and independent review before enabling public writes.
 
 ## Phase 4 — Liquidity foundation
@@ -47,5 +47,5 @@
 
 ## Phase 6 — Standalone acceptance and handoff
 
-- [ ] Review security, data freshness, observability, rate budgets and deployment configuration. Record exact commands and results; do not call local two-confirmation observation a production finality policy.
+- [x] Inventory security, data freshness, observability, rate budgets and deployment boundaries in the [standalone release review](../../research/2026-09-30-standalone-release-review.md). Remediation and external evidence in that review remain open; local two-confirmation observation is not a production finality policy.
 - [ ] Give the owner one concise checklist of live wallet, RPC, browser and CI checks. Keep Vezta main-site integration outside this plan.
