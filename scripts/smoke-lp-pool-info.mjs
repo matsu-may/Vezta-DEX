@@ -7,6 +7,7 @@ const WETH = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619";
 const POOL = "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9";
 const addressEquals = (value, expected) => typeof value === "string" && value.toLowerCase() === expected.toLowerCase();
 const uintString = value => typeof value === "string" && /^\d+$/.test(value);
+const decimalsEqual = (value, expected) => value === expected || value === String(expected);
 export const selectLpApiKey = env => env.UNISWAP_LP_API_KEY?.trim() || env.UNISWAP_API_KEY?.trim();
 
 export async function probeLpPoolInfo({ apiKey, fetcher = fetch, write = line => process.stdout.write(line + "\n") }) {
@@ -36,8 +37,8 @@ export async function probeLpPoolInfo({ apiKey, fetcher = fetch, write = line =>
   const pools = Array.isArray(body?.pools) ? body.pools : [];
   const matches = pools.filter(pool => pool?.chainId === 137 && pool?.poolProtocol === "V3" && addressEquals(pool?.poolReferenceIdentifier, POOL)
     && (String(pool?.fee) === "500") && (
-      (addressEquals(pool?.tokenAddressA, USDC) && addressEquals(pool?.tokenAddressB, WETH) && pool?.tokenDecimalsA === 6 && pool?.tokenDecimalsB === 18)
-      || (addressEquals(pool?.tokenAddressA, WETH) && addressEquals(pool?.tokenAddressB, USDC) && pool?.tokenDecimalsA === 18 && pool?.tokenDecimalsB === 6)
+      (addressEquals(pool?.tokenAddressA, USDC) && addressEquals(pool?.tokenAddressB, WETH) && decimalsEqual(pool?.tokenDecimalsA, 6) && decimalsEqual(pool?.tokenDecimalsB, 18))
+      || (addressEquals(pool?.tokenAddressA, WETH) && addressEquals(pool?.tokenAddressB, USDC) && decimalsEqual(pool?.tokenDecimalsA, 18) && decimalsEqual(pool?.tokenDecimalsB, 6))
     ));
   const poolMatches = matches.length === 1;
   const state = matches[0];
@@ -55,8 +56,8 @@ export async function probeLpPoolInfo({ apiKey, fetcher = fetch, write = line =>
       protocolMatches: pool?.poolProtocol === "V3",
       poolAddressMatches: addressEquals(pool?.poolReferenceIdentifier, POOL), poolAddress,
       tokenPairMatches: forward || reverse,
-      tokenDecimalsMatch: (forward && pool?.tokenDecimalsA === 6 && pool?.tokenDecimalsB === 18)
-        || (reverse && pool?.tokenDecimalsA === 18 && pool?.tokenDecimalsB === 6),
+      tokenDecimalsMatch: (forward && decimalsEqual(pool?.tokenDecimalsA, 6) && decimalsEqual(pool?.tokenDecimalsB, 18))
+        || (reverse && decimalsEqual(pool?.tokenDecimalsA, 18) && decimalsEqual(pool?.tokenDecimalsB, 6)),
       tokenDecimalsTypes: [typeof pool?.tokenDecimalsA, typeof pool?.tokenDecimalsB],
       feeMatches: String(pool?.fee) === "500",
       currentTickValid: Number.isInteger(pool?.currentTick),

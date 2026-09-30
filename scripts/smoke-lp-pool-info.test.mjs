@@ -78,7 +78,7 @@ test("a mismatch reports only bounded public identity checks, never upstream det
     poolChecks: [{
       chainIdMatches: false, chainIdType: "string", protocolMatches: true,
       poolAddressMatches: false, poolAddress: returnedPool,
-      tokenPairMatches: true, tokenDecimalsMatch: false, tokenDecimalsTypes: ["string", "string"],
+      tokenPairMatches: true, tokenDecimalsMatch: true, tokenDecimalsTypes: ["string", "string"],
       feeMatches: true, currentTickValid: true, tickSpacingValid: true,
       liquidityShapeValid: true, sqrtRatioShapeValid: true,
     }],
@@ -99,4 +99,29 @@ test("a matching pool with zero active liquidity is not marked ready", async () 
   });
   assert.equal(ready, false);
   assert.deepEqual(lines, [{ status: 200, poolCount: 1, poolMatches: true, stateShapeValid: true, activeLiquidityPositive: false }]);
+});
+
+test("accepts canonical decimal strings in either token order but rejects malformed strings", async () => {
+  const usdc = "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359";
+  const weth = "0x7ceb23fd6bc0add59e62ac25578270cff1b9f619";
+  const base = { chainId: 137, poolProtocol: "V3", poolReferenceIdentifier: pool, fee: "500", tickSpacing: 10,
+    poolLiquidity: "123", sqrtRatioX96: "456", currentTick: 22 };
+  const cases = [
+    [{ tokenAddressA: usdc, tokenAddressB: weth, tokenDecimalsA: "6", tokenDecimalsB: "18" }, true],
+    [{ tokenAddressA: weth, tokenAddressB: usdc, tokenDecimalsA: "18", tokenDecimalsB: "6" }, true],
+    [{ tokenAddressA: usdc, tokenAddressB: weth, tokenDecimalsA: "06", tokenDecimalsB: "18" }, false],
+  ];
+  for (const [fields, expected] of cases) {
+    const lines = [];
+    const result = await probeLpPoolInfo({
+      apiKey: "private-key",
+      fetcher: async () => Response.json({ pools: [{ ...base, ...fields }] }),
+      write: line => lines.push(JSON.parse(line)),
+    });
+    assert.equal(result, expected);
+    assert.equal(lines[0].poolMatches, expected);
+    assert.equal(lines[0].stateShapeValid, expected);
+    assert.equal(lines[0].activeLiquidityPositive, expected);
+    assert.ok(!JSON.stringify(lines).includes("private-key"));
+  }
 });
