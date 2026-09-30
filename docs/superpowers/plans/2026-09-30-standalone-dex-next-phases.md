@@ -41,8 +41,10 @@
 - [x] Localize the observed mismatch to string-typed token decimals and test a narrow validator accepting canonical `"6"`/`"18"` as well as integer 6/18, bound to token order.
 - [x] Owner reran the corrected LP pool-info probe: HTTP 200, one pool, identity/state shape and positive active liquidity all matched. Prepared an independent read-only pinned Polygon cross-check with wrong-pool/decimals/reorg tests.
 - [x] Record the v3 position identity, read/write boundaries, threat model and UI reference in the [LP design](../../specs/2026-09-30-polygon-v3-lp-design.md); write implementation remains gated.
-- [ ] Run `node scripts/smoke-lp-onchain.mjs` on the owner's host and confirm Polygon native-USDC/WETH v3 pool identity against a fresh pinned block. A matching API response alone does not approve the v3 0.05% candidate as an LP target.
-- [ ] Verify Polygon unsigned `/lp/check_approval`, `/lp/create`, `/lp/increase`, `/lp/decrease` and `/lp/claim_fees` responses before building write controls. Use the official [LP integration guide](https://developers.uniswap.org/docs/liquidity/liquidity-provisioning-api/integration-guide) and [Polygon v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments).
+- [x] Owner ran `node scripts/smoke-lp-onchain.mjs` at Polygon block `94721672` (`2026-09-30T17:00:48.000Z`): `verified:true` and all pinned factory, pool, token, decimal, fee, tick, initialization and liquidity checks passed. This qualifies the candidate for read-only discovery; LP action validation remains open.
+- [x] Prepare a bounded, no-wallet shape probe for unsigned Polygon v3 `/lp/create` and `/lp/check_approval`, with sanitization and tests. The probe does not authorize returned calldata.
+- [ ] Run the unsigned shape probe on the owner's host; independently decode and validate every returned transaction field before any LP wallet controls. Do not sign or broadcast a probe payload.
+- [ ] Obtain an owner-controlled v3 position ID or a verified fork fixture before qualifying unsigned increase, decrease and fee-claim flows; do not infer access from the endpoint documentation.
 - [ ] Design chain-aware position ownership, ticks/range, principal, current amounts and uncollected fees separately. Never infer APR or USD TVL from raw `liquidity()`.
 
 ## Phase 5 — Standalone product and quality

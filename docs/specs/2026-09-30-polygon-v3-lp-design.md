@@ -6,7 +6,7 @@
 
 `/pools` and a future position page should identify the pool by `chainId + V3 + pool address` and each position by `chainId + NonfungiblePositionManager + NFT tokenId`. A connected EOA can discover its positions, inspect tick bounds and whether the current pool tick is inside `[tickLower, tickUpper)`, then explicitly create, increase, decrease, collect fees or close a position. A position can contain only one token when out of range. Show token addresses, decimals, range, two token amounts, current block/time and the data source. Keep deposited principal, current token amounts and uncollected fees separate. If one cannot be calculated from a verified source, label it unavailable; raw `liquidity()` is not USD TVL or APR.
 
-The candidate pool address is `0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9`; the official [Polygon v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments) list `NonfungiblePositionManager` at `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`. Reconfirm pool/token/fee/tick spacing from current on-chain state and the [LP pool-info API](https://developers.uniswap.org/docs/api-reference/pool_info) before a write. The current read-only probe checks identity and positive active liquidity but does not certify depth, fees or freshness.
+The candidate pool address is `0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9`; the official [Polygon v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-polygon-deployments) list `NonfungiblePositionManager` at `0xC36442b4a4522E871399CD717aBDD847Ab11FE88`. The LP API pool-info response matched, and the owner independently confirmed factory, token, fee, tick spacing and positive liquidity at pinned Polygon block `94721672` on `2026-09-30T17:00:48.000Z`. Reconfirm current state before a write. These read-only checks do not certify depth, fees, future freshness or unsigned transactions.
 
 ## Data and transaction boundaries
 
@@ -30,7 +30,7 @@ After a transaction, retain the original account/hash and inspect canonical rece
 ## Exit gates
 
 1. Qualify a dependable Polygon RPC. The original endpoint timed out on two of five latest-block reads. The replacement passed 15/15 direct reads and 4/4 wallet-state reads in one preflight, but pinned/receipt reliability and tail latency are still open; do not use this limited sample to approve a funded LP rehearsal.
-2. Observe a matching `/lp/pool_info` result and verify current pool identity/decimals/tick spacing against a pinned on-chain read. Confirm LP API key entitlement and rate budget separately from the 6 RPS Trading API key.
+2. **Read-only pool gate passed:** matching `/lp/pool_info` and pinned on-chain identity/decimals/tick spacing at block `94721672`. LP API key entitlement for action endpoints and its rate budget remain unverified separately from the 6 RPS Trading API key.
 3. Capture sanitized unsigned responses for all five LP actions on Polygon, then write an action-specific validator and tests **before** adding wallet buttons. If an action is unavailable, document the supported subset rather than substituting another protocol silently.
 4. Verify position discovery, in/out-of-range, single-sided, partial/full decrease, fee collection and delayed indexer states with official fixtures or a fork. Complete owner-operated small funded checks and independent security review before public LP writes.
 
