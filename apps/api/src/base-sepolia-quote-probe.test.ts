@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BASE_SEPOLIA_CANDIDATE } from "@vezta-dex/core";
-import { inspectBaseSepoliaQuote, summarizeBaseSepoliaQuoteFailure } from "./base-sepolia-quote-probe";
+import { inspectBaseSepoliaQuote, requestBaseSepoliaQuoteWithRetry, summarizeBaseSepoliaQuoteFailure } from "./base-sepolia-quote-probe";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const wallet = "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1";
@@ -17,6 +17,46 @@ function response() {
 }
 
 describe("Base Sepolia Trading API quote probe", () => {
+  it("retries only an upstream routing timeout with bounded exponential delays", async () => {
+    const delays: number[] = [];
+    let calls = 0;
+    const result = await requestBaseSepoliaQuoteWithRetry(async () => {
+      calls += 1;
+      return calls < 3
+        ? new Response(JSON.stringify({ errorCode: "UpstreamTimeoutError" }), { status: 404 })
+        : new Response(JSON.stringify(response()), { status: 200 });
+    }, async ms => { delays.push(ms); });
+    expect(result).toMatchObject({ ok: true, attempts: 3 });
+    expect(calls).toBe(3);
+    expect(delays).toEqual([1000, 2000]);
+  });
+
+  it("stops after the third upstream timeout without exposing its body", async () => {
+    const delays: number[] = [];
+    let calls = 0;
+    const result = await requestBaseSepoliaQuoteWithRetry(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ errorCode: "UpstreamTimeoutError", detail: "private diagnostic" }), { status: 404 });
+    }, async ms => { delays.push(ms); });
+    expect(result).toEqual({ ok: false, attempts: 3, failure: {
+      status: "testnet-quote-unavailable", upstreamStatus: 404, errorCode: "UpstreamTimeoutError",
+    } });
+    expect(calls).toBe(3);
+    expect(delays).toEqual([1000, 2000]);
+  });
+
+  it("does not retry a permanent route failure", async () => {
+    let calls = 0;
+    const result = await requestBaseSepoliaQuoteWithRetry(async () => {
+      calls += 1;
+      return new Response(JSON.stringify({ errorCode: "NoRouteFoundError" }), { status: 404 });
+    }, async () => { throw new Error("Unexpected delay"); });
+    expect(result).toEqual({ ok: false, attempts: 1, failure: {
+      status: "testnet-quote-unavailable", upstreamStatus: 404, errorCode: "NoRouteFoundError",
+    } });
+    expect(calls).toBe(1);
+  });
+
   it("reports a documented routing error without exposing upstream details", async () => {
     const failure = new Response(JSON.stringify({
       errorCode: "NoRouteFoundError", detail: "private diagnostic", requestId: "private-request-id",

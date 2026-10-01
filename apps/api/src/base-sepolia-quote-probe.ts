@@ -25,6 +25,26 @@ export async function summarizeBaseSepoliaQuoteFailure(response: Response): Prom
   return { status: "testnet-quote-unavailable", upstreamStatus: response.status, errorCode };
 }
 
+/** Retry only the documented transient routing timeout; the request remains unchanged. */
+export async function requestBaseSepoliaQuoteWithRetry(
+  request: () => Promise<Response>,
+  wait: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms)),
+): Promise<
+  | { ok: true; response: Response; attempts: number }
+  | { ok: false; failure: Awaited<ReturnType<typeof summarizeBaseSepoliaQuoteFailure>>; attempts: number }
+> {
+  for (let attempts = 1; attempts <= 3; attempts++) {
+    const response = await request();
+    if (response.ok) return { ok: true, response, attempts };
+    const failure = await summarizeBaseSepoliaQuoteFailure(response);
+    if (attempts === 3 || response.status !== 404 || failure.errorCode !== "UpstreamTimeoutError") {
+      return { ok: false, failure, attempts };
+    }
+    await wait(1_000 * 2 ** (attempts - 1));
+  }
+  throw new Error("Unreachable testnet quote attempt");
+}
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid testnet quote");
   return value as Record<string, unknown>;
