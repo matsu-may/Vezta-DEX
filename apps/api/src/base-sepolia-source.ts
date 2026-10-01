@@ -3,6 +3,7 @@ import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
+import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
 const C = BASE_SEPOLIA_CANDIDATE;
@@ -61,7 +62,7 @@ async function readRpcBody(response: Response, signal?: AbortSignal | null) {
   } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -94,6 +95,16 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    async simulateApproval(transaction, blockNumber) {
+      const result = await client.call({ account: transaction.from, to: transaction.to,
+        data: transaction.data, value: 0n, blockNumber });
+      return result.data ?? "0x";
+    },
+    estimateApprovalGas(transaction, blockNumber) {
+      return client.estimateGas({ account: transaction.from, to: transaction.to,
+        data: transaction.data, value: 0n, blockNumber });
+    },
+    getGasPrice() { return client.getGasPrice(); },
     getTokenBalance(address, wallet, blockNumber) {
       return client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [wallet], blockNumber });
     },

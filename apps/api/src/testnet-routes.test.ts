@@ -15,6 +15,33 @@ const request = (body: unknown = testnetIntent(), suffix = "", contentType = "ap
 const reader = () => new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => TESTNET_NOW);
 
 describe("testnet read routing", () => {
+  it("validates approval request bodies and exposes only a bound blocked study for an unfunded wallet", async () => {
+    const { TestnetApprovalReader } = await import("./testnet-approval");
+    const quoteReader = reader(); const quote = await quoteReader.read(testnetIntent());
+    const source = { ...testnetQuoteSource(), async getTokenBalance() { return 0n; },
+      async getNativeBalance() { return 0n; }, async getTokenAllowance() { return 0n; },
+      async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
+      async simulateApproval() { throw new Error("must not simulate"); },
+      async estimateApprovalGas() { throw new Error("must not estimate"); }, async getGasPrice() { return 1n; } };
+    const create = vi.fn(() => source);
+    const approvals = new TestnetApprovalReader(create, quoteReader.store, () => TESTNET_NOW);
+    const req = (value: unknown, suffix = "") => new Request(`http://local/api/v1/testnet/base-sepolia/approval${suffix}`, {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(value),
+    });
+    const body = { intent: testnetIntent(), quoteId: quote.quoteId };
+    for (const [value, suffix, status] of [[{ ...body, secret: "private" }, "", 400],
+      [body, "?key=private", 400], [{ padding: "x".repeat(5000) }, "", 413]] as const) {
+      expect((await handleTestnetRequest(req(value, suffix), undefined, quoteReader, undefined, approvals))?.status).toBe(status);
+    }
+    expect(create).not.toHaveBeenCalled();
+    const response = await handleTestnetRequest(req(body), undefined, quoteReader, undefined, approvals);
+    expect(response?.status).toBe(200); expect(response?.headers.get("cache-control")).toBe("no-store");
+    expect(await response?.json()).toMatchObject({ approval: { status: "blocked", transaction: null,
+      reason: "TESTNET_INPUT_BALANCE_LOW", runtimeVerified: true, executionEnabled: false } });
+    source.getTokenBalance = async () => { throw new Error("private-rpc-key"); };
+    const failure = await handleTestnetRequest(req(body), undefined, quoteReader, undefined, approvals);
+    expect(await failure?.json()).toEqual({ error: "Testnet approval unavailable", code: "TESTNET_RPC_UNAVAILABLE" });
+  });
   it("routes valid unfunded wallet state separately and sanitizes failure", async () => {
     const source = { ...testnetQuoteSource(), async getTokenBalance() { return 0n; },
       async getNativeBalance() { return 0n; }, async getTokenAllowance() { return 0n; },

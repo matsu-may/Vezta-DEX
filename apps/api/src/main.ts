@@ -26,6 +26,7 @@ import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { handleTestnetRequest } from "./testnet-routes";
 import { toApiRequest } from "./api-request";
 import { TestnetWalletStateReader } from "./testnet-wallet-state";
+import { TestnetApprovalReader } from "./testnet-approval";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -55,6 +56,8 @@ const testnetQuotes = testnetRpcUrl ? new TestnetSwapQuoteReader(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
 const testnetStates = testnetRpcUrl ? new TestnetWalletStateReader(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
+const testnetApprovals = testnetRpcUrl && testnetQuotes ? new TestnetApprovalReader(signal =>
+  createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetQuotes.store) : undefined;
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -78,7 +81,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates)
+    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals)
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

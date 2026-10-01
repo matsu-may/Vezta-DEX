@@ -88,6 +88,28 @@ function hungFetch(signals: AbortSignal[]) {
   });
 }
 
+it("simulates/estimates only the internally built approval at the pinned block without broadcasting", async () => {
+  const calls: Array<{ method: string; params: unknown[] }> = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: body.method === "eth_call"
+      ? `0x${"0".repeat(63)}1` : body.method === "eth_estimateGas" ? "0xc350" : "0x989680" });
+  });
+  const source = createBaseSepoliaPreflightSource("https://approval-wire.example.invalid");
+  const transaction = { chainId: 84532 as const, from: "0x1111111111111111111111111111111111111111" as const,
+    to: C.USDC.address, value: "0" as const,
+    data: `0x095ea7b3${P.router.slice(2).toLowerCase().padStart(64, "0")}${"f4240".padStart(64, "0")}` as const };
+  expect(await source.simulateApproval(transaction, 123n)).toBe(`0x${"0".repeat(63)}1`);
+  expect(await source.estimateApprovalGas(transaction, 123n)).toBe(50000n);
+  expect(await source.getGasPrice()).toBe(10000000n);
+  expect(calls.map(c => c.method)).toEqual(["eth_call", "eth_estimateGas", "eth_gasPrice"]);
+  for (const call of calls.slice(0, 2)) {
+    expect(call.params[1]).toBe("0x7b");
+    expect(call.params[0]).toMatchObject({ from: transaction.from, to: C.USDC.address,
+      data: transaction.data, value: "0x0" });
+  }
+});
+
 it("preserves the eight-second RPC timeout while a study signal is supplied", async () => {
   vi.useFakeTimers();
   const signals: AbortSignal[] = [];

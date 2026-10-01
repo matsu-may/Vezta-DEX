@@ -1,5 +1,7 @@
 # Base Sepolia runtime gate in wallet quotes
 
+**Follow-up accepted:** owner host runtime-guarded quotes passed in both directions at 47556679 /47556684. The current next check is the [unsigned approval study](2026-10-02-testnet-unsigned-approval-progress.md); the quote command below records the earlier handoff and need not be repeated for that acceptance.
+
 ## Owner evidence received
 
 The owner reported these read-only host results; the historical saved snapshot was not overwritten:

@@ -28,7 +28,8 @@
 | QuoterV2 rebuild (2026-10-02) | 21 hash-checked sources independently reproduce all 8,273 historical runtime bytes, including two AST-bound immutables /4 slots | Factory/pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
 | Factory rebuild (2026-10-02) | 33 hash-checked sources, optimizer 800 and one self-address immutable independently reproduce all 24,535 historical runtime bytes | Pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
 | Pool/manager rebuilds (2026-10-02) | Both owner imports and full independent rebuilds passed: 22,142 /24,384 runtime bytes, 7 /5 typed immutables across 27 /17 references. All five historical proofs pass | Fresh live code/configuration/depth, creation-bytecode/proxy gaps, gas/simulation and executable API/web flows |
-| Runtime quote gate (2026-10-02) | Owner fresh preflight/snapshot passed at 47555995 /47556013, all five hashes unchanged. Quote reader enforces those hashes at each fresh canonical block; execution remains disabled | Owner host quote-gate acceptance, current depth by intent, gas/simulation and executable API/web flows |
+| Runtime quote gate (2026-10-02) | Owner fresh inventory passed; guarded quotes also passed both directions at 47556679 /47556684 with runtimeVerified:true /executionEnabled:false | Current depth by intent, gas/simulation and executable API/web flows |
+| Unsigned approval study (2026-10-02) | Quote-bound fresh state/runtime checks, exact/reset/ready, funding blocks and pinned approval simulation/advisory L2 gas are implemented and locally tested | Host new-path acceptance, funded qualification, total Base fee budget, reset receipts/rereads and swap preparation |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -55,11 +56,13 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
   - [x] Obtain the historical stable-block snapshot and independently rebuild all five source/compiler/immutable-bound runtimes (block 47551649).
   - [ ] Requalify fresh stable-block code/configuration, pool identity/depth and execution-gate consumption. [Current host check](../../research/2026-10-02-testnet-runtime-quote-gate.md) is read-only; historical rebuild success does not enable execution. Creation-bytecode and descriptor proxy implementation/state remain separately recorded gaps.
     - [x] Owner fresh preflight/code inventory passed; enforce five runtime pins in each quote with final freshness/canonical-block checks.
-    - [ ] Qualify the updated runtime-guarded quote path through the owner's host; complete gas/simulation and preparation consumers. [One host command](../../research/2026-10-02-testnet-runtime-quote-gate.md) needs no funded wallet.
+    - [x] Owner runtime-guarded quote path passed in both directions at 47556679 /47556684.
+    - [ ] Complete gas/simulation and preparation consumers; the [current unsigned approval host check](../../research/2026-10-02-testnet-unsigned-approval-progress.md) needs no funded wallet.
 - [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Reverse diagnostics confirmed HTTP 429 during dependency reads; origin-shared pacing and bounded response-body reads were added. Owner post-fix host quotes passed in both directions at blocks 47547007 and 47547012.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
   - [x] Qualify host EOA state evidence (block 47543051); insufficient input balance, no native ETH, and zero allowance reported without a read failure.
+  - [x] Implement unsigned exact/reset/ready studies with quote/state binding, real runtime guard, pinned approval simulation and bounded advisory L2 gas; local test evidence only for funded paths.
   - [ ] Qualify sufficient gas estimates and executable approvals with receipt/reset/reread behavior.
 - [ ] Simulate/recheck the reviewed swap and expose bounded local API contracts with sanitized errors, deadlines and provenance.
 
@@ -68,6 +71,8 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 **Independent work:** Artifacts, pure/API tests and fork harnesses can progress without owner funding; live RPC/source results still require a reachable provider. **Dependency:** Verified identities from Phase 1. **Likely paths:** core policy, new testnet API quote/state/preparation adapters, scripts and evidence docs; split these into focused implementation plans.
 
 Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
+
+Follow-through: [unsigned approval spec](../specs/2026-10-02-testnet-unsigned-approval.md) and [current approval progress/host check](../../research/2026-10-02-testnet-unsigned-approval-progress.md). Funded local studies expose only advisory L2 gas, never total-fee or execution readiness.
 
 ## Phase 3 — Complete testnet wallet swaps
 
@@ -148,3 +153,4 @@ Prepare pinned artifacts, deployment probes, quote/state/preparation logic, cont
 - [Historical factory rebuild and current pool/manager source actions](../../research/2026-10-02-testnet-factory-rebuild.md).
 - [All-five historical runtime proof and current fresh host checks](../../research/2026-10-02-testnet-pool-manager-rebuild.md).
 - [Runtime quote gate and current host command](../../research/2026-10-02-testnet-runtime-quote-gate.md).
+- [Unsigned approval study, next host check and remaining gates](../../research/2026-10-02-testnet-unsigned-approval-progress.md).

@@ -1,6 +1,8 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** all five independent runtime rebuilds passed at historical block 47551649. Owner fresh preflight/snapshot passed at blocks 47555995 /47556013 with unchanged runtime hashes. Wallet quotes now compare all five pinned code hashes at their fresh canonical block and report `runtimeVerified:true` only after success; execution remains disabled. Agent live quote probing still fails at transport/chain read; see [current runtime gate and one host command](2026-10-02-testnet-runtime-quote-gate.md). Host acceptance of that path, gas/simulation and executable flows remain open. Earlier notes below are historical.
+**Current follow-up:** owner guarded quotes passed both directions; the new unsigned approval study and remaining phase-2 gates are tracked [here](2026-10-02-testnet-unsigned-approval-progress.md). Earlier host commands below are historical.
+
+**Latest update, 2026-10-02:** all five independent runtime rebuilds passed at historical block 47551649. Fresh inventory and both owner guarded quotes passed with unchanged code hashes. Quote/runtime host acceptance is complete; execution remains disabled. The new unsigned approval probe still fails at transport/chain read in the agent environment. Host approval acceptance, total fees, funded simulation, reset receipts/rereads and swap preparation remain open. Earlier notes below are historical.
 
 ## Latest host evidence and compatibility fix
 
