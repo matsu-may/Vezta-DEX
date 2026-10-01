@@ -49,6 +49,8 @@ Final local verification: `pnpm test` passed 623 Vitest +85 Node tests; `pnpm ty
 
 ## Owner action that can unblock the next gate
 
+**Completed:** the owner installed the exact compiler and its version passed. Independent router compilation/runtime comparison subsequently succeeded; see [router rebuild evidence and the next QuoterV2 source action](2026-10-02-testnet-router-rebuild.md). The installation notes below record the previous environmental handoff.
+
 The agent's bounded npm install failed DNS resolution (`ENOTFOUND registry.npmjs.org`). No Solidity 0.7.6 compiler is installed locally. On the owner's terminal, from `vezta-dex`, run:
 
 ```bash

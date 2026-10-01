@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** the owner selected A. Real raw evidence was imported using `--from-raw --save`: all 63 selected source hashes and historical snapshot runtime binding passed; original raw/snapshot bytes stayed unchanged. A normal invocation then reused the validated cache. Independent compilation remains unperformed and all qualification/execution flags remain false. See the [accepted A decision and compiler installation instructions](2026-10-02-router-source-graph-decision.md). The agent's bounded compiler install failed npm DNS resolution; installing isolated Solidity 0.7.6 on the owner's terminal is the next useful action. Earlier acquisition notes below are historical.
+**Latest update, 2026-10-02:** the owner selected A and installed the exact compiler. Real raw evidence was imported using `--from-raw --save`: all 63 selected source hashes and historical snapshot runtime binding passed; original raw/snapshot bytes stayed unchanged. `pnpm testnet:router-rebuild` then independently reproduced every router runtime byte, including all four immutable declarations /23 references. This router-only historical result is `independentRebuildVerified:true`; creation-bytecode proof, other dependencies and fresh execution qualification remain open. See [router rebuild evidence and the next QuoterV2 source action](2026-10-02-testnet-router-rebuild.md). Overall runtime/execution flags stay false. Earlier acquisition notes below are historical.
 
 ## Latest host evidence and compatibility fix
 
