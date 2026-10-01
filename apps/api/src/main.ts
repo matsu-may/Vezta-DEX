@@ -14,13 +14,14 @@ import { SwapPreparer } from "./swap-preparation";
 import { WalletStateReader } from "./wallet-state";
 import { WalletObservationReader } from "./wallet-observation";
 import { LpPositionReader } from "./lp-position";
+import { requirePrivateApiHost } from "./api-binding";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const rpcUrl = process.env.POLYGON_RPC_URL ?? "https://polygon-bor-rpc.publicnode.com";
 const port = Number(process.env.PORT ?? "3021");
-const host = process.env.HOST ?? "127.0.0.1";
+const host = requirePrivateApiHost(process.env.HOST ?? "127.0.0.1");
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
 
 const source = createPolygonPoolSource(rpcUrl);
