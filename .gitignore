@@ -5,6 +5,7 @@ coverage/
 dist/
 *.tsbuildinfo
 .playwright-cli/
+.local-evidence/
 .env
 .env.local
 .env.*.local

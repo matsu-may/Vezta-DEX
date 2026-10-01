@@ -123,7 +123,7 @@ export function reviewTestnetArtifactBundle(bundle: readonly PinnedTestnetArtifa
     return { direction: reverse ? "WETH_TO_USDC" : "USDC_TO_WETH", canonicalMatches: true };
   });
   return { status: "testnet-artifacts-abi-verified", fixtureOnly: true, abiCompatibilityVerified: true,
-    artifacts: bundle.map(({ abi: _abi, runtimeBytecode, ...summary }) => ({ ...summary,
+    artifacts: bundle.map(({ role, address, packageName, version, sha256, runtimeBytecode }) => ({ role, address, packageName, version, sha256,
       runtimeBytes: (runtimeBytecode.length - 2) / 2, runtimeHash: keccak256(runtimeBytecode), immutableReferencesAvailable: false })),
     calldataChecks, runtimeVerified: false, executionEnabled: false };
 }
