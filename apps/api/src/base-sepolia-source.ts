@@ -1,8 +1,9 @@
-import { createPublicClient, erc20Abi, http, parseAbi, type Address } from "viem";
+import { createPublicClient, erc20Abi, http, parseAbi, type Address, type Transport } from "viem";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
+import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
@@ -38,11 +39,17 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
     && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("Base Sepolia RPC requires HTTPS or loopback HTTP");
   }
-  const client = createPublicClient({ chain: baseSepolia,
-    transport: http(rpcUrl, { timeout: 8_000, retryCount: 0,
+  const pacer = baseSepoliaRpcPacers.get(url, parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS));
+  const transport: Transport = options => {
+    const inner = http(rpcUrl, { timeout: 8_000, retryCount: 0,
       // viem supplies its per-request timeout signal here. fetchOptions.signal would replace it.
       fetchFn: signal ? (input, init) => fetch(input, { ...init,
-        signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }) : undefined }) });
+        signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }) : undefined })(options);
+    // Queue before the HTTP transport starts its per-request network timeout.
+    return { ...inner, request: (args, requestOptions) =>
+      pacer.run(() => inner.request(args, requestOptions), signal) };
+  };
+  const client = createPublicClient({ chain: baseSepolia, transport });
   const quoteExactInput: BaseSepoliaSwapSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",

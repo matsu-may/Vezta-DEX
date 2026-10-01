@@ -46,7 +46,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
-- [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Local tests pass; owner forward quote passed, reverse returned generic RPC failure and requires diagnostics.
+- [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Local tests pass; owner forward quote passed. Reverse diagnostics confirmed HTTP 429 during dependency configuration reads before Quoter. Origin-shared RPC pacing is implemented; host rerun of both directions remains pending.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
   - [x] Qualify host EOA state evidence (block 47543051); insufficient input balance, no native ETH, and zero allowance reported without a read failure.
