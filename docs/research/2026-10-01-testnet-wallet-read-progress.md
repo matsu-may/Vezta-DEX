@@ -38,6 +38,25 @@ Restart `pnpm dev` after changes. POST JSON to `/api/v1/testnet/base-sepolia/quo
 
 ## Evidence and remaining gates
 
-Local verification before final review: 546 Vitest +85 Node tests, typecheck and lint passed. Build and independent review results are recorded below after completion. The agent's live wallet-quote probe returned `TESTNET_RPC_UNAVAILABLE`; no owner result for the new probes is recorded yet. Existing owner depth/preview evidence remains historical and distinct.
+Local verification: 546 Vitest +85 Node tests, typecheck, lint and build passed. Independent read-only review of `2dfd03e..d005b12` found no Critical/Important/Minor defect. The agent's live wallet-quote probe returned `TESTNET_RPC_UNAVAILABLE`; no owner result for the new probes is recorded yet. Existing owner depth/preview evidence remains historical and distinct. Existing Next workspace-root and ESLint React-detection warnings persist; no new failure was introduced.
 
 Phase 2 still needs artifact/runtime proof, gas estimates, wallet-bound simulation/recheck, executable approval/reset receipt handling and preparation endpoints. Phases 3–6 (wallet swaps/recovery, Base Sepolia LP lifecycle, integrated desktop product, final acceptance) remain open. No need to obtain real USDC; faucet assets will be needed only for the later owner-operated testnet transaction checks.
+
+## Independent-review scope rulings
+
+These gates were considered and retained explicitly, rather than counted as verified:
+
+- Artifact installation, exact tagged source/ABI correspondence, runtime matching and authenticity: separate deployment evidence before execution. Cost if omitted: trust in the wrong deployed code.
+- Live provider/pool/balance/owner CLI results: pending host evidence. Cost if omitted: local tests may conceal real provider or liquidity failure.
+- Sufficient gas, wallet-bound simulation and pre-submit rechecks: separate preparation slice. Cost if omitted: unfunded or stale execution could be exposed.
+- Executable preparation endpoints and stored-ID consumer: remain absent until prerequisites qualify. Cost: no wallet swap yet.
+- Approval/reset confirmation, allowance rereads and residue: later explicit wallet controller work. Cost if omitted: incorrect approval state.
+- Wallet connect/switch/rejection/signing/pending/revert/replacement/reload/rebroadcast: later controller and receipt work. Cost if omitted: incorrect or duplicate user action.
+- Permit2 binding: not introduced by the direct-router allowance adapter. Cost if later added without a new design: signature/adapter confusion.
+- LP lifecycle and out-of-range economics: later SDK-backed LP phase. Cost: LP demo remains incomplete.
+- Index reconciliation: these reads use RPC directly; an indexer has not been added. Cost if indexing is later mixed silently: inconsistent data sources.
+- Desktop/browser behavior and main Vezta API generation: no UI/main-app changes in this slice. Cost: integrated browser acceptance remains open.
+- Public deployment/auth/same-origin/rate limiting: private loopback scope only; browser write proxy and public exposure need their own controls. Cost if exposed now: unqualified operational boundary.
+- Contract/economic audit: integration review is not an audit. Cost if treated as one: unsupported security/economic assurance.
+
+No minor findings were deferred. The branch `codex/hook-free-routing` is retained locally for continued work; the owner has not requested a merge or publication.

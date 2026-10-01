@@ -1,6 +1,6 @@
 # Standalone Testnet DEX Completion Roadmap
 
-**Status:** Consolidated roadmap, 2026-10-01. Planning only; no implementation is performed by this update. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
+**Status:** Consolidated roadmap, 2026-10-01, updated after the wallet quote/state slice. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
 
 **Goal:** Deliver a reproducible standalone Uniswap DEX demo in `vezta-dex`: pool discovery, same-chain swaps in both directions, and the complete v3 LP position lifecycle on Base Sepolia. Real mainnet USDC and main Vezta integration are later milestones.
 
@@ -23,7 +23,7 @@
 | Wallet-free `/demo` | Simulated swap/LP lifecycle | Uniswap/public-testnet execution; fixture earnings are illustrative |
 | Polygon | Live reads/unsigned probes, wallet mocks and owner-operated Anvil LP lifecycle passed | Funded mainnet swaps/LP receipts and public release |
 | Base Sepolia discovery | Owner reported qualified live depth, API/web HTTP 200, matching preview/minimum in both directions | Current executable quotes; expiry/refresh/browser smoke acceptance |
-| Testnet core preparation | Pure swap builder/inspector and exact/reset approval planner; latest implementation verification: 522 Vitest +85 Node, typecheck/lint/build | Live deployment proof, trusted quote/state/simulation and API/web execution wiring |
+| Testnet preparation | Pure swap builder/inspector, exact/reset planner, pinned wallet-bound quote/store and EOA state APIs; 546 Vitest +85 Node, typecheck/lint/build and independent read-only review passed | Owner quote/state probes, artifact/runtime proof, gas/simulation and executable API/web wiring |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 

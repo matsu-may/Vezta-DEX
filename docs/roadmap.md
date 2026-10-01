@@ -2,6 +2,8 @@
 
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 
+**Latest phase-2 implementation:** fresh wallet-bound direct-RPC quote/store and stable EOA wallet-state APIs are implemented and locally verified (546 Vitest +85 Node, typecheck/lint/build, independent review). Host probes are pending; configuration evidence is distinct from deployed runtime proof. Gas/simulation and executable API/web flows remain open. Follow the [two-command owner checklist](research/2026-10-01-testnet-wallet-read-progress.md); an empty wallet is sufficient for these reads.
+
 ## Goal and boundaries
 
 Build an independent `vezta-dex/` project using existing Uniswap liquidity on Polygon. Users discover pools, swap, and manage liquidity with their own wallets. Vezta does not deploy an AMM, router, or LP token for the first release. Integrating these routes into the main Vezta frontend and backend is a separate final phase.
