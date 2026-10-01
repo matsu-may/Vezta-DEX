@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** all five independent runtime rebuilds passed at historical block 47551649. Pool adds 31 sources /22,142 bytes /7 typed immutable declarations across 27 slots; manager adds 55 sources /24,384 bytes /5 declarations across 17 slots. Router/quoter/factory regression fingerprints are unchanged. Fresh RPC checks failed with transport errors in the agent environment; see [pool/manager proof and the next read-only host checks](2026-10-02-testnet-pool-manager-rebuild.md). Creation-bytecode, fresh qualification, simulation and execution gates remain open; overall runtime/execution flags stay false and Phase 2 is incomplete. Earlier notes below are historical.
+**Latest update, 2026-10-02:** all five independent runtime rebuilds passed at historical block 47551649. Owner fresh preflight/snapshot passed at blocks 47555995 /47556013 with unchanged runtime hashes. Wallet quotes now compare all five pinned code hashes at their fresh canonical block and report `runtimeVerified:true` only after success; execution remains disabled. Agent live quote probing still fails at transport/chain read; see [current runtime gate and one host command](2026-10-02-testnet-runtime-quote-gate.md). Host acceptance of that path, gas/simulation and executable flows remain open. Earlier notes below are historical.
 
 ## Latest host evidence and compatibility fix
 

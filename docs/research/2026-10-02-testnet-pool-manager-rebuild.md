@@ -44,6 +44,8 @@ The existing verifier now binds each compiler AST declaration to an explicit exp
 
 ## Next host checks and unfinished work
 
+**Completed follow-up:** the owner reported both fresh host checks passed, with all five runtime hashes unchanged. The quote reader now checks those pinned runtimes at each fresh canonical quote block. See [owner evidence, runtime-gate implementation and the current host quote check](2026-10-02-testnet-runtime-quote-gate.md). Commands below record the earlier handoff; no repeat snapshot/save is needed for this slice.
+
 Actual `testnet:preflight` returned `RPC_UNAVAILABLE`. `testnet:deployment-snapshot` failed at `getChainId` with a transport error and `TESTNET_DEPLOYMENT_RPC_UNAVAILABLE` in the agent environment. This does not establish that the owner's configured provider is faulty.
 
 From `vezta-dex`, run these **one at a time**, without `--save`, then share their sanitized JSON:

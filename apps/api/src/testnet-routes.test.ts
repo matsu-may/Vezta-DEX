@@ -37,7 +37,7 @@ describe("testnet read routing", () => {
     expect(response?.status).toBe(200);
     expect(response?.headers.get("cache-control")).toBe("no-store");
     expect(await response?.json()).toMatchObject({ quoteId: expect.stringMatching(/^[a-f0-9]{48}$/),
-      quote: { chainId: 84532 }, qualification: { executionEnabled: false, runtimeVerified: false } });
+      quote: { chainId: 84532 }, qualification: { executionEnabled: false, runtimeVerified: true } });
     const discovery = new TestnetDiscoveryReader(async () => depthFixture());
     expect((await handleTestnetRequest(new Request("http://local/api/v1/testnet/base-sepolia/depth"), discovery))?.status).toBe(200);
     expect(await handleTestnetRequest(new Request("http://local/api/v1/testnet/base-sepolia/unknown"))).toBeUndefined();

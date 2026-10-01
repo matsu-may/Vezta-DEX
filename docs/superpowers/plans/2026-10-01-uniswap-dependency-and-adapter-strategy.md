@@ -12,6 +12,8 @@
 
 **Latest Stage 1 follow-up:** pool/manager imports and independent typed-immutable rebuilds passed; all five historical runtime proofs are complete. Earlier role fingerprints are unchanged. Agent fresh RPC probes failed at transport/chain read; see [current proof and host checks](../../research/2026-10-02-testnet-pool-manager-rebuild.md). Fresh qualification, execution-gate consumption and gas/simulation/receipt work remain open; no executable adapter was enabled by rebuild commands.
 
+**Runtime consumption follow-up:** owner fresh preflight/code checks passed with unchanged hashes. Quote APIs now require all five pinned code hashes at their fresh canonical block; successful quotes report `runtimeVerified:true` while execution stays disabled. Updated host quote acceptance and unsigned gas/simulation/preparation remain open. See [runtime gate and one owner command](../../research/2026-10-02-testnet-runtime-quote-gate.md).
+
 **Goal:** Complete the standalone Base Sepolia demo using official Uniswap dependencies where they reduce maintenance, while preserving independently validated transaction policy.
 
 **Architecture:** Retain `apps/web`, `apps/api` and `packages/core`. Use deployed Uniswap contracts, server-side RPC reads and wallet-owned signatures. Keep each adapter's chain, router version, approval spender, quote and receipt rules explicit.

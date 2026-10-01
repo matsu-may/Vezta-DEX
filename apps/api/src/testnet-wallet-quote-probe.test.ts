@@ -13,7 +13,7 @@ it("validates the wallet before source creation and emits bounded diagnostics fo
   for (const result of results) {
     expect(result).toMatchObject({ status: "testnet-wallet-quote-read-only", checks: {
       intentMatches: true, minimumValid: true, quoteFresh: true, opaqueQuoteId: true,
-      configurationVerified: true, runtimeVerified: false, executionEnabled: false,
+      configurationVerified: true, runtimeVerified: true, executionEnabled: false,
     } });
     expect(JSON.stringify(result)).not.toContain(testnetIntent().wallet);
     expect(JSON.stringify(result)).not.toContain("data");

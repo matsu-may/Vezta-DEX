@@ -19,7 +19,7 @@ describe("wallet-bound pinned testnet quotes", () => {
     expect(result.quoteId).toMatch(/^[a-f0-9]{48}$/);
     expect(result.quote).toMatchObject({ chainId: 84532, pool: P.pool, feeTier: 3000,
       blockNumber: "123", blockHash: TESTNET_HASH, source: "base-sepolia-rpc" });
-    expect(result.qualification).toEqual({ configurationVerified: true, runtimeVerified: false, executionEnabled: false });
+    expect(result.qualification).toEqual({ configurationVerified: true, runtimeVerified: true, executionEnabled: false });
     expect(result.priceImpactBps).toBeGreaterThanOrEqual(0);
     expect(result.priceImpactBps).toBeLessThanOrEqual(100);
     expect(BigInt(result.quote.minimumAmountOut)).toBe(BigInt(result.quote.amountOut) * 9950n / 10000n);
@@ -38,6 +38,18 @@ describe("wallet-bound pinned testnet quotes", () => {
       await expect(reader.read({ ...testnetIntent(), ...patch })).rejects.toMatchObject({ code: "TESTNET_INTENT_INVALID" });
     }
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it("blocks every changed dependency runtime before quoting or saving any quote", async () => {
+    for (const address of [P.router, P.pool, "0xC5290058841028F1614F3A6F0F5816cAd0df5E27",
+      "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24", "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2"]) {
+      const { source, reader } = setup(); const original = source.getCode; let quoted = false;
+      source.getCode = async (a, block) => a.toLowerCase() === address.toLowerCase() ? "0x6000" : original(a, block);
+      const originalQuote = source.quoteExactInput;
+      source.quoteExactInput = async (...args) => { quoted = true; return originalQuote(...args); };
+      await expect(reader.read(testnetIntent())).rejects.toMatchObject({ code: "TESTNET_RUNTIME_MISMATCH" });
+      expect(quoted).toBe(false); expect(reader.store.size).toBe(0);
+    }
   });
 
   it("fails closed on chain, code, decimals, dependencies, pool and non-EOA", async () => {

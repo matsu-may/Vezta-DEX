@@ -2,6 +2,7 @@ import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwap
   parseTestnetSwapQuote, type Address, type TestnetSwapIntent } from "@vezta-dex/core";
 import type { BaseSepoliaDepthSource } from "./base-sepolia-depth";
 import { TestnetQuoteStore } from "./testnet-quote-store";
+import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
 
 export interface BaseSepoliaSwapSource extends BaseSepoliaDepthSource {
   getTickSpacing(pool: Address, blockNumber: bigint): Promise<number>;
@@ -14,7 +15,7 @@ export interface BaseSepoliaSwapSource extends BaseSepoliaDepthSource {
 type QuoteErrorCode = "TESTNET_INTENT_INVALID" | "TESTNET_QUOTE_BUSY" | "TESTNET_QUOTE_TIMEOUT"
   | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN" | "TESTNET_QUOTE_STALE"
   | "TESTNET_CONFIGURATION_INVALID" | "TESTNET_EOA_REQUIRED" | "TESTNET_BLOCK_CHANGED"
-  | "TESTNET_QUOTE_INVALID" | "TESTNET_IMPACT_EXCEEDED";
+  | "TESTNET_QUOTE_INVALID" | "TESTNET_IMPACT_EXCEEDED" | "TESTNET_RUNTIME_MISMATCH";
 export class TestnetQuoteError extends Error {
   constructor(readonly code: QuoteErrorCode) { super(code); }
 }
@@ -88,6 +89,9 @@ export class TestnetSwapQuoteReader {
       || ![deps.router, deps.quoter, deps.manager].every(d => same(d.factory, C.v3Factory) && same(d.weth, C.WETH.address))
       || !same(deps.router.positionManager, C.v3PositionManager)) return fail("TESTNET_CONFIGURATION_INVALID");
     if (walletCode !== "0x") return fail("TESTNET_EOA_REQUIRED");
+    try {
+      verifyTestnetRuntimeCodes(P.chainId, addresses.slice(2).map((address, index) => ({ address, code: codes[index + 2] })));
+    } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
     const q = await source.quoteExactInput(i.tokenIn, i.tokenOut, BigInt(i.amountIn), P.feeTier, block.number);
     freshness();
     const forward = same(i.tokenIn, C.USDC.address);
@@ -109,6 +113,6 @@ export class TestnetSwapQuoteReader {
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: "base-sepolia-rpc" }, this.now());
     return { quote, priceImpactBps: impact,
-      qualification: { configurationVerified: true, runtimeVerified: false, executionEnabled: false } as const };
+      qualification: { configurationVerified: true, runtimeVerified: true, executionEnabled: false } as const };
   }
 }

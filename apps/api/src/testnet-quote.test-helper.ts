@@ -1,5 +1,6 @@
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
+import { runtimeFixtureCode } from "./testnet-runtime.test-helper";
 
 export const TESTNET_NOW = 1790800002000;
 export const TESTNET_HASH = `0x${"ab".repeat(32)}` as const;
@@ -15,7 +16,7 @@ export function testnetQuoteSource(): BaseSepoliaSwapSource {
     async getChainId() { return 84532; },
     async getLatestBlock() { return { number: 123n, timestamp: 1790800000n, hash: TESTNET_HASH }; },
     async getBlockHash() { return TESTNET_HASH; },
-    async getCode(address) { return address.toLowerCase() === testnetIntent().wallet.toLowerCase() ? "0x" : "0x6000"; },
+    async getCode(address) { return address.toLowerCase() === testnetIntent().wallet.toLowerCase() ? "0x" : runtimeFixtureCode(address) ?? "0x6000"; },
     async getDecimals(token) { return token.toLowerCase() === C.USDC.address.toLowerCase() ? 6 : 18; },
     async getPool() { return P.pool; },
     async getPoolState() { return { token0: C.USDC.address, token1: C.WETH.address,
