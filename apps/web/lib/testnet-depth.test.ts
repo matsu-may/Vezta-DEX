@@ -43,4 +43,28 @@ describe("testnet web read boundary", () => {
     expect(fetcher.mock.calls[0][0]).toBe("/api/testnet-depth");
     await expect(loadTestnetDepth(vi.fn(async () => Response.json({ depth: depthFixture(Date.now() - 601000) })))).rejects.toThrow();
   });
+
+  it("distinguishes bad API configuration, connection failure, timeout, missing endpoint and invalid data", async () => {
+    const cases = [
+      { env: { DEX_API_URL: "https://private.example/key" }, fetcher: vi.fn<typeof fetch>(), code: "TESTNET_API_CONFIG_INVALID" },
+      { env: {}, fetcher: vi.fn<typeof fetch>(async () => { throw new Error("private connection detail"); }), code: "TESTNET_API_UNREACHABLE" },
+      { env: {}, fetcher: vi.fn<typeof fetch>(async () => { throw new DOMException("private timeout detail", "TimeoutError"); }), code: "TESTNET_API_TIMEOUT" },
+      { env: {}, fetcher: vi.fn<typeof fetch>(async () => Response.json({ error: "private missing endpoint" }, { status: 404 })), code: "TESTNET_API_HTTP_ERROR", upstreamStatus: 404 },
+      { env: {}, fetcher: vi.fn<typeof fetch>(async () => Response.json({ depth: { ...depthFixture(), chainId: 137 } })), code: "TESTNET_API_INVALID_RESPONSE", upstreamStatus: 200 },
+    ];
+    for (const c of cases) {
+      const result = await createTestnetDepthProxy(c.env, c.fetcher)(request());
+      expect(result.status).toBe(503);
+      const output = await result.json();
+      expect(output.code).toBe(c.code);
+      expect(output.upstreamStatus).toBe(c.upstreamStatus);
+      expect(JSON.stringify(output)).not.toContain("private");
+    }
+  });
+
+  it("preserves genuine API RPC failures separately from proxy failures", async () => {
+    const result = await createTestnetDepthProxy({}, vi.fn(async () =>
+      Response.json({ error: "private RPC detail", code: "TESTNET_RPC_UNAVAILABLE" }, { status: 503 })))(request());
+    expect(await result.json()).toEqual({ error: "Testnet pool data unavailable", code: "TESTNET_RPC_UNAVAILABLE", upstreamStatus: 503 });
+  });
 });

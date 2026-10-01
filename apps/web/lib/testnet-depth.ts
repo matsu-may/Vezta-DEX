@@ -19,22 +19,31 @@ export function createTestnetDepthProxy(env: Record<string, string | undefined> 
   return async (request: Request): Promise<Response> => {
     if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
     if (new URL(request.url).search) return json({ error: "Query parameters are not supported" }, 400);
+    let api: URL;
     try {
-      const api = new URL(env.DEX_API_URL ?? "http://127.0.0.1:3021");
+      api = new URL(env.DEX_API_URL ?? "http://127.0.0.1:3021");
       if (api.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(api.hostname)
         || api.port !== "3021" || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error();
-      const response = await fetcher(new URL("/api/v1/testnet/base-sepolia/depth", api).href, {
+    } catch { return json({ error: "Testnet pool data unavailable", code: "TESTNET_API_CONFIG_INVALID" }, 503); }
+    let response: Response;
+    try {
+      response = await fetcher(new URL("/api/v1/testnet/base-sepolia/depth", api).href, {
         method: "GET", headers: { Accept: "application/json" }, cache: "no-store", redirect: "error",
         signal: AbortSignal.timeout(50000),
       });
+    } catch (error) {
+      const timedOut = error instanceof Error && ["TimeoutError", "AbortError"].includes(error.name);
+      return json({ error: "Testnet pool data unavailable", code: timedOut ? "TESTNET_API_TIMEOUT" : "TESTNET_API_UNREACHABLE" }, 503);
+    }
+    try {
       if (!response.ok) {
         const body = z.object({ code: z.string().max(64).optional() }).passthrough()
           .parse(await boundedJson(response, 4096));
-        const code = body.code && safeCodes.has(body.code) ? body.code : "TESTNET_RPC_UNAVAILABLE";
-        return json({ error: "Testnet pool data unavailable", code }, 503);
+        const code = body.code && safeCodes.has(body.code) ? body.code : "TESTNET_API_HTTP_ERROR";
+        return json({ error: "Testnet pool data unavailable", code, upstreamStatus: response.status }, 503);
       }
       return json({ depth: await readDepth(response) });
-    } catch { return json({ error: "Testnet pool data unavailable", code: "TESTNET_RPC_UNAVAILABLE" }, 503); }
+    } catch { return json({ error: "Testnet pool data unavailable", code: "TESTNET_API_INVALID_RESPONSE", upstreamStatus: response.status }, 503); }
   };
 }
 

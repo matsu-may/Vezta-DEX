@@ -75,3 +75,30 @@ The owner reported a successful direct-RPC study at Base Sepolia block `47538437
 The web subsequently showed unavailable. A local configuration check found `apps/api/.env` present but `BASE_SEPOLIA_RPC_URL` unset. The CLI falls back to `https://sepolia.base.org`; the API intentionally requires explicit configuration. The local ignored `.env` was updated with that public default, preserving other values. Restart `pnpm dev` to rebuild the API reader from the new environment; editing `.env` alone does not update an existing process. No credentials were printed or committed. Live HTTP verification remained inaccessible in the agent runtime.
 
 If the page still fails after restart, inspect the response for `/api/testnet-depth` in browser Network and report its HTTP status, JSON `code` and approximate duration. `TESTNET_RPC_NOT_CONFIGURED` means the API process has not loaded the setting; `DEPTH_TIMEOUT` means the complete read exceeded 45 seconds; the other bounded codes identify provider, identity or validation failures. Do not share RPC URLs containing credentials.
+
+## Diagnose API versus web failures
+
+The owner subsequently reported web HTTP 503 with `TESTNET_RPC_UNAVAILABLE`. The original proxy reused that code for configuration, fetch and validation errors, so this response alone did not establish an RPC failure. Local inspection confirmed a node process listening on `127.0.0.1:3021` from `apps/api` and a nonempty RPC setting; local HTTP access remained blocked by `EPERM`.
+
+The proxy now distinguishes its own boundary failures and preserves known upstream RPC codes. Run once while `pnpm dev` is running:
+
+```bash
+node scripts/diagnose-testnet-discovery.mjs
+```
+
+It sequentially reads the API depth endpoint and the web proxy endpoint, printing only status, duration, bounded codes and basic result flags. It performs no signing or transactions. Send its two JSON lines. Each request allows up to 55 seconds; the API's study limit remains 45 seconds.
+
+| Result | Meaning / next investigation |
+|---|---|
+| API 200, web 503 | Investigate web proxy configuration, connection or response validation |
+| API 404 | The running API lacks the new depth endpoint; check/restart the correct process |
+| Both report `TESTNET_RPC_UNAVAILABLE` | The API's RPC read failed; inspect which read and provider condition failed |
+| `TESTNET_API_CONFIG_INVALID` | Web `DEX_API_URL` violates the private port-3021 configuration |
+| `TESTNET_API_UNREACHABLE` / `TESTNET_API_TIMEOUT` | Web could not complete its fetch to the local API |
+| `TESTNET_API_HTTP_ERROR` | API returned an unrecognized failure; `upstreamStatus` records its HTTP status |
+| `TESTNET_API_INVALID_RESPONSE` | API response could not pass bounded JSON and depth validation |
+| `DEPTH_TIMEOUT` | The complete pinned-block study exceeded 45 seconds |
+
+These diagnostics identify the failed boundary; they do not change the pool-depth threshold, retry policy or wallet gates. The user's live web failure remains unresolved until the host diagnostic identifies its layer.
+
+Diagnostic verification: the two new proxy tests failed against the previous generic classification, then passed after separating configuration, fetch and response stages. Three script tests cover fixed endpoints, bounded output and credential/error-body suppression. Full verification passed 516 Vitest tests, 85 Node tests, typecheck, lint and build. The local diagnostic returned `EPERM` for both endpoints, so no live read success is claimed. Restart the development processes after the production build before running the host diagnostic.
