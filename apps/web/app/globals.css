@@ -165,3 +165,25 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
   .demo-actions { grid-template-columns: 1fr; }
   .demo-actions .button-primary { grid-column: auto; }
 }
+.testnet-page { background: #000; padding: 40px 0 80px; }
+.testnet-page .button { border-radius: 2px; cursor: pointer; }
+.testnet-page .button:disabled { opacity: .45; cursor: not-allowed; }
+.testnet-toolbar .button { border: 0; }
+.testnet-toolbar { display: flex; align-items: center; gap: 24px; margin: 24px 0; }
+.testnet-toolbar p { color: var(--muted); font-size: 13px; max-width: 460px; }
+.testnet-page .section-card { border-radius: 2px; background: #111; }
+.testnet-provenance h2, .testnet-quote h2, .testnet-pool h2 { margin: 12px 0; }
+.testnet-provenance p { color: var(--muted); font-size: 13px; }
+.testnet-page .demo-preview div { display: grid; grid-template-columns: 200px minmax(0, 1fr); gap: 20px; }
+.testnet-page .demo-preview dt { color: var(--muted); }
+.testnet-page .demo-preview dd { margin: 0; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; overflow-wrap: anywhere; }
+.testnet-quote select { width: 100%; margin: 10px 0; }
+.testnet-pool-header { display: flex; justify-content: space-between; gap: 24px; align-items: center; }
+.testnet-address { display: block; font: 12px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; color: var(--muted); overflow-wrap: anywhere; }
+.testnet-pool .table-wrap { margin: 24px 0; }
+.testnet-pool th, .testnet-pool td { white-space: nowrap; }
+@media (max-width: 700px) {
+  .testnet-toolbar, .testnet-pool-header { flex-direction: column; align-items: flex-start; }
+  .testnet-page .demo-preview div { grid-template-columns: 1fr; gap: 8px; }
+  .testnet-page .demo-preview dd { text-align: left; }
+}

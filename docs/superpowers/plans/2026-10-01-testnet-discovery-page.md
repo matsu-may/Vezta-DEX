@@ -20,16 +20,16 @@ UI: manual fetch only, no wallet methods; clear the previous result during refre
 
 Files: core `testnet-depth.ts` and tests; API `testnet-discovery.ts` and tests; modify depth/source/main.
 
-- [ ] Write and observe failing boundary, failure, concurrency and deadline tests.
-- [ ] Implement schema and validated reader; wire a separate API handler with configured source.
-- [ ] Run focused tests and full tests; commit this task.
+- [x] Write and observe failing boundary, failure, concurrency and deadline tests.
+- [x] Implement schema and validated reader; wire a separate API handler with configured source.
+- [x] Run focused tests and full tests; commit this task (`484ae42`).
 
 ## Task 2: Web proxy and discovery screen
 
 Files: web testnet client/proxy/components and tests, `/testnet`, route and navigation; CSS; browser smoke script; runbook/roadmap.
 
-- [ ] Write and observe failing proxy and user-flow tests.
-- [ ] Implement bounded proxy, manual snapshot screen, refresh/error/expiry states and desktop styling.
-- [ ] Run full tests/typecheck/lint/build; perform browser check if the runtime permits localhost.
+- [x] Write and observe failing proxy and user-flow tests.
+- [x] Implement bounded proxy, manual snapshot screen, refresh/error/expiry states and desktop styling.
+- [x] Run full tests/typecheck/lint/build; perform browser check if the runtime permits localhost (blocked by `listen EPERM` and Chrome access denial; owner check remains).
 - [ ] Run one independent final review; fix material findings through RED→GREEN tests.
 - [ ] Commit and record actual evidence plus owner checks. Leave public-testnet writes unqualified.

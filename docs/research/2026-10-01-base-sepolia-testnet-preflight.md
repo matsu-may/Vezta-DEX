@@ -38,4 +38,32 @@ No API key or wallet is needed. This repeats contract/pool preflight, quotes 0.1
 
 `candidateFeeTiers` lists pools for which all six samples have valid positive outputs, compatible post-swap prices and impact ≤100 bps. `depthQualified:true` is **read-only depth evidence**, not a verified wallet flow. Samples with provider/revert failures report `QUOTE_UNAVAILABLE`; impossible/boundary values report `QUOTE_INVALID`. `withinImpactLimit:false` excludes a pool. No candidate produces exit 1; a reorg or wrong identity rejects the entire study. Send the sanitized JSON result. Do not repeatedly run the hosted probe while it returns the same timeout.
 
-After live depth evidence, select one candidate and implement `/testnet` through the RPC adapter. It must verify account/chain, exact allowance, balance/gas, contract/calldata identity, quote expiration, simulation, explicit wallet submission and receipt recovery. NFT manager reads and create/increase/decrease/collect/close need separate on-chain tests with a testnet NFT. Faucet ETH and test USDC will be needed only for the later installed-wallet transaction check.
+After live depth evidence, select one candidate and extend `/testnet` with wallet execution through the RPC adapter. It must verify account/chain, exact allowance, balance/gas, contract/calldata identity, quote expiration, simulation, explicit wallet submission and receipt recovery. NFT manager reads and create/increase/decrease/collect/close need separate on-chain tests with a testnet NFT. Faucet ETH and test USDC will be needed only for the later installed-wallet transaction check.
+
+## Inspect live pools in the browser
+
+The new `/testnet` page is a read-only stage of the testnet demo. Restart the development processes after setting `BASE_SEPOLIA_RPC_URL` in `apps/api/.env`; no Trading API/LP key or wallet balance is required.
+
+```bash
+pnpm dev
+```
+
+1. Open `http://127.0.0.1:3020/testnet`. It must show Base Sepolia, chain 84532 and test-token labels. Loading the page must not open MetaMask or automatically run a pool check.
+2. Click **Check Base Sepolia pools**. Expect a loading message for up to 45 seconds, then block number/hash/time and each eligible pool's six quote samples.
+3. A **Depth candidate** means all six fixed sizes passed the ≤1% impact policy. Click its **Preview … pool** button; check input, estimated output, 0.5%-slippage minimum preview and both token directions using **Quote sample**. Prices are testnet ratios with no reliable dollar value.
+4. After two minutes, preview controls expire. Refresh must clear the old preview and re-read the pools. An unavailable RPC must show an error; no candidates is a separate successful study result. If no candidate passes, send the sanitized `pnpm testnet:depth` output before choosing a pool or altering trade sizes.
+5. There must be no approval/sign/submit button or wallet prompt. This page provides discovery evidence; it does not establish successful public-testnet execution.
+
+For an automated desktop check with deterministic mocked data:
+
+```bash
+playwright-cli -s=dex-testnet open http://127.0.0.1:3020/testnet
+playwright-cli -s=dex-testnet run-code --filename=scripts/smoke-testnet-browser.js
+playwright-cli -s=dex-testnet close
+```
+
+Expect `mockOnly:true` and seven passing checks, including integer output/minimum, reverse-direction decimals, no automatic selection, refresh-error invalidation and no wallet calls. Screenshot: `.playwright-cli/testnet-desktop.png`. This check validates the UI with fixtures; use the manual pool check or depth CLI separately for live evidence.
+
+## Verification scope
+
+Core/API/proxy/UI tests exercise malformed or stale reports, forged qualification flags, bounded errors, duplicate requests, deadlines, refresh failure and expiry. The agent runtime denies binding localhost (`listen EPERM`) and has no enabled browser transport; actual browser screenshots and live RPC pool-depth evidence must be checked on the owner's host. Mobile polish is deferred as requested. Testnet wallet swap, receipt reconciliation and NFT liquidity lifecycle are still incomplete.
