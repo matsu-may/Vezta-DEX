@@ -1,4 +1,4 @@
-// Read-only Polygon fork preflight. Starts a disposable Anvil process and never sends a transaction.
+// Polygon fork preflight. The CLI is read-only; an explicitly supplied callback may rehearse on disposable Anvil.
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 import { createServer } from "node:net";
@@ -32,7 +32,7 @@ async function unusedLocalPort() {
   return address.port;
 }
 
-export async function probeLpForkPreflight({ rpcUrl, now = Date.now, write = line => process.stdout.write(line + "\n") }) {
+export async function probeLpForkPreflight({ rpcUrl, now = Date.now, write = line => process.stdout.write(line + "\n"), onVerified }) {
   let stage = "configuration";
   let child;
   try {
@@ -52,10 +52,11 @@ export async function probeLpForkPreflight({ rpcUrl, now = Date.now, write = lin
     const port = await unusedLocalPort();
     stage = "fork-start";
     child = spawn("anvil", ["--fork-url", rpcUrl, "--fork-block-number", sourceBlock.number.toString(),
-      "--host", "127.0.0.1", "--port", String(port), "--quiet"], { stdio: "ignore" });
+      "--host", "127.0.0.1", "--port", String(port), "--quiet", ...(onVerified ? ["--auto-impersonate"] : [])], { stdio: "ignore" });
     let spawnError = false;
     child.on("error", () => { spawnError = true; });
-    const fork = createPublicClient({ chain: polygon, transport: http(`http://127.0.0.1:${port}`, { timeout: 1_000, retryCount: 0 }) });
+    const fork = createPublicClient({ chain: polygon, transport: http(`http://127.0.0.1:${port}`,
+      { timeout: onVerified ? 8_000 : 1_000, retryCount: 0 }) });
     let ready = false;
     for (let attempt = 0; attempt < 40; attempt++) {
       if (spawnError || child.exitCode !== null) break;
@@ -78,7 +79,9 @@ export async function probeLpForkPreflight({ rpcUrl, now = Date.now, write = lin
       fork: { chainId: forkChainId, ...forkBlock }, clientVersion, poolVerified, now: now() });
     const verified = Object.values(checks).every(Boolean);
     write(JSON.stringify({ status: "fork-read-only", blockNumber: sourceBlock.number.toString(), checks, verified }));
-    return verified;
+    if (!verified || !onVerified) return verified;
+    stage = "local-action";
+    return await onVerified({ client: fork, localOrigin: `http://127.0.0.1:${port}`, sourceBlock });
   } catch {
     write(JSON.stringify({ errorKind: "FORK_UNAVAILABLE", stage }));
     return false;
