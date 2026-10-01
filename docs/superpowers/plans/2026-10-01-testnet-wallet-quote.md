@@ -27,6 +27,17 @@ Standalone testnet, no signing/broadcast, no main Vezta changes, no UI changes, 
 3. Run full tests, typecheck, lint and build; preserve next-env diff. Expected: all pass. Attempt live read only if reachable; note unavailable network without relaxing gates.
 4. Commit and mark task complete; independently review the whole slice. Fix material findings with RED→GREEN and full suite. Record actual phase 2 progress and remaining deployment/state/simulation gates.
 
+### Task 3: Stable wallet-state reads without transaction exposure
+
+**Files:** API state reader/source/handler/CLI, tests and progress docs.
+
+**Interfaces:** Extends the same trusted source with pinned token/native balance, allowance and nonce methods. The shared strict intent parser drives state HTTP input. Outputs separate valid unfunded state from unavailable data; approval kind is advisory, not executable calldata.
+
+1. Write failing source/reader/HTTP tests for pinned reads, unfunded EOA, exact/reset/ready kinds, uint bounds, nonce movement, reorg, stale/late work and timeout. Expected: absent modules/methods or behavior fails.
+2. Implement pinned state source and bounded reader, extend dispatcher, add host CLI. Expected: focused tests pass and no signing/write RPC.
+3. Run full tests/typecheck/lint/build and independent whole-slice review; update consolidated progress and owner checks. Expected: all local gates pass; unavailable live evidence remains explicitly pending.
+4. Commit scoped changes and complete with `pnpm test`.
+
 ## Review focus
 
 Inspect original timestamp expiry, no cross-wallet/direction/chain quote reuse, async timeout cleanup/late-result suppression, strict RPC quote math and limit exhaustion, source getter ABI/address/block pinning, public error/log redaction and lack of signing/broadcast. Configuration checks must not be labeled runtime verification. API request dispatch must actually use the tested routes.

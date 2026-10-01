@@ -12,7 +12,8 @@
     "dev:rehearsal": "node scripts/start-rehearsal.mjs",
     "testnet:preflight": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-preflight-cli.ts",
     "testnet:quote-probe": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-quote-probe-cli.ts",
-    "testnet:depth": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-depth-cli.ts"
+    "testnet:depth": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-depth-cli.ts",
+    "testnet:wallet-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-quote-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

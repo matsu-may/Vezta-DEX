@@ -21,7 +21,10 @@ import { ReadinessReader } from "./readiness";
 import { formatRequestLog } from "./request-log";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
 import { probeBaseSepoliaDepth } from "./base-sepolia-depth";
-import { TestnetDiscoveryReader, handleTestnetDiscovery } from "./testnet-discovery";
+import { TestnetDiscoveryReader } from "./testnet-discovery";
+import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
+import { handleTestnetRequest } from "./testnet-routes";
+import { toApiRequest } from "./api-request";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -47,6 +50,8 @@ const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient
 const testnetRpcUrl = process.env.BASE_SEPOLIA_RPC_URL?.trim();
 const testnet = testnetRpcUrl ? new TestnetDiscoveryReader(signal =>
   probeBaseSepoliaDepth(createBaseSepoliaPreflightSource(testnetRpcUrl, signal))) : undefined;
+const testnetQuotes = testnetRpcUrl ? new TestnetSwapQuoteReader(signal =>
+  createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -69,10 +74,9 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const apiRequest = new Request(url, { method: request.method, body });
-    const result = url.pathname === "/api/v1/testnet/base-sepolia/depth"
-      ? await handleTestnetDiscovery(apiRequest, testnet)
-      : await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
+    const apiRequest = toApiRequest(url, request.method, body, request.headers);
+    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes)
+      ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;
     response.writeHead(status, { ...Object.fromEntries(result.headers), "X-Request-Id": requestId });

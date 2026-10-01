@@ -14,6 +14,10 @@ Continue phase 2 of the standalone demo with fresh quotes for the fixed USDC/WET
 - HTTP POST `/api/v1/testnet/base-sepolia/quote` accepts bounded JSON only, rejects query parameters and extra fields, returns no-store sanitized failures. It does not return transaction calldata or provider credentials. The API remains loopback only.
 - Configuration checks are evidence of configured dependencies, **not** bytecode/source verification. Return `runtimeVerified: false` and `executionEnabled: false`; execution remains gated by independent deployment proof, state and simulation.
 
+## Wallet state follow-through
+
+Add a separate read-only wallet state reader and POST `/api/v1/testnet/base-sepolia/state` using the same strict intent. Read EOA code, both token balances, native test ETH, router allowance and mined nonce at one fresh block. Pending nonce must equal the pinned mined nonce before and after the reads; confirm the original block hash. Validate all uint bounds and fail closed on nonce movement or provider errors. Return provenance, balances, input funding, native ETH presence and the one-step exact/reset/ready approval **kind**, without calldata. Native ETH presence is not proof of sufficient gas; runtime verification, gas estimates and simulation remain open. The state reader has its own single-flight/25-second budget. An unfunded EOA returns valid state with funding false, rather than an unavailable-data error.
+
 ## Verification
 
 Unit/transport tests cover both directions, binding/replay, stale/future/reorg, wrong contracts/decimals/EOA, impact and quote failures, late completion, timeout/busy recovery, HTTP input and secret-safe errors. Full test/typecheck/lint/build and independent slice review are required. Host probe reads the configured RPC without requiring funds or signing; live results remain pending when the agent cannot reach RPC.
