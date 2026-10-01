@@ -32,6 +32,10 @@ Next.js matches `vezta-fe`; a small TypeScript HTTP API can follow the Hono patt
 4. Pool lists and historical metrics may be indexed and delayed. Display their source and freshness. Read current chain/protocol state for transaction preparation. Pool identity includes `chainId`, Uniswap version, token pair, fee parameters and v4 hook address when applicable.
 5. For the initial AMM swap path, limit quoted protocols to Uniswap `V2`/`V3`/`V4` and accept only `CLASSIC`. Pin Universal Router `2.1.2` for Polygon on quote and swap calls where supported. The exact ERC20 approval targets canonical Permit2 and is planned from a pinned on-chain allowance read. UniswapX orders and cross-chain plans have different execution states and belong to later specs. [Supported chains and router versions](https://developers.uniswap.org/docs/trading/swapping-api/supported-chains).
 
+## Testnet demo adapter
+
+Base Sepolia (`84532`) is a separate demo candidate. Its hosted Trading API probe repeatedly timed out upstream, so the [RPC demo design](superpowers/specs/2026-10-01-base-sepolia-rpc-demo.md) chooses direct Uniswap v3 contract integration for that candidate. The current slice is a CLI-only, read-only depth study: factory/token/pool identity and six bidirectional QuoterV2 calls share one pinned block, followed by a block-hash recheck. It needs only server-side `BASE_SEPOLIA_RPC_URL` and carries no API key, permit or transaction payload. A qualifying depth result does not enable wallet writes or make the chain supported. A separate testnet quote, calldata, wallet and LP adapter will follow its live evidence.
+
 ## Threats to address before writes
 
 The owner selected `V4_NO_HOOKS` for V4 routing on 2026-09-28. V2/V3 remain eligible. The API inspects every route branch/hop and rejects missing or nonzero V4 hook metadata before quote storage. This metadata guard does not replace future pool-provenance, calldata and simulation checks.

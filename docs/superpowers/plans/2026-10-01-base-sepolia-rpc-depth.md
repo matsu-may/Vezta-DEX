@@ -36,4 +36,8 @@
 - [x] Add `pnpm testnet:depth`; bounded result/failure output and nonzero exit when no pool passes.
 - [x] Record persistent hosted timeout and explain how direct RPC depth evidence progresses the demo.
 - [x] Run full tests, typecheck, lint and build; preserve the existing web-generated-file edit.
-- [ ] Commit only this slice and report live evidence still needed from the reachable host.
+- [x] Commit only this slice and report live evidence still needed from the reachable host.
+
+## Verification and remaining evidence
+
+Implementation commit: `d58d742`. Full verification passed: 499 Vitest tests, 82 Node script tests, typecheck, lint and build. The existing React detection and Next.js workspace-root warnings remain. A separate reviewer found no actionable issues and independently reran all 12 focused tests and the whitespace check. The local live command returned `RPC_UNAVAILABLE`; no live depth candidate or successful testnet wallet transaction is claimed. Owner action: run `pnpm testnet:depth` using the already configured reachable Base Sepolia RPC and provide its sanitized result. Pool selection and wallet/LP gates follow that evidence.
