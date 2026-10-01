@@ -11,8 +11,8 @@ If saved runtime evidence exists, all five roles/addresses/package hashes/code h
 ## Verification observed
 
 - RED preceded graph, transport and file implementations. Source graph tests passed; transport tests cover fixed GET fields, 8 MB streaming cap, UTF-8 boundary, hung/late responses, sanitized HTTP errors and no retry.
-- Actual CLI integration uses an isolated temporary checkout, real cache files and a network guard. A cached-null regression failed before the branch fix; invalid cached data now stops before any network call. Symlinks/non-regular files and overgrowth are rejected; atomic publication preserves prior cache on failure.
-- Full suite: 603 Vitest +85 Node, typecheck/lint passed; build and final independent review are recorded below when complete.
+- Actual CLI integration uses an isolated temporary checkout, real cache files and a network guard. A cached-null regression failed before the branch fix; invalid cached data now stops before any network call. Leaf symlinks/non-regular files and overgrowth are rejected; atomic publication preserves prior cache on failure.
+- Final full suite: 607/607 Vitest +85/85 Node; typecheck, lint, build and git diff --check passed. Existing React-version detection and Next.js workspace-root warnings remain; no configuration changes were made for those warnings.
 - This session retried runtime acquisition: `getChainId` failed after 41 ms with bounded transport diagnostics. Source acquisition returned `SOURCE_NETWORK_UNAVAILABLE`; a separate public GitHub GET failed DNS resolution. No live source/runtime payload was acquired or saved. Existing owner quote/state evidence remains valid historical evidence.
 
 ## Two host commands — no wallet, tokens or dev server
@@ -37,3 +37,21 @@ Other supported roles can be selected individually later, e.g. `pnpm testnet:sou
 ## Remaining work
 
 Qualify actual compiler version/settings, install the exact verification compiler only when observed, independently compile, map every immutable/library from validated configuration/constructor evidence and compare all runtime bytes. Then gas/simulation, executable preparation, wallet submission/recovery and LP follow. Phase 2 remains incomplete and the complete testnet demo is not yet accepted.
+
+## Final independent review and decisions
+
+One fresh gpt-6.1-sol high review found no Critical/Minor findings and one Important finding: a symlinked evidence directory redirected reads/publication outside the cache. The single fix pass rejects a symlink/non-directory before each read, snapshot read, publication and cleanup; trailing URL slashes are normalized before lstat. Four real-directory replacement tests failed first, then passed with external source/snapshot/sentinel bytes unchanged. Full gates above were rerun after the fix. Local checkout parents remain trusted; this CLI is not a sandbox against another local process concurrently replacing directory entries.
+
+No deferred minors in this slice. Earlier artifact review notes remain in their own progress record. No live compilation/runtime qualification is claimed, and this review is not a contract audit.
+
+### Rulings I made (chronological)
+
+- Continue evidence acquisition without waiting for an owner snapshot — source graph preparation does not require signing or runtime promotion and owner authorized autonomous choices — cost: no live runtime qualification can be claimed until host evidence arrives.
+- Collect one explicit role per invocation and reuse saved validated payloads — respect Sourcify single-contract lookup and avoid repeated bulk source requests — cost: other contract evidence requires a separate invocation later.
+- Exercise the actual CLI in an isolated temporary checkout with a network guard — cached null must not trigger a source fetch; the regression failed SOURCE_NETWORK_UNAVAILABLE then the branch was changed to fetch only absent data — cost: temporary copies/symlink test harness and real subprocess startup.
+- Reject symlinks and non-regular cache files and enforce byte limits during reads — cached JSON is untrusted and must not read alternate targets or grow past its cap — cost: symlink-based caches are unsupported.
+- Use available gpt-6.1-sol high for the one fresh whole-slice review — the higher model previously hit its usage limit — cost: judgment uses the available reviewer model.
+- Retain the local feature branch and owner next-env change — existing standalone/autonomous authorization covers these implementation commits, not publication — cost: remote CI remains unobserved and one owner diff remains unstaged.
+- Independent compilation, immutable mapping, fresh runtime qualification, simulation, signing and API/UI execution remain later gates — source acquisition gives reusable compiler inputs, not execution approval — cost: phase 2 and the full demo remain incomplete.
+- Live source availability and actual response compatibility remain unqualified — offline fixtures and guarded CLI tests prove local handling, while DNS/network failures prevented a real payload — cost: owner host evidence may reveal a provider compatibility gap.
+- Reject a linked evidence directory before every operation, preserving leaf guards — fixed local cache paths must not read or overwrite external files — cost: linked cache directories are unsupported; trusted checkout parents and no hostile concurrent directory replacement are assumed.

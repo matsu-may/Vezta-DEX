@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { constants, openSync, fstatSync, closeSync, readSync, mkdirSync, writeFileSync, renameSync, rmSync } from "node:fs";
+import { constants, openSync, fstatSync, lstatSync, closeSync, readSync, mkdirSync, writeFileSync, renameSync, rmSync } from "node:fs";
+import { resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { TESTNET_ARTIFACT_MANIFEST, type TestnetArtifactRole } from "./testnet-artifacts";
 import { TestnetSourceError } from "./testnet-source-evidence";
 
@@ -7,10 +9,13 @@ import { TestnetSourceError } from "./testnet-source-evidence";
 export class TestnetSourceEvidenceFile {
   private readonly target: URL;
   private readonly temporary: URL;
+  private readonly directoryPath: string;
   constructor(private readonly directory: URL, private readonly role: TestnetArtifactRole) {
     if (!TESTNET_ARTIFACT_MANIFEST.some(x => x.role === role)) throw new TestnetSourceError("SOURCE_INVALID_OPTION");
     this.target = new URL(`base-sepolia-source-${role}.json`, directory);
     this.temporary = new URL(`base-sepolia-source-${role}.${randomUUID()}.tmp`, directory);
+    // Remove the URL's trailing slash: lstat on a slash-suffixed symlink follows its target.
+    this.directoryPath = resolve(fileURLToPath(directory));
   }
   read(): unknown | undefined {
     const entry = this.json(this.target, 8000000);
@@ -26,14 +31,17 @@ export class TestnetSourceEvidenceFile {
     this.operation(() => {
       const bytes = Buffer.from(`${JSON.stringify({ version: 1, role: this.role, payload })}\n`);
       if (bytes.length > 8000000) throw new Error("Oversized cache");
-      mkdirSync(this.directory, { recursive: true }); writeFileSync(this.temporary, bytes, { flag: "wx", mode: 0o600 });
+      if (!this.directoryExists()) mkdirSync(this.directory);
+      this.directoryExists();
+      writeFileSync(this.temporary, bytes, { flag: "wx", mode: 0o600 });
       renameSync(this.temporary, this.target);
     });
   }
-  discardTemporary(): void { this.operation(() => rmSync(this.temporary, { force: true })); }
+  discardTemporary(): void { this.operation(() => { if (this.directoryExists()) rmSync(this.temporary, { force: true }); }); }
   private json(path: URL, limit: number): unknown | undefined {
     let fd: number | undefined;
     try {
+      if (!this.directoryExists()) return undefined;
       try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); }
       catch (error) { if (error instanceof Error && "code" in error && error.code === "ENOENT") return undefined; throw error; }
       const stat = fstatSync(fd); if (!stat.isFile() || stat.size > limit) throw new Error("Invalid cache file");
@@ -43,6 +51,15 @@ export class TestnetSourceEvidenceFile {
       return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body.subarray(0, size))) as unknown;
     } catch { throw new TestnetSourceError("SOURCE_FILE_UNAVAILABLE"); }
     finally { if (fd !== undefined) closeSync(fd); }
+  }
+  private directoryExists(): boolean {
+    try {
+      if (!lstatSync(this.directoryPath).isDirectory()) throw new Error("Invalid cache directory");
+      return true;
+    } catch (error) {
+      if (error instanceof Error && "code" in error && error.code === "ENOENT") return false;
+      throw error;
+    }
   }
   private operation(fn: () => void): void {
     try { fn(); } catch { throw new TestnetSourceError("SOURCE_FILE_UNAVAILABLE"); }

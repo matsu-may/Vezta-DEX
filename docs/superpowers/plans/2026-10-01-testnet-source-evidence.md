@@ -27,22 +27,22 @@ Untrusted metadata/source settings accidentally becoming proof; forged/duplicate
 **Files:** create `apps/api/src/testnet-source-evidence.ts`, colocated tests and a test-only complete fixture helper.
 **Interfaces:** `prepareTestnetSourceEvidence(role,value,bundle,snapshot?)` returns normalized `payload`, prepared compiler `input` and bounded `summary`; consumes `loadPinnedTestnetArtifacts()`; validates optional snapshot internally from unknown JSON.
 
-- [ ] Write tests with complete minimal Sourcify v2 fixtures: prepared input literal contents/settings, correct keccak hashes, outputSelection only replacement, false qualification; metadata/target/version/chain/address/graph mismatch, remote sources and byte bounds; complete optional snapshot roles/hash binding and mismatch.
-- [ ] Run `pnpm exec vitest run apps/api/src/testnet-source-evidence.test.ts`; expect missing module RED.
-- [ ] Implement strict allowlist normalization and pure validation; source strings are never executed/imported. Verify installed artifact identity for every snapshot role.
-- [ ] Run focused tests, expect PASS; commit; complete with `pnpm test`.
+- [x] Write tests with complete minimal Sourcify v2 fixtures: prepared input literal contents/settings, correct keccak hashes, outputSelection only replacement, false qualification; metadata/target/version/chain/address/graph mismatch, remote sources and byte bounds; complete optional snapshot roles/hash binding and mismatch.
+- [x] Run `pnpm exec vitest run apps/api/src/testnet-source-evidence.test.ts`; expect missing module RED.
+- [x] Implement strict allowlist normalization and pure validation; source strings are never executed/imported. Verify installed artifact identity for every snapshot role.
+- [x] Run focused tests, expect PASS; commit; complete with `pnpm test`.
 
 ### Task 2: Bounded fetch, cache and owner command
 
 **Files:** create `testnet-source-fetch.ts`, `testnet-source-file.ts`, tests and `testnet-source-evidence-cli.ts`; modify root scripts/progress docs.
 **Interfaces:** `fetchTestnetSourceEvidence(role,fetchFn=fetch)` returns unknown parsed JSON; `TestnetSourceEvidenceFile(directory,role)` reads bounded cached payload/snapshot and publishes one normalized payload atomically. CLI invokes Task 1 for new/cached payloads; only prepares compiler input, does not compile.
 
-- [ ] Write tests for actual fixed single-contract GET and field selection, successful body at limit, oversize/missing/misleading length, hung/late body timeout, sanitized HTTP errors/no retry; real temporary-directory cache/atomic effects and invalid CLI options before network.
-- [ ] Run focused tests, expect missing modules RED.
-- [ ] Implement 15-second guarded stream reader and normalized cache owner; strict CLI `--role`/`--save` options, role router default, optional snapshot. Add `pnpm testnet:source-evidence`.
-- [ ] Run full tests/typecheck/lint/build; expect PASS and preserve owner next-env. Run one bounded live acquisition attempt; network failure is not qualification.
-- [ ] Record gate/evidence and concise host commands; commit and complete with `pnpm test`.
-- [ ] One independent whole-slice review; one TDD fix pass for material findings, defer minors explicitly; keep local branch and clean only this plan scratch after durable records.
+- [x] Write tests for actual fixed single-contract GET and field selection, successful body at limit, oversize/missing/misleading length, hung/late body timeout, sanitized HTTP errors/no retry; real temporary-directory cache/atomic effects and invalid CLI options before network.
+- [x] Run focused tests, expect missing modules RED.
+- [x] Implement 15-second guarded stream reader and normalized cache owner; strict CLI `--role`/`--save` options, role router default, optional snapshot. Add `pnpm testnet:source-evidence`.
+- [x] Run full tests/typecheck/lint/build; expect PASS and preserve owner next-env. Run one bounded live acquisition attempt; network failure is not qualification.
+- [x] Record gate/evidence and concise host commands; commit and complete with `pnpm test`.
+- [x] One independent whole-slice review; one TDD fix pass for material findings, defer minors explicitly; keep local branch and clean only this plan scratch after durable records.
 
 ## Self-review
 

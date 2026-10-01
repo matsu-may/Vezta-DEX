@@ -68,6 +68,22 @@ it("failed publication preserves previous cache and other temporary files", () =
   expect(readFileSync(join(path, "other.tmp"), "utf8")).toBe("keep");
 });
 
+it.each(["read", "readSnapshot", "publish", "discardTemporary"] as const)("rejects a replaced evidence directory before %s without touching external files", action => {
+  const root = folder(); const external = folder(); const cache = join(root, ".local-evidence"); mkdirSync(cache);
+  const file = new TestnetSourceEvidenceFile(pathToFileURL(cache + "/"), "router");
+  file.publish(sourceFixture()); // The directory must be checked on each operation, not only construction.
+  rmSync(cache, { recursive: true }); symlinkSync(external, cache, "dir");
+  const sentinels = {
+    "base-sepolia-source-router.json": JSON.stringify({ version: 1, role: "router", payload: sourceFixture() }),
+    "base-sepolia-deployment.json": JSON.stringify(snapshotFixture()),
+    "other.tmp": "keep external bytes",
+  };
+  for (const [name, bytes] of Object.entries(sentinels)) writeFileSync(join(external, name), bytes);
+  expect(() => action === "publish" ? file.publish({ changed: true }) : file[action]()).toThrow("SOURCE_FILE_UNAVAILABLE");
+  expect(readdirSync(external).sort()).toEqual(Object.keys(sentinels).sort());
+  for (const [name, bytes] of Object.entries(sentinels)) expect(readFileSync(join(external, name), "utf8")).toBe(bytes);
+});
+
 it.each([["--role", "../secret"], ["--save", "--save"], ["--role", "router", "--role", "pool"], ["--unknown"]])("rejects unsupported CLI options before external reads: %j", (...args) => {
   const result = spawnSync(process.execPath, ["--import", "tsx", "src/testnet-source-evidence-cli.ts", ...args],
     { cwd: new URL("../", import.meta.url), encoding: "utf8", timeout: 10000 });
