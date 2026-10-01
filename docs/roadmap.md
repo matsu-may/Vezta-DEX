@@ -4,6 +4,8 @@
 
 **Latest phase-2 implementation:** host wallet-state and both post-pacing quote directions passed. Installed official artifacts have pinned fingerprints and compatible router/Quoter ABI; both swap encodings match offline. The owner saved a qualified five-contract runtime snapshot at Base Sepolia block 47551649; local inventory/hash validation passed. Source acquisition returned `SOURCE_EVIDENCE_INVALID`: documented optional source hashes are now supported with independent hash checks, and bounded rejection stages are available. Live source/rebuild proof, gas/simulation and executable API/web flows remain open. See [source progress and the next host command](research/2026-10-01-testnet-source-progress.md). No funded wallet is needed for these checks.
 
+**Source evidence update, 2026-10-02:** real router source payload was obtained by the owner. Its 236-file input contains all 63 metadata sources with matching hashes. The validator's count/equal-source-set assumptions caused `source-graph` rejection. A 63-file in-memory candidate matches the historical runtime; independent compilation is still open. The [metadata graph versus original input choice](research/2026-10-02-router-source-graph-decision.md) is pending owner selection before implementation.
+
 ## Goal and boundaries
 
 Build an independent `vezta-dex/` project using existing Uniswap liquidity on Polygon. Users discover pools, swap, and manage liquidity with their own wallets. Vezta does not deploy an AMM, router, or LP token for the first release. Integrating these routes into the main Vezta frontend and backend is a separate final phase.

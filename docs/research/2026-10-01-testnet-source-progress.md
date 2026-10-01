@@ -1,5 +1,7 @@
 # Testnet source evidence progress and host checks
 
+**Update, 2026-10-02:** the owner downloaded the real router response. The confirmed graph mismatch is 236 input sources versus 63 metadata sources; every metadata source/hash matches. An in-memory 63-source candidate also matches saved runtime, while independent compilation remains unperformed. See the [observed evidence and pending A/B choice](2026-10-02-router-source-graph-decision.md). Production validation/cache behavior has not been changed for this choice.
+
 ## Latest host evidence and compatibility fix
 
 The owner saved the five-contract Base Sepolia snapshot at block **47551649**, hash `0x6e9613b1be29ccae55e672d71c330c94d814214af1d9dfa04339959d023a5803`, observed `2026-10-01T16:19:46.000Z`. All four live snapshot checks passed. The saved file was read locally and its full inventory, package fingerprints, code hashes and exact-match flags passed the existing snapshot validator. That offline check used a source fixture solely to exercise snapshot validation; it provides no live source/rebuild proof. No router source cache existed.
