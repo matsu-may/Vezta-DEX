@@ -68,6 +68,7 @@
 
 - [x] Add a read-only `/positions` view for the fixed Polygon v3 pool. Validate owner/manager/pool binding, bounded pagination and unsupported economics at the frontend boundary; show empty/loading/error and current/stale states. No LP wallet control is exposed. Component and API tests pass. The owner confirmed “No positions owned” for an empty wallet after the response-envelope fix; matching-NFT and mobile browser checks remain open.
 - [ ] Complete verified position amount/fee displays and the LP write lifecycle after Phase 4 source and payload checks; add wrong-chain, reversed-token, in/out-of-range, partial/full decrease, rejected signature and lag tests.
+- [x] Specify the [pinned-block position-principal calculation and verification gate](../../specs/2026-10-01-polygon-v3-position-amounts.md). The official SDK is currently absent; its pinned install failed on npm DNS, so `currentAmounts` and `uncollectedFees` remain `null`.
 - [ ] Align any changed UI with the token launchpad design reference and add normal/loading/empty/error desktop browser checks. Mobile visual acceptance is deferred to final standalone acceptance. Ensure CI runs tests, typecheck, lint and build.
 
 ## Phase 6 — Standalone acceptance and handoff
