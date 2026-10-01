@@ -20,7 +20,9 @@
     "testnet:source-evidence": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-source-evidence-cli.ts",
     "testnet:router-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts",
     "testnet:quoter-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role quoter",
-    "testnet:factory-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role factory"
+    "testnet:factory-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role factory",
+    "testnet:pool-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role pool",
+    "testnet:manager-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role manager"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

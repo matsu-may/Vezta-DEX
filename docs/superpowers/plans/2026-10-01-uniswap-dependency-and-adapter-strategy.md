@@ -10,6 +10,8 @@
 
 **Current Stage 1 follow-up:** factory acquisition and independent rebuild passed (33 sources, optimizer 800, 24,535 runtime bytes, one self-address immutable); router/quoter regression fingerprints remain unchanged. Pool/manager downloads need the owner's network. See [factory proof and both source actions](../../research/2026-10-02-testnet-factory-rebuild.md). Fresh qualification and demo execution remain open.
 
+**Latest Stage 1 follow-up:** pool/manager imports and independent typed-immutable rebuilds passed; all five historical runtime proofs are complete. Earlier role fingerprints are unchanged. Agent fresh RPC probes failed at transport/chain read; see [current proof and host checks](../../research/2026-10-02-testnet-pool-manager-rebuild.md). Fresh qualification, execution-gate consumption and gas/simulation/receipt work remain open; no executable adapter was enabled by rebuild commands.
+
 **Goal:** Complete the standalone Base Sepolia demo using official Uniswap dependencies where they reduce maintenance, while preserving independently validated transaction policy.
 
 **Architecture:** Retain `apps/web`, `apps/api` and `packages/core`. Use deployed Uniswap contracts, server-side RPC reads and wallet-owned signatures. Keep each adapter's chain, router version, approval spender, quote and receipt rules explicit.

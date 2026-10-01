@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** router, QuoterV2 and factory independent runtime rebuilds passed at historical block 47551649. Factory adds 33 sources, optimizer 800, 24,535 runtime bytes and one `NoDelegateCall.original` immutable bound to the factory itself. Router/quoter regression fingerprints are unchanged. Pool and manager lookups failed in the agent environment; see [factory proof and both next source downloads](2026-10-02-testnet-factory-rebuild.md). Pool/manager, creation-bytecode and fresh execution gates remain open; overall runtime/execution flags stay false and Phase 2 remains incomplete. Earlier notes below are historical.
+**Latest update, 2026-10-02:** all five independent runtime rebuilds passed at historical block 47551649. Pool adds 31 sources /22,142 bytes /7 typed immutable declarations across 27 slots; manager adds 55 sources /24,384 bytes /5 declarations across 17 slots. Router/quoter/factory regression fingerprints are unchanged. Fresh RPC checks failed with transport errors in the agent environment; see [pool/manager proof and the next read-only host checks](2026-10-02-testnet-pool-manager-rebuild.md). Creation-bytecode, fresh qualification, simulation and execution gates remain open; overall runtime/execution flags stay false and Phase 2 is incomplete. Earlier notes below are historical.
 
 ## Latest host evidence and compatibility fix
 

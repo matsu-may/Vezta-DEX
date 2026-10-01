@@ -27,6 +27,7 @@
 | Router rebuild (2026-10-02) | Exact Solidity 0.7.6 binary hash and 63-source reconstruction independently reproduce all 24,497 historical runtime bytes, including four AST-bound immutables /23 slots | Creation-bytecode proof, other dependency rebuilds, fresh live qualification and execution |
 | QuoterV2 rebuild (2026-10-02) | 21 hash-checked sources independently reproduce all 8,273 historical runtime bytes, including two AST-bound immutables /4 slots | Factory/pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
 | Factory rebuild (2026-10-02) | 33 hash-checked sources, optimizer 800 and one self-address immutable independently reproduce all 24,535 historical runtime bytes | Pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
+| Pool/manager rebuilds (2026-10-02) | Both owner imports and full independent rebuilds passed: 22,142 /24,384 runtime bytes, 7 /5 typed immutables across 27 /17 references. All five historical proofs pass | Fresh live code/configuration/depth, creation-bytecode/proxy gaps, gas/simulation and executable API/web flows |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -50,8 +51,8 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
   - [x] Install exact official packages and fingerprint five artifacts; verify SwapRouter02/Quoter ABI and both swap encodings offline.
-  - [ ] Obtain live stable-block runtime snapshot, then independently qualify source/compiler/immutables; see [one-command host check](../../research/2026-10-01-testnet-artifact-progress.md).
-    - Source graph acquisition/cache and optional snapshot binding are implemented; [two host commands](../../research/2026-10-01-testnet-source-progress.md) prepare real inputs. Independent compilation remains open.
+  - [x] Obtain the historical stable-block snapshot and independently rebuild all five source/compiler/immutable-bound runtimes (block 47551649).
+  - [ ] Requalify fresh stable-block code/configuration, pool identity/depth and execution-gate consumption. [Current host checks](../../research/2026-10-02-testnet-pool-manager-rebuild.md) are read-only; historical rebuild success does not enable execution. Creation-bytecode and descriptor proxy implementation/state remain separately recorded gaps.
 - [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Reverse diagnostics confirmed HTTP 429 during dependency reads; origin-shared pacing and bounded response-body reads were added. Owner post-fix host quotes passed in both directions at blocks 47547007 and 47547012.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
@@ -142,3 +143,4 @@ Prepare pinned artifacts, deployment probes, quote/state/preparation logic, cont
 - [Historical router rebuild and next QuoterV2 source action](../../research/2026-10-02-testnet-router-rebuild.md).
 - [Historical QuoterV2 rebuild and current factory-source action](../../research/2026-10-02-testnet-quoter-rebuild.md).
 - [Historical factory rebuild and current pool/manager source actions](../../research/2026-10-02-testnet-factory-rebuild.md).
+- [All-five historical runtime proof and current fresh host checks](../../research/2026-10-02-testnet-pool-manager-rebuild.md).

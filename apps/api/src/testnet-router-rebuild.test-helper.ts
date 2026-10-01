@@ -88,3 +88,47 @@ export function factoryRebuildFixture() {
         nodeType: "VariableDeclaration", stateVariable: true, mutability: "immutable", typeDescriptions: { typeString: "address" } }] }] } } } };
   return { value, snapshot, output, contract, metadata };
 }
+
+// Synthetic compiler output with independently hand-checked immutable words; never live evidence.
+export function poolManagerRebuildFixture(role: "pool" | "manager") {
+  const base = factoryRebuildFixture();
+  const path = role === "pool" ? "contracts/UniswapV3Pool.sol" : "contracts/NonfungiblePositionManager.sol";
+  const name = role === "pool" ? "UniswapV3Pool" : "NonfungiblePositionManager";
+  const address = role === "pool" ? "0x46880b404CD35c165EDdefF7421019F8dD25F4Ad" : "0x27F971cb582BF9E50F397e4d29a5C7A34f11faA2";
+  const bindings = role === "pool" ? [
+    ["contracts/NoDelegateCall.sol", "NoDelegateCall", "original", "address", "46880b404cd35c165eddeff7421019f8dd25f4ad"],
+    [path, name, "factory", "address", "4752ba5dbc23f44d87826276bf6fd6b1c372ad24"],
+    [path, name, "token0", "address", "036cbd53842c5426634e7929541ec2318f3dcf7e"],
+    [path, name, "token1", "address", "4200000000000000000000000000000000000006"],
+    [path, name, "fee", "uint24", "bb8"], [path, name, "tickSpacing", "int24", "3c"],
+    [path, name, "maxLiquidityPerTick", "uint128", "23746e6a58dcb13d4af821b93f062"],
+  ] : [
+    [path, name, "_tokenDescriptor", "address", "1e2a708040eb6ed08893e27e35d399e8e8e7857e"],
+    ["contracts/base/ERC721Permit.sol", "ERC721Permit", "nameHash", "bytes32", "193ae757ecb6ead396a72d38c6cc38e1be93297aa66ffefea29e32ce3045475f"],
+    ["contracts/base/ERC721Permit.sol", "ERC721Permit", "versionHash", "bytes32", "c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6"],
+    ["contracts/base/PeripheryImmutableState.sol", "PeripheryImmutableState", "factory", "address", "4752ba5dbc23f44d87826276bf6fd6b1c372ad24"],
+    ["contracts/base/PeripheryImmutableState.sol", "PeripheryImmutableState", "WETH9", "address", "4200000000000000000000000000000000000006"],
+  ];
+  const sources = Object.fromEntries(bindings.map(([file]) => [file, { content: `// fixture ${file}` }]));
+  const hashes = Object.fromEntries(Object.entries(sources).map(([file, s]) => [file, { keccak256: keccak256(stringToHex(s.content)) }]));
+  const settings = { ...base.value.stdJsonInput.settings, optimizer: { enabled: true, runs: role === "pool" ? 800 : 2000 } };
+  const runtime = `0x60${bindings.map(b => b[4].padStart(64, "0")).join("")}01`;
+  const value = { ...base.value, address, metadata: { ...base.value.metadata, sources: hashes, settings: { compilationTarget: { [path]: name } } },
+    stdJsonInput: { ...base.value.stdJsonInput, sources, settings }, runtimeBytecode: { onchainBytecode: runtime } };
+  const snapshot = snapshotFixture(); const row = snapshot.contracts.find(x => x.role === role)!;
+  row.runtimeBytecode = runtime; row.runtimeHash = keccak256(runtime as `0x${string}`);
+  const metadata = { ...base.metadata, sources: structuredClone(hashes), settings: { ...base.metadata.settings,
+    optimizer: settings.optimizer, compilationTarget: { [path]: name } } };
+  const immutableReferences = Object.fromEntries(bindings.map((_, i) => [String(i + 1), [{ start: 1 + i * 32, length: 32 }]]));
+  const contract = { metadata: JSON.stringify(metadata), evm: { bytecode: { object: "6002", linkReferences: {} },
+    deployedBytecode: { object: `60${"00".repeat(bindings.length * 32)}01`, linkReferences: {}, immutableReferences } } };
+  const astSources: Record<string, { ast: { nodes: Array<{ name: string; nodeType: string; nodes: unknown[] }> } }> = {};
+  bindings.forEach(([file, scope, variable, type], i) => {
+    const source = astSources[file] ??= { ast: { nodes: [] } };
+    let definition = source.ast.nodes.find(n => n.name === scope);
+    if (!definition) { definition = { name: scope, nodeType: "ContractDefinition", nodes: [] }; source.ast.nodes.push(definition); }
+    definition.nodes.push({ id: i + 1, name: variable, nodeType: "VariableDeclaration", stateVariable: true,
+      mutability: "immutable", typeDescriptions: { typeString: type } });
+  });
+  return { value, snapshot, metadata, contract, bindings, output: { contracts: { [path]: { [name]: contract } }, sources: astSources } };
+}

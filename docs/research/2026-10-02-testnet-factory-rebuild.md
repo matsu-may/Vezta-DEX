@@ -29,6 +29,8 @@ Three of five historical contract runtime rebuilds now pass: router, QuoterV2 an
 
 ## Next owner action
 
+**Completed follow-up:** both pool/manager source imports and independent runtime rebuilds passed. See [all-five proof progress and the current fresh RPC checks](2026-10-02-testnet-pool-manager-rebuild.md). Downloads below are historical; do not repeat them.
+
 Actual pool and manager source lookups both returned `SOURCE_NETWORK_UNAVAILABLE` in the agent environment. Use the owner's working network from `vezta-dex`. These are separate downloads; import each only after its own HTTP 200:
 
 ```bash

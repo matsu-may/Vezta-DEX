@@ -1,5 +1,5 @@
-import { keccak256 } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C } from "@vezta-dex/core";
+import { keccak256, stringToHex } from "viem";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import { prepareTestnetSourceEvidence } from "./testnet-source-evidence";
 import type { PinnedTestnetArtifact } from "./testnet-artifacts";
 
@@ -27,26 +27,57 @@ export function assertTestnetRouterCompiler(version: unknown, hash: unknown): vo
     throw new TestnetRebuildError("REBUILD_COMPILER_INVALID");
 }
 
-export type TestnetSwapDependencyRole = "router" | "quoter" | "factory";
-function policy(role: TestnetSwapDependencyRole) {
-  if (role !== "router" && role !== "quoter" && role !== "factory") throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
+export type TestnetSwapDependencyRole = "router" | "quoter" | "factory" | "pool" | "manager";
+type ImmutableBinding = { type: string; word: string };
+type RebuildPolicy = { target: string; name: string; optimizerRuns: number; immutables: Record<string, ImmutableBinding>;
+  configuration: Record<string, string | number> };
+const addressBinding = (value: string): ImmutableBinding => ({ type: "address", word: value.slice(2).toLowerCase().padStart(64, "0") });
+function policy(role: TestnetSwapDependencyRole): RebuildPolicy {
+  if (!["router", "quoter", "factory", "pool", "manager"].includes(role)) throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
   if (role === "factory") return {
     target: "contracts/UniswapV3Factory.sol", name: "UniswapV3Factory", optimizerRuns: 800,
     // NoDelegateCall stores address(this), independently bound to the curated factory deployment.
-    immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": C.v3Factory } as Record<string, string>,
+    immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": addressBinding(C.v3Factory) },
     configuration: { factoryV3: C.v3Factory },
   };
+  if (role === "pool") {
+    const pool = "contracts/UniswapV3Pool.sol:UniswapV3Pool"; const tickSpacing = 60;
+    // Tick.tickSpacingToMaxLiquidityPerTick: aligned MIN/MAX_TICK (887272), Solidity truncates toward zero.
+    const numTicks = BigInt(2 * Math.trunc(887272 / tickSpacing) + 1);
+    const maxLiquidity = ((1n << 128n) - 1n) / numTicks;
+    const numeric = (type: string, value: bigint): ImmutableBinding => ({ type, word: value.toString(16).padStart(64, "0") });
+    return { target: "contracts/UniswapV3Pool.sol", name: "UniswapV3Pool", optimizerRuns: 800,
+      immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": addressBinding(P.pool),
+        [`${pool}:factory`]: addressBinding(C.v3Factory), [`${pool}:token0`]: addressBinding(C.USDC.address),
+        [`${pool}:token1`]: addressBinding(C.WETH.address), [`${pool}:fee`]: numeric("uint24", BigInt(P.feeTier)),
+        [`${pool}:tickSpacing`]: numeric("int24", BigInt(tickSpacing)), [`${pool}:maxLiquidityPerTick`]: numeric("uint128", maxLiquidity) },
+      configuration: { factoryV3: C.v3Factory, pool: P.pool, token0: C.USDC.address, token1: C.WETH.address,
+        fee: P.feeTier, tickSpacing, maxLiquidityPerTick: maxLiquidity.toString() } };
+  }
+  if (role === "manager") {
+    // Official Base Sepolia TransparentUpgradeableProxy for the token descriptor, not the NFTDescriptor library.
+    // https://developers.uniswap.org/docs/protocols/v3/deployments/v3-base-deployments
+    const descriptor = "0x1E2A708040Eb6Ed08893E27E35D399e8E8e7857E";
+    const nameHash = keccak256(stringToHex("Uniswap V3 Positions NFT-V1")); const versionHash = keccak256(stringToHex("1"));
+    return { target: "contracts/NonfungiblePositionManager.sol", name: "NonfungiblePositionManager", optimizerRuns: 2000,
+      immutables: { "contracts/NonfungiblePositionManager.sol:NonfungiblePositionManager:_tokenDescriptor": addressBinding(descriptor),
+        "contracts/base/ERC721Permit.sol:ERC721Permit:nameHash": { type: "bytes32", word: nameHash.slice(2) },
+        "contracts/base/ERC721Permit.sol:ERC721Permit:versionHash": { type: "bytes32", word: versionHash.slice(2) },
+        "contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState:factory": addressBinding(C.v3Factory),
+        "contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState:WETH9": addressBinding(C.WETH.address) },
+      configuration: { factoryV3: C.v3Factory, weth: C.WETH.address, tokenDescriptorProxy: descriptor, nameHash, versionHash } };
+  }
   const periphery = "@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState";
-  const common = { [`${periphery}:factory`]: C.v3Factory, [`${periphery}:WETH9`]: C.WETH.address };
+  const common = { [`${periphery}:factory`]: addressBinding(C.v3Factory), [`${periphery}:WETH9`]: addressBinding(C.WETH.address) };
   const configuration = { factoryV3: C.v3Factory, weth: C.WETH.address };
   // Observed zero factoryV2 is an explicit router-only v3 constraint; never applied to QuoterV2.
   const factoryV2 = "0x0000000000000000000000000000000000000000";
   return role === "router" ? {
     target: "contracts/SwapRouter02.sol", name: "SwapRouter02", optimizerRuns: 1000000,
-    immutables: { ...common, "contracts/base/ImmutableState.sol:ImmutableState:factoryV2": factoryV2,
-      "contracts/base/ImmutableState.sol:ImmutableState:positionManager": C.v3PositionManager } as Record<string, string>,
+    immutables: { ...common, "contracts/base/ImmutableState.sol:ImmutableState:factoryV2": addressBinding(factoryV2),
+      "contracts/base/ImmutableState.sol:ImmutableState:positionManager": addressBinding(C.v3PositionManager) },
     configuration: { ...configuration, factoryV2, positionManager: C.v3PositionManager },
-  } : { target: "contracts/lens/QuoterV2.sol", name: "QuoterV2", optimizerRuns: 1000000, immutables: common as Record<string, string>, configuration };
+  } : { target: "contracts/lens/QuoterV2.sol", name: "QuoterV2", optimizerRuns: 1000000, immutables: common, configuration };
 }
 
 export function prepareTestnetRouterRebuild(value: unknown, snapshot: unknown, bundle: readonly PinnedTestnetArtifact[]) {
@@ -105,11 +136,11 @@ export function verifyTestnetSwapDependencyRebuild(role: TestnetSwapDependencyRo
         check(Array.isArray(scope.nodes));
         for (const node of (scope.nodes as unknown[]).map(object)) {
           if (node.nodeType !== "VariableDeclaration" || !Object.hasOwn(refs, String(node.id))) continue;
-          check(Number.isSafeInteger(node.id) && Number(node.id) >= 0 && node.stateVariable === true && node.mutability === "immutable"
-            && object(node.typeDescriptions).typeString === "address");
+          check(Number.isSafeInteger(node.id) && Number(node.id) >= 0 && node.stateVariable === true && node.mutability === "immutable");
           const key = `${path}:${scope.name}:${node.name}`; const id = String(node.id);
           check(Object.hasOwn(expected, key) && !Object.hasOwn(values, id) && !seen.has(key));
-          values[id] = expected[key].slice(2).toLowerCase().padStart(64, "0"); seen.add(key);
+          check(object(node.typeDescriptions).typeString === expected[key].type && /^[a-f0-9]{64}$/.test(expected[key].word));
+          values[id] = expected[key].word; seen.add(key);
         }
       }
     }
