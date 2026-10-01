@@ -94,4 +94,37 @@ describe("DEX API client", () => {
     const missingId = createDexApi("http://127.0.0.1:3021", async () => Response.json({ quote }));
     await expect(missingId.getTradingQuote(intent, Date.parse("2026-09-27T00:00:10.000Z"))).rejects.toThrow("Invalid DEX API response");
   });
+
+  it("accepts a sparse LP owner page and preserves the cursor past unrelated NFTs", async () => {
+    const owner = "0x1111111111111111111111111111111111111111" as const;
+    const page = { chainId: 137, manager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      pool: V3_POOL_500, owner, source: "polygon-rpc", blockNumber: "94738685",
+      observedAt: "2026-10-01T00:00:00.000Z", totalOwned: "7", nextCursor: "5", incomplete: true, positions: [] };
+    const api = createDexApi("http://127.0.0.1:3021", async (input) => {
+      expect(String(input)).toContain(`/api/v1/lp/positions?chainId=137&owner=${owner}&cursor=0&limit=5`);
+      return Response.json(page);
+    });
+    expect(await api.getPositionPage(owner)).toEqual(page);
+  });
+
+  it("rejects LP pages with a changed owner, manager, dishonest amounts or a stalled cursor", async () => {
+    const owner = "0x1111111111111111111111111111111111111111" as const;
+    const page = { chainId: 137, manager: "0xC36442b4a4522E871399CD717aBDD847Ab11FE88",
+      pool: V3_POOL_500, owner, source: "polygon-rpc", blockNumber: "94738685",
+      observedAt: "2026-10-01T00:00:00.000Z", totalOwned: "7", nextCursor: "5", incomplete: true,
+      positions: [{ tokenId: "42", tickLower: -100, tickUpper: 100, inRange: true, liquidity: "123",
+        currentAmounts: null, uncollectedFees: null }] };
+    for (const altered of [
+      { ...page, owner: TOKENS.WETH.address },
+      { ...page, manager: TOKENS.WETH.address },
+      { ...page, positions: [{ ...page.positions[0], currentAmounts: { USDC: "1" } }] },
+      { ...page, nextCursor: "0" },
+      { ...page, totalOwned: "0", nextCursor: "5" },
+    ]) {
+      const api = createDexApi("http://127.0.0.1:3021", async () => Response.json(altered));
+      await expect(api.getPositionPage(owner)).rejects.toThrow("Invalid DEX API response");
+    }
+    const pastEnd = createDexApi("http://127.0.0.1:3021", async () => Response.json({ ...page, nextCursor: null, incomplete: false }));
+    await expect(pastEnd.getPositionPage(owner, 8)).rejects.toThrow("Invalid DEX API response");
+  });
 });

@@ -56,13 +56,14 @@
 - [x] Add bounded read-only owner-NFT pagination for the fixed Polygon v3 pool and a disposable Anvil fork preflight. The position endpoint pins and confirms the block and returns no fee/amount estimates; the fork probe requires exact source/fork block identity and repeats the pool checks. Local unit tests pass; the agent's upstream RPC access returned `FORK_UNAVAILABLE` before Anvil could start. See [research](../../research/2026-10-01-lp-position-and-fork.md).
 - [x] Owner host verified the read-only Anvil preflight at block `94738219`: same Polygon chain, Anvil client, exact source block number/hash, fresh source and independently verified v3 pool all passed. This is separate from approval/mint simulation.
 - [x] Implement a disposable local-fork mint harness behind the verified preflight: fixed 1-USDC unsigned create, 0.001-WETH local fixture cap, zero starting balances/allowances, exact local approvals, gas/simulation, receipt/NFT/balance/allowance review. Unit tests pass; only Anvil-local transactions are allowed. See [fork research](../../research/2026-10-01-lp-position-and-fork.md).
-- [ ] Run the local-fork mint harness end to end on the owner's host and inspect its bounded checks. This does not qualify real-wallet LP controls or true market economics because the local fixture moves pool balances.
-- [ ] Obtain an owner-controlled v3 position ID or a verified fork fixture before qualifying unsigned increase, decrease and fee-claim flows; do not infer access from the endpoint documentation.
+- [x] Owner host ran the local-fork mint harness at block `94738685`: preflight, exact local approvals, simulation, gas bound, mint receipt, NFT owner/pool/liquidity, token balance deltas and residual allowances all passed. This does not qualify real-wallet LP controls or true market economics because the local fixture moves pool balances.
+- [ ] Obtain an owner-controlled Polygon v3 position ID before qualifying LP API increase, decrease and fee-claim flows. The verified fork NFT exists only on disposable Anvil, while Uniswap's hosted LP API reads Polygon; do not substitute the fork token ID or another owner's position.
 - [ ] Design chain-aware position ownership, ticks/range, principal, current amounts and uncollected fees separately. Never infer APR or USD TVL from raw `liquidity()`.
 
 ## Phase 5 — Standalone product and quality
 
-- [ ] Build LP read/display and write lifecycle only after Phase 4 source and payload checks; add wrong-chain, reversed-token, in/out-of-range, partial/full decrease, rejected signature and lag tests.
+- [x] Add a read-only `/positions` view for the fixed Polygon v3 pool. Validate owner/manager/pool binding, bounded pagination and unsupported economics at the frontend boundary; show empty/loading/error and current/stale states. No LP wallet control is exposed. Component and API tests pass; desktop/mobile browser visual inspection remains open.
+- [ ] Complete verified position amount/fee displays and the LP write lifecycle after Phase 4 source and payload checks; add wrong-chain, reversed-token, in/out-of-range, partial/full decrease, rejected signature and lag tests.
 - [ ] Align any changed UI with the token launchpad design reference, add normal/loading/empty/error desktop/mobile browser checks, and ensure CI runs tests, typecheck, lint and build.
 
 ## Phase 6 — Standalone acceptance and handoff

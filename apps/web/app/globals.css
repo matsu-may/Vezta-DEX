@@ -95,6 +95,20 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
 .rehearsal-fields { display: grid; gap: 10px; margin-top: 18px; max-width: 480px; }
 .rehearsal-layout .mono, .rehearsal-layout strong { overflow-wrap: anywhere; }
 .rehearsal-layout .button { margin-top: 12px; }
+.positions-page .page-heading h1 { font-size: clamp(28px, 3vw, 38px); }
+.positions-page .section-card { border-radius: 4px; background: #111; }
+.position-search { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 14px; max-width: 860px; }
+.position-search .form-label { margin-top: 0; }
+.position-search-button { min-height: 51px; border: 0; cursor: pointer; }
+.position-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; margin-bottom: 22px; color: var(--muted); font-size: 12px; }
+.position-table { min-width: 760px; }
+.position-table td { font-size: 13px; }
+.position-pager { display: flex; justify-content: flex-end; margin-top: 22px; }
+.position-next { border: 1px solid #454d42; border-radius: 4px; color: var(--accent); font-size: 12px; }
 @media (max-width: 600px) {
+  .site-header { height: auto; min-height: 68px; flex-wrap: wrap; row-gap: 9px; padding-top: 12px; padding-bottom: 12px; }
+  .main-nav { order: 3; width: 100%; margin-left: 0; overflow-x: auto; white-space: nowrap; }
+  .position-search { grid-template-columns: 1fr; }
+  .position-search-button { justify-content: center; }
   .rehearsal-layout .quote-details > div { align-items: flex-start; flex-direction: column; gap: 6px; }
 }

@@ -21,6 +21,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <nav aria-label="Main navigation" className="main-nav">
               <Link href="/explore">Explore</Link>
               <Link href="/pools">Pools</Link>
+              <Link href="/positions">Positions</Link>
               <Link href="/swap">Swap preview</Link>
             </nav>
             <span className="network-pill"><span className="network-dot" /> Polygon</span>

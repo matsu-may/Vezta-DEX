@@ -1,4 +1,4 @@
-import { TOKENS, parsePoolKey, poolKey, validateSwapQuote, validateTradingIntent, validateTradingQuoteSummary, type Address, type PoolRecord, type SwapIntent, type SwapQuote, type TokenRecord, type TradingIntent, type TradingQuoteSummary } from "@vezta-dex/core";
+import { TOKENS, V3_POOL_500, parsePoolKey, poolKey, validateSwapQuote, validateTradingIntent, validateTradingQuoteSummary, type Address, type PoolRecord, type SwapIntent, type SwapQuote, type TokenRecord, type TradingIntent, type TradingQuoteSummary } from "@vezta-dex/core";
 import { z } from "zod";
 
 const address = z.string().regex(/^0x[0-9a-fA-F]{40}$/).transform((value) => value as Address);
@@ -68,6 +68,31 @@ const tradingQuoteSchema = z.object({
   quotedAt: z.string(),
   source: z.literal("uniswap-trading-api"),
 });
+const decimal = z.string().regex(/^(0|[1-9]\d*)$/);
+const lpPositionSchema = z.object({
+  tokenId: z.string().regex(/^[1-9]\d*$/),
+  tickLower: z.number().int().min(-887272).max(887272),
+  tickUpper: z.number().int().min(-887272).max(887272),
+  inRange: z.boolean(),
+  liquidity: decimal,
+  currentAmounts: z.null(),
+  uncollectedFees: z.null(),
+}).refine(position => position.tickLower < position.tickUpper && position.tickLower % 10 === 0
+  && position.tickUpper % 10 === 0);
+const lpPositionPageSchema = z.object({
+  chainId: z.literal(137),
+  manager: address,
+  pool: address,
+  owner: address,
+  source: z.literal("polygon-rpc"),
+  blockNumber: decimal,
+  observedAt: z.string().refine(value => Number.isFinite(Date.parse(value))),
+  totalOwned: decimal,
+  nextCursor: decimal.nullable(),
+  incomplete: z.boolean(),
+  positions: z.array(lpPositionSchema).max(5),
+});
+export type LpPositionPage = z.infer<typeof lpPositionPageSchema>;
 
 export class DexApiError extends Error {
   constructor(message: string, public readonly status: number) {
@@ -128,6 +153,21 @@ export function createDexApi(
       const body = await request(`/api/v1/pools/${encodeURIComponent(key)}`, z.object({ pool: poolSchema }));
       if (body.pool.id !== key) throw new DexApiError("Invalid DEX API response", 502);
       return body.pool;
+    },
+    async getPositionPage(owner: Address, cursor = 0, limit = 5): Promise<LpPositionPage> {
+      if (!address.safeParse(owner).success || !Number.isSafeInteger(cursor) || cursor < 0 || cursor > 1_000_000
+        || !Number.isInteger(limit) || limit < 1 || limit > 5) throw new DexApiError("Invalid LP page request", 400);
+      const query = new URLSearchParams({ chainId: "137", owner, cursor: String(cursor), limit: String(limit) });
+      const body = await request(`/api/v1/lp/positions?${query}`, lpPositionPageSchema);
+      const progresses = body.incomplete && body.nextCursor !== null && BigInt(body.nextCursor) > BigInt(cursor)
+        && BigInt(body.nextCursor) <= BigInt(body.totalOwned);
+      if (body.owner.toLowerCase() !== owner.toLowerCase() || BigInt(cursor) > BigInt(body.totalOwned)
+        || body.manager.toLowerCase() !== "0xc36442b4a4522e871399cd717abdd847ab11fe88"
+        || body.pool.toLowerCase() !== V3_POOL_500.toLowerCase()
+        || (body.incomplete ? !progresses : body.nextCursor !== null)) {
+        throw new DexApiError("Invalid DEX API response", 502);
+      }
+      return body;
     },
     async getQuote(intent: SwapIntent, now = Date.now()): Promise<SwapQuote> {
       const query = new URLSearchParams({
