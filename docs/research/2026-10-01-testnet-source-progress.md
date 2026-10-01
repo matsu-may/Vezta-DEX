@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Update, 2026-10-02:** the owner downloaded the real router response. The confirmed graph mismatch is 236 input sources versus 63 metadata sources; every metadata source/hash matches. An in-memory 63-source candidate also matches saved runtime, while independent compilation remains unperformed. See the [observed evidence and pending A/B choice](2026-10-02-router-source-graph-decision.md). Production validation/cache behavior has not been changed for this choice.
+**Latest update, 2026-10-02:** the owner selected A. Real raw evidence was imported using `--from-raw --save`: all 63 selected source hashes and historical snapshot runtime binding passed; original raw/snapshot bytes stayed unchanged. A normal invocation then reused the validated cache. Independent compilation remains unperformed and all qualification/execution flags remain false. See the [accepted A decision and compiler installation instructions](2026-10-02-router-source-graph-decision.md). The agent's bounded compiler install failed npm DNS resolution; installing isolated Solidity 0.7.6 on the owner's terminal is the next useful action. Earlier acquisition notes below are historical.
 
 ## Latest host evidence and compatibility fix
 

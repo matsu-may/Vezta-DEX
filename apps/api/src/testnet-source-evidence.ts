@@ -15,7 +15,6 @@ const object = (x: unknown): Record<string, unknown> => {
   return x as Record<string, unknown>;
 };
 const hex = (x: unknown): x is Hex => typeof x === "string" && x.length <= 131074 && /^0x(?:[0-9a-fA-F]{2})+$/.test(x);
-const sameKeys = (a: object, b: object) => JSON.stringify(Object.keys(a).sort()) === JSON.stringify(Object.keys(b).sort());
 function artifacts(bundle: readonly PinnedTestnetArtifact[]) {
   if (bundle.length !== 5 || new Set(bundle.map(x => x.role)).size !== 5) return reject();
   return TESTNET_ARTIFACT_MANIFEST.map(pin => {
@@ -77,20 +76,26 @@ export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: u
     stage = "source-graph";
     const target = targets[0][0]; const original = object(data.stdJsonInput);
     const sources = object(original.sources); const hashes = object(metadata.sources); const settings = object(original.settings);
-    const keys = Object.keys(sources).sort();
-    if (original.language !== "Solidity" || keys.length === 0 || keys.length > 200 || !sameKeys(sources, hashes)
-      || !Object.hasOwn(sources, target) || Buffer.byteLength(JSON.stringify(settings)) > 500000) return reject();
+    const keys = Object.keys(hashes).sort(); const available = Object.keys(sources).sort();
+    if (original.language !== "Solidity" || keys.length === 0 || keys.length > 200 || available.length > 512
+      || !keys.every(path => Object.hasOwn(sources, path)) || !Object.hasOwn(hashes, target)
+      || Buffer.byteLength(JSON.stringify(settings)) > 500000) return reject();
     const literal: Record<string, { content: string }> = {}; const normalizedHashes: Record<string, { keccak256: string }> = {};
-    let sourceBytes = 0;
+    let sourceBytes = 0; let availableBytes = 0;
     stage = "source-content";
-    for (const path of keys) {
+    for (const path of available) {
       if (path.length === 0 || path.length > 512 || path.includes("\0") || ["__proto__", "constructor", "prototype"].includes(path)) return reject();
-      const source = object(sources[path]); const digest = object(hashes[path]).keccak256;
-      if (typeof source.content !== "string" || Object.keys(source).some(key => key !== "content" && key !== "keccak256")
-        || (Object.hasOwn(source, "keccak256") && source.keccak256 !== digest)) return reject();
-      sourceBytes += Buffer.byteLength(source.content);
-      if (sourceBytes > 4000000 || digest !== keccak256(stringToHex(source.content))) return reject();
-      literal[path] = { content: source.content }; normalizedHashes[path] = { keccak256: digest };
+      const source = object(sources[path]);
+      if (typeof source.content !== "string" || Object.keys(source).some(key => key !== "content" && key !== "keccak256")) return reject();
+      const bytes = Buffer.byteLength(source.content); availableBytes += bytes;
+      if (availableBytes > 4000000) return reject();
+      const digest = keccak256(stringToHex(source.content));
+      if (Object.hasOwn(source, "keccak256") && source.keccak256 !== digest) return reject();
+      if (Object.hasOwn(hashes, path)) {
+        if (object(hashes[path]).keccak256 !== digest) return reject();
+        sourceBytes += bytes;
+        literal[path] = { content: source.content }; normalizedHashes[path] = { keccak256: digest };
+      }
     }
     stage = "runtime";
     const code = object(data.runtimeBytecode).onchainBytecode;
@@ -98,6 +103,7 @@ export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: u
     const input = { language: "Solidity", sources: literal, settings: { ...structuredClone(settings),
       outputSelection: { "*": { "": ["ast"] }, [target]: { [pin.contractName]: ["metadata", "evm.bytecode", "evm.deployedBytecode"] } } } };
     const payload = { chainId: "84532", address: pin.address, runtimeMatch: data.runtimeMatch as string,
+      compilerInputMode: "metadata-listed-reconstruction",
       compilation: { language: "Solidity", compilerVersion }, metadata: { compiler: { version: compilerVersion },
         settings: { compilationTarget: { [target]: pin.contractName } }, sources: normalizedHashes },
       stdJsonInput: { language: "Solidity", sources: structuredClone(literal), settings: structuredClone(settings) },
@@ -105,7 +111,7 @@ export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: u
     stage = "snapshot";
     const blockNumber = snapshot === undefined ? undefined : checkSnapshot(snapshot, pinned, role, code);
     return { payload, input, summary: { status: "testnet-source-evidence-read-only", role, chainId: 84532, address: pin.address,
-      compilerVersion, compilationTarget: `${target}:${pin.contractName}`, sourceCount: keys.length, sourceBytes,
+      compilerVersion, compilationTarget: `${target}:${pin.contractName}`, compilerInputMode: "metadata-listed-reconstruction", sourceCount: keys.length, sourceBytes,
       inputSha256: createHash("sha256").update(JSON.stringify(input)).digest("hex"), runtimeHash: keccak256(code),
       sourceGraphValidated: true, snapshotAvailable: snapshot !== undefined, runtimeSnapshotMatches: snapshot === undefined ? null : true,
       ...(blockNumber ? { blockNumber } : {}), independentRebuildVerified: false, runtimeVerified: false, executionEnabled: false } };

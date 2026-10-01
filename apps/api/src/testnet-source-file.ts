@@ -27,6 +27,11 @@ export class TestnetSourceEvidenceFile {
     return entry.payload;
   }
   readSnapshot(): unknown | undefined { return this.json(new URL("base-sepolia-deployment.json", this.directory), 1000000); }
+  readRaw(): unknown {
+    const raw = this.json(new URL(`base-sepolia-source-${this.role}.raw.json`, this.directory), 8000000);
+    if (raw === undefined) throw new TestnetSourceError("SOURCE_FILE_UNAVAILABLE");
+    return raw;
+  }
   publish(payload: unknown): void {
     this.operation(() => {
       const bytes = Buffer.from(`${JSON.stringify({ version: 1, role: this.role, payload })}\n`);

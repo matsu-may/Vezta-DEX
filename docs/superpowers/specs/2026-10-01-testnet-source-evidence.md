@@ -10,7 +10,7 @@ Use the [Sourcify v2 contract lookup](https://docs.sourcify.dev/docs/api/) with 
 
 Role is router/quoter/factory/pool/manager from the existing pinned artifact manifest; default router. Require chain 84532, exact address, provider runtime match `match` or `exact_match`, nonempty even runtime hex ≤65,536 bytes, Solidity language, and equal metadata/compilation compiler versions matching `0.x.y+commit.<8 hex>`.
 
-Require exactly one metadata compilation target with the manifest contract name and source path equal to or ending in its recorded sourceName. Compiler input must contain that target, literal sources only, identical source keys to metadata, and each content's keccak256 must match metadata. Bound graph to 200 sources, ≤4,000,000 UTF-8 source bytes, path length ≤512, and reject NUL/prototype keys. Preserve compiler settings/remappings/libraries. Change only outputSelection to request AST plus selected contract metadata, creation/deployed bytecode and immutable references. Do not execute imports or use provider replacements/recompiled output.
+Require exactly one metadata compilation target with the manifest contract name and source path equal to or ending in its recorded sourceName. Following the owner's option A approval on 2026-10-02, reconstruct compiler input from exactly the metadata-listed source paths, including the target. Every selected content's keccak256 must match metadata. The provider input may contain additional sources: bound the complete available graph to 512 literal sources and ≤4,000,000 UTF-8 content bytes, and the selected graph to 200 sources. Validate every available entry, including any supplied content hash; reject URLs/unknown fields, path length >512, NUL/prototype keys, missing selected content or hash mismatch. Discard unselected entries only from the normalized cache/compiler input; retain the original raw response separately. Label outputs `compilerInputMode:metadata-listed-reconstruction`, never original provider input. Preserve paths/settings/remappings/libraries. Replace only outputSelection to request AST plus selected contract metadata, creation/deployed bytecode and immutable references. Do not execute imports or fetch missing replacements.
 
 Persist a normalized allowlist payload, revalidate cached data on every read, and compute the prepared input SHA256. A saved deployment snapshot is optional for acquisition; if present, validate the complete five-role snapshot against installed artifacts and recomputed code hashes before comparing the selected provider runtime byte-for-byte. A mismatch fails closed. Historical snapshot consistency is not a fresh execution gate.
 
@@ -18,9 +18,11 @@ Summary contains role/address/compiler/source counts/input and runtime hashes, s
 
 ## Resource and persistence rules
 
-Public lookup: 15-second abort/race budget and streaming 8,000,000-byte response cap including absent/misleading Content-Length; no retry. Sanitize timeout/HTTP/transport/invalid data errors. CLI accepts only `--role <role>` once and `--save` once. No `.env` read.
+Public lookup: 15-second abort/race budget and streaming 8,000,000-byte response cap including absent/misleading Content-Length; no retry. Sanitize timeout/HTTP/transport/invalid data errors. CLI accepts only `--role <role>` once, `--save` once and `--from-raw` once. No `.env` read.
 
 `--save` publishes a validated payload atomically to ignored `.local-evidence/base-sepolia-source-<role>.json`, using its own unique temporary file. Existing valid saved payloads are reused even without --save; invalid cached files stop with a bounded error. No existing snapshot or other role's evidence is removed. Local reads: source file ≤8 MB, snapshot ≤1 MB; reject overgrowth during read too. An absent snapshot produces snapshotAvailable:false, not a claim of runtime matching.
+
+With no normalized cache, `--from-raw` reads only the fixed ignored `.local-evidence/base-sepolia-source-<role>.raw.json` file (≤8 MB), using the same directory/leaf symlink guards. An absent/invalid raw file fails without network fallback. `--from-raw --save` validates and publishes the normalized reconstruction while preserving raw bytes; an existing valid cache still takes precedence. Raw source path keys never become filesystem paths.
 
 ## Qualification remaining
 

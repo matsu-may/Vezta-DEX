@@ -18,6 +18,13 @@ export function sourceFixture() {
         outputSelection: { "*": { "*": ["abi"] } } } },
     runtimeBytecode: { onchainBytecode: "0x6001" } };
 }
+export function sourceSupersetFixture() {
+  const fixture = sourceFixture();
+  return { ...fixture, stdJsonInput: { ...fixture.stdJsonInput, sources: {
+    ...fixture.stdJsonInput.sources,
+    ...Object.fromEntries(Array.from({ length: 235 }, (_, i) => [`unused/file${i}.sol`, { content: "// unused fixture" }])),
+  } } };
+}
 export function snapshotFixture() {
   return { version: 1, chainId: 84532, blockNumber: "123", blockHash: `0x${"ab".repeat(32)}`,
     timestamp: "1790848800", observedAt: "2026-10-01T10:00:00.000Z", recordedAt: "2026-10-01T10:00:02.000Z",

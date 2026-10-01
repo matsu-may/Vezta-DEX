@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { prepareTestnetSourceEvidence } from "./testnet-source-evidence";
-import { sourceBundle, sourceFixture, snapshotFixture } from "./testnet-source.test-helper";
+import { sourceBundle, sourceFixture, sourceSupersetFixture, snapshotFixture } from "./testnet-source.test-helper";
 
 it("prepares literal compiler input while preserving settings and withholding runtime qualification", () => {
   const fixture = sourceFixture(); const before = structuredClone(fixture);
@@ -34,6 +34,30 @@ it("accepts documented standard-JSON source hashes only after checking literal c
   expect(() => prepareTestnetSourceEvidence("router", { ...withHash,
     stdJsonInput: { ...withHash.stdJsonInput, sources: { [path]: { ...hashedSource, urls: ["https://example.invalid/source.sol"] } } } }, sourceBundle))
     .toThrow("SOURCE_EVIDENCE_INVALID");
+});
+
+it("reconstructs only metadata-hashed sources from a larger provider graph without mutating original evidence", () => {
+  const original = sourceSupersetFixture(); const before = structuredClone(original);
+  const result = prepareTestnetSourceEvidence("router", original, sourceBundle, snapshotFixture());
+  expect(Object.keys(result.input.sources)).toEqual(["contracts/SwapRouter02.sol"]);
+  expect(Object.keys(result.payload.stdJsonInput.sources)).toEqual(["contracts/SwapRouter02.sol"]);
+  expect(result.input.settings).toMatchObject({ optimizer: { enabled: true, runs: 1000000 }, evmVersion: "istanbul", remappings: ["@x/=vendor/x/"] });
+  expect(result.summary).toMatchObject({ compilerInputMode: "metadata-listed-reconstruction", sourceCount: 1,
+    runtimeSnapshotMatches: true, independentRebuildVerified: false, runtimeVerified: false, executionEnabled: false });
+  expect(original).toEqual(before);
+  expect(prepareTestnetSourceEvidence("router", result.payload, sourceBundle).summary.compilerInputMode).toBe("metadata-listed-reconstruction");
+});
+
+it("bounds the whole available graph and rejects remote or altered sources before reconstruction", () => {
+  const fixture = sourceSupersetFixture();
+  const cases = [
+    { ...fixture.stdJsonInput.sources, "unused/remote.sol": { urls: ["https://example.invalid/import.sol"] } },
+    { ...fixture.stdJsonInput.sources, "unused/huge.sol": { content: "é".repeat(2000001) } },
+    { ...fixture.stdJsonInput.sources, ...Object.fromEntries(Array.from({ length: 513 }, (_, i) => [`extra${i}.sol`, { content: "x" }])) },
+    { ...fixture.stdJsonInput.sources, "contracts/SwapRouter02.sol": { content: "altered selected source" } },
+  ];
+  for (const sources of cases) expect(() => prepareTestnetSourceEvidence("router", { ...fixture,
+    stdJsonInput: { ...fixture.stdJsonInput, sources } }, sourceBundle)).toThrow("SOURCE_EVIDENCE_INVALID");
 });
 
 it("rejects wrong deployment, unverified source, compiler and target mismatch", () => {
