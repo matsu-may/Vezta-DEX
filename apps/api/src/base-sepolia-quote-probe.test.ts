@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BASE_SEPOLIA_CANDIDATE } from "@vezta-dex/core";
-import { inspectBaseSepoliaQuote } from "./base-sepolia-quote-probe";
+import { inspectBaseSepoliaQuote, summarizeBaseSepoliaQuoteFailure } from "./base-sepolia-quote-probe";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const wallet = "0x1a642f0E3c3aF545E7AcBD38b07251B3990914F1";
@@ -17,6 +17,26 @@ function response() {
 }
 
 describe("Base Sepolia Trading API quote probe", () => {
+  it("reports a documented routing error without exposing upstream details", async () => {
+    const failure = new Response(JSON.stringify({
+      errorCode: "NoRouteFoundError", detail: "private diagnostic", requestId: "private-request-id",
+    }), { status: 404 });
+    expect(await summarizeBaseSepoliaQuoteFailure(failure)).toEqual({
+      status: "testnet-quote-unavailable", upstreamStatus: 404, errorCode: "NoRouteFoundError",
+    });
+  });
+
+  it("classifies unknown and malformed errors without copying untrusted strings", async () => {
+    const unknown = new Response(JSON.stringify({ errorCode: "KEY=secret", detail: "private diagnostic" }), { status: 404 });
+    const malformed = new Response("<html>private diagnostic</html>", { status: 503 });
+    expect(await summarizeBaseSepoliaQuoteFailure(unknown)).toEqual({
+      status: "testnet-quote-unavailable", upstreamStatus: 404, errorCode: "UNCLASSIFIED",
+    });
+    expect(await summarizeBaseSepoliaQuoteFailure(malformed)).toEqual({
+      status: "testnet-quote-unavailable", upstreamStatus: 503, errorCode: "UNCLASSIFIED",
+    });
+  });
+
   it("accepts only a bounded exact-input v3 route through the pinned candidate pool", () => {
     expect(inspectBaseSepoliaQuote(response(), wallet, [pool])).toMatchObject({
       chainId: 84532, routing: "CLASSIC", poolAddress: pool,

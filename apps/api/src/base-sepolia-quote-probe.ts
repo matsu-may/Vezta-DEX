@@ -1,8 +1,29 @@
 import { BASE_SEPOLIA_CANDIDATE, minimumOutput, type Address } from "@vezta-dex/core";
+import { readBoundedJson } from "./trading-api";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const POSITIVE = /^[1-9]\d{0,77}$/;
+const QUOTE_ERROR_CODES = new Set([
+  "QuoteAmountTooLowError", "NoRouteFoundError", "UnsupportedTokenError",
+  "UnsupportedChainError", "UniswapXNotSupportedOnChainError",
+  "UpstreamTimeoutError", "ResourceNotFound",
+]);
+
+/** Only a documented error enum and HTTP status may leave the testnet diagnostic. */
+export async function summarizeBaseSepoliaQuoteFailure(response: Response): Promise<{
+  status: "testnet-quote-unavailable"; upstreamStatus: number; errorCode: string;
+}> {
+  let errorCode = "UNCLASSIFIED";
+  try {
+    const payload = await readBoundedJson(response);
+    if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+      const upstreamCode = (payload as Record<string, unknown>).errorCode;
+      if (typeof upstreamCode === "string" && QUOTE_ERROR_CODES.has(upstreamCode)) errorCode = upstreamCode;
+    }
+  } catch { /* Never print a malformed or oversized upstream error body. */ }
+  return { status: "testnet-quote-unavailable", upstreamStatus: response.status, errorCode };
+}
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("Invalid testnet quote");

@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { BASE_SEPOLIA_CANDIDATE } from "@vezta-dex/core";
 import { qualifyBaseSepoliaPools, BaseSepoliaPreflightError } from "./base-sepolia-preflight";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
-import { inspectBaseSepoliaQuote } from "./base-sepolia-quote-probe";
+import { inspectBaseSepoliaQuote, summarizeBaseSepoliaQuoteFailure } from "./base-sepolia-quote-probe";
 import { TradingApiClient } from "./trading-client";
 import { readBoundedJson } from "./trading-api";
 
@@ -28,7 +28,7 @@ async function main() {
       protocols: ["V3"], permitAmount: "EXACT", generatePermitAsTransaction: false,
     }, "preview");
     if (!response.ok) {
-      process.stdout.write(`${JSON.stringify({ status: "testnet-quote-unavailable", upstreamStatus: response.status })}\n`);
+      process.stdout.write(`${JSON.stringify(await summarizeBaseSepoliaQuoteFailure(response))}\n`);
       process.exitCode = 1;
       return;
     }
