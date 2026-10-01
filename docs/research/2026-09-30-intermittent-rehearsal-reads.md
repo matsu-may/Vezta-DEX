@@ -28,6 +28,8 @@ The original RPC hostname was `polygon-bor-rpc.publicnode.com`. Run `node script
 
 **Decision for now:** keep transaction preparation fail-closed and do not add an unverified public RPC fallback. Qualify the replacement endpoint with repeated latest-block, pinned balance/allowance and receipt reads before a funded rehearsal. Record latency and status without sharing any credential-bearing URL. The read-only LP probe can proceed independently.
 
+**2026-10-01 preparation:** `node scripts/diagnose-polygon-rpc-qualified.mjs` now performs the missing read-only checks: Polygon chain ID, a fresh recent block with a transaction, USDC `balanceOf` and `allowance` at that exact block, that transaction's receipt, then a second read of the block hash. It reports only booleans, stage, per-method elapsed time and a public block number. A latest empty block may be skipped for one of the prior two blocks. Unit tests passed; the agent environment could not reach the upstream Polygon RPC, so the owner's host must supply repeated live results before closing this gate. No transaction is sent.
+
 ## Owner's replacement-RPC preflight
 
 After changing the Polygon RPC URL locally, the owner ran the direct probe three times. All 15 `eth_chainId` and 15 `eth_getBlockByNumber("latest", false)` calls returned valid HTTP 200; the slowest block response was 354 ms. With the API restarted, four wallet-state requests returned HTTP 200 (3,492–13,141 ms). This is evidence that the former repeated block-read failure did not recur in this sample. The 13.1-second state tail still needs attention within the 18-second local proxy budget; this sample does not establish long-term RPC availability.

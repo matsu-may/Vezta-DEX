@@ -10,7 +10,7 @@ The public `/swap` page is read-only. The development wallet rehearsal is enable
 
 | Gate | Current evidence | Required result before public wallet writes |
 |---|---|---|
-| Polygon data availability | Original RPC timed out on 2/5 latest-block calls; replacement passed 15/15 direct reads and 4/4 wallet-state reads, with one 13.1-second state tail | Complete pinned/receipt qualification and measure tail latency without weakening freshness checks |
+| Polygon data availability | Original RPC timed out on 2/5 latest-block calls; replacement passed 15/15 direct reads and 4/4 wallet-state reads, with one 13.1-second state tail. A sanitized pinned ERC20/receipt qualification script now exists, but the agent network failed at chain read on all three cycles | Run the new qualification on the owner's host, then measure tail latency without weakening freshness checks |
 | Trading API availability | One `TRADING_API_TIMEOUT` in the first four local quotes; both direct directions and the next eight local quotes succeeded | Continue monitoring tail latency and classify repeated failures; preserve quote TTL and fail-closed behavior |
 | Wallet execution | Mock browser lifecycle passed; no funded signature, broadcast or economic receipt | Owner-operated capped forward and separate reverse checks, tampered/expired/rejected paths, canonical economic receipt evidence |
 | Shared state | `QuoteStore`, consumed permits and Trading API limiter are process-local | Define one shared quota, quote/replay state and atomic consumption across replicas, or explicitly deploy one constrained instance and test restart/loss behavior before any scale-out |
