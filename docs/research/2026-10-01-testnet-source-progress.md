@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** the owner selected A and installed the exact compiler. Real raw evidence was imported using `--from-raw --save`: all 63 selected source hashes and historical snapshot runtime binding passed; original raw/snapshot bytes stayed unchanged. `pnpm testnet:router-rebuild` then independently reproduced every router runtime byte, including all four immutable declarations /23 references. This router-only historical result is `independentRebuildVerified:true`; creation-bytecode proof, other dependencies and fresh execution qualification remain open. See [router rebuild evidence and the next QuoterV2 source action](2026-10-02-testnet-router-rebuild.md). Overall runtime/execution flags stay false. Earlier acquisition notes below are historical.
+**Latest update, 2026-10-02:** router and QuoterV2 source/independent runtime rebuilds both passed at the historical snapshot. Router uses 63 sources /24,497 runtime bytes /4 immutable declarations across 23 references; QuoterV2 uses 21 sources /8,273 runtime bytes /2 declarations across 4 references. Rebuilt summaries are role-scoped; overall runtime/execution flags stay false. Factory lookup failed in the agent environment; see [QuoterV2 proof and the next factory-source action](2026-10-02-testnet-quoter-rebuild.md). Factory/pool/manager, creation-bytecode and fresh execution gates remain open. Earlier notes below are historical.
 
 ## Latest host evidence and compatibility fix
 

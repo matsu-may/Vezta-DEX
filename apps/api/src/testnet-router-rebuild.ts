@@ -27,14 +27,36 @@ export function assertTestnetRouterCompiler(version: unknown, hash: unknown): vo
     throw new TestnetRebuildError("REBUILD_COMPILER_INVALID");
 }
 
+export type TestnetSwapDependencyRole = "router" | "quoter";
+function policy(role: TestnetSwapDependencyRole) {
+  if (role !== "router" && role !== "quoter") throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
+  const periphery = "@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState";
+  const common = { [`${periphery}:factory`]: C.v3Factory, [`${periphery}:WETH9`]: C.WETH.address };
+  const configuration = { factoryV3: C.v3Factory, weth: C.WETH.address };
+  // Observed zero factoryV2 is an explicit router-only v3 constraint; never applied to QuoterV2.
+  const factoryV2 = "0x0000000000000000000000000000000000000000";
+  return role === "router" ? {
+    target: "contracts/SwapRouter02.sol", name: "SwapRouter02",
+    immutables: { ...common, "contracts/base/ImmutableState.sol:ImmutableState:factoryV2": factoryV2,
+      "contracts/base/ImmutableState.sol:ImmutableState:positionManager": C.v3PositionManager } as Record<string, string>,
+    configuration: { ...configuration, factoryV2, positionManager: C.v3PositionManager },
+  } : { target: "contracts/lens/QuoterV2.sol", name: "QuoterV2", immutables: common as Record<string, string>, configuration };
+}
+
 export function prepareTestnetRouterRebuild(value: unknown, snapshot: unknown, bundle: readonly PinnedTestnetArtifact[]) {
+  return prepareTestnetSwapDependencyRebuild("router", value, snapshot, bundle);
+}
+
+export function prepareTestnetSwapDependencyRebuild(role: TestnetSwapDependencyRole, value: unknown, snapshot: unknown,
+  bundle: readonly PinnedTestnetArtifact[]) {
+  const selected = policy(role);
   if (snapshot === undefined) throw new TestnetRebuildError("REBUILD_SNAPSHOT_REQUIRED");
-  const prepared = prepareTestnetSourceEvidence("router", value, bundle, snapshot);
+  const prepared = prepareTestnetSourceEvidence(role, value, bundle, snapshot);
   const settings = Object.fromEntries(Object.entries(prepared.input.settings).filter(([key]) => key !== "outputSelection"));
   const expected = { optimizer: { enabled: true, runs: 1000000 }, evmVersion: "istanbul",
     metadata: { bytecodeHash: "none" }, libraries: {}, remappings: [] };
   if (prepared.summary.compilerVersion !== "0.7.6+commit.7338295f"
-    || prepared.summary.compilationTarget !== "contracts/SwapRouter02.sol:SwapRouter02" || canonical(settings) !== canonical(expected))
+    || prepared.summary.compilationTarget !== `${selected.target}:${selected.name}` || canonical(settings) !== canonical(expected))
     throw new TestnetRebuildError("REBUILD_SETTINGS_INVALID");
   return prepared;
 }
@@ -42,35 +64,34 @@ export function prepareTestnetRouterRebuild(value: unknown, snapshot: unknown, b
 /** Locally compiled output only. Every immutable slot is mapped, patched and compared; no byte masking. */
 export function verifyTestnetRouterRebuild(value: unknown, snapshot: unknown, output: unknown,
   compilerVersion: unknown, bundle: readonly PinnedTestnetArtifact[]) {
+  return verifyTestnetSwapDependencyRebuild("router", value, snapshot, output, compilerVersion, bundle);
+}
+
+export function verifyTestnetSwapDependencyRebuild(role: TestnetSwapDependencyRole, value: unknown, snapshot: unknown, output: unknown,
+  compilerVersion: unknown, bundle: readonly PinnedTestnetArtifact[]) {
   assertTestnetRouterCompiler(compilerVersion, TESTNET_ROUTER_COMPILER_SHA256);
-  const prepared = prepareTestnetRouterRebuild(value, snapshot, bundle);
+  const selected = policy(role); const prepared = prepareTestnetSwapDependencyRebuild(role, value, snapshot, bundle);
   try {
     const result = object(output); const errors = result.errors ?? [];
     check(Array.isArray(errors) && errors.length <= 200);
     const warnings = (errors as unknown[]).map(object);
     check(warnings.every(e => e.severity === "warning"));
-    const contracts = object(result.contracts); check(sameKeys(contracts, { "contracts/SwapRouter02.sol": null }));
-    const target = object(contracts["contracts/SwapRouter02.sol"]); check(sameKeys(target, { SwapRouter02: null }));
-    const contract = object(target.SwapRouter02); check(typeof contract.metadata === "string" && contract.metadata.length <= 2000000);
+    const contracts = object(result.contracts); check(sameKeys(contracts, { [selected.target]: null }));
+    const target = object(contracts[selected.target]); check(sameKeys(target, { [selected.name]: null }));
+    const contract = object(target[selected.name]); check(typeof contract.metadata === "string" && contract.metadata.length <= 2000000);
     const metadata = object(JSON.parse(contract.metadata as string));
     check(object(metadata.compiler).version === prepared.summary.compilerVersion);
     const sources = object(result.sources); const hashes = object(metadata.sources);
     check(sameKeys(sources, prepared.input.sources) && sameKeys(hashes, prepared.payload.metadata.sources));
     for (const [path, hash] of Object.entries(prepared.payload.metadata.sources)) check(object(hashes[path]).keccak256 === hash.keccak256);
     const settings = Object.fromEntries(Object.entries(prepared.input.settings).filter(([key]) => key !== "outputSelection"));
-    check(canonical(metadata.settings) === canonical({ ...settings, compilationTarget: { "contracts/SwapRouter02.sol": "SwapRouter02" } }));
+    check(canonical(metadata.settings) === canonical({ ...settings, compilationTarget: { [selected.target]: selected.name } }));
     const evm = object(contract.evm); const deployed = object(evm.deployedBytecode); const creation = object(evm.bytecode);
     check(Object.keys(object(deployed.linkReferences)).length === 0 && Object.keys(object(creation.linkReferences)).length === 0);
     for (const code of [deployed.object, creation.object]) check(typeof code === "string" && code.length <= 131072 && /^(?:[a-fA-F0-9]{2})+$/.test(code));
     const runtime = (deployed.object as string).toLowerCase(); const refs = object(deployed.immutableReferences);
-    const periphery = "@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState";
-    // Observed zero factoryV2 is an explicit v3-only deployment constraint; no v2 execution is qualified.
-    const expected: Record<string, string> = {
-      [`${periphery}:factory`]: C.v3Factory, [`${periphery}:WETH9`]: C.WETH.address,
-      "contracts/base/ImmutableState.sol:ImmutableState:factoryV2": "0x0000000000000000000000000000000000000000",
-      "contracts/base/ImmutableState.sol:ImmutableState:positionManager": C.v3PositionManager,
-    };
-    check(Object.keys(refs).length === 4);
+    const expected = selected.immutables; const expectedCount = Object.keys(expected).length;
+    check(Object.keys(refs).length === expectedCount);
     const values: Record<string, string> = {}; const seen = new Set<string>();
     for (const [path, source] of Object.entries(sources)) {
       const nodes = object(object(source).ast).nodes; check(Array.isArray(nodes));
@@ -86,7 +107,7 @@ export function verifyTestnetRouterRebuild(value: unknown, snapshot: unknown, ou
         }
       }
     }
-    check(sameKeys(refs, values) && seen.size === 4);
+    check(sameKeys(refs, values) && seen.size === expectedCount);
     let patched = runtime; const ranges: Array<{ start: number; end: number }> = [];
     for (const [id, references] of Object.entries(refs)) {
       check(Array.isArray(references) && references.length > 0 && references.length <= 64);
@@ -101,11 +122,10 @@ export function verifyTestnetRouterRebuild(value: unknown, snapshot: unknown, ou
       }
     }
     check(`0x${patched}` === prepared.payload.runtimeBytecode.onchainBytecode.toLowerCase());
-    return { ...prepared.summary, status: "testnet-router-rebuild-verified", compilerVersion,
+    return { ...prepared.summary, status: `testnet-${role}-rebuild-verified`, compilerVersion,
       runtimeHash: keccak256(`0x${patched}`), runtimeBytes: runtime.length / 2,
       immutableVariableCount: seen.size, immutableReferenceCount: ranges.length, warningCount: warnings.length,
-      configuration: { factoryV3: C.v3Factory, weth: C.WETH.address, factoryV2: expected["contracts/base/ImmutableState.sol:ImmutableState:factoryV2"],
-        positionManager: C.v3PositionManager }, independentRuntimeMatch: true, independentCreationMatch: false,
+      configuration: selected.configuration, independentRuntimeMatch: true, independentCreationMatch: false,
       independentRebuildVerified: true, runtimeVerified: false, executionEnabled: false };
   } catch { throw new TestnetRebuildError("REBUILD_OUTPUT_INVALID"); }
 }

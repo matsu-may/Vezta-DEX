@@ -6,6 +6,8 @@
 
 **Stage 1 update, 2026-10-02:** router-only independent compilation has passed against the historical Base Sepolia snapshot. Every runtime byte and all 23 immutable slots matched; the new `testnet:router-rebuild` command recomputes this proof. Other role rebuilds and fresh dependency qualification remain open; QuoterV2 source acquisition currently needs the owner's working network. See [the scoped proof and next action](../../research/2026-10-02-testnet-router-rebuild.md).
 
+**Stage 1 follow-up:** QuoterV2 acquisition and independent rebuild also passed (21 sources, 8,273 bytes, four immutable slots). Router regression compilation preserves its original fingerprints. Factory source acquisition is next; factory/pool/manager and fresh qualification remain open. See [QuoterV2 progress](../../research/2026-10-02-testnet-quoter-rebuild.md).
+
 **Goal:** Complete the standalone Base Sepolia demo using official Uniswap dependencies where they reduce maintenance, while preserving independently validated transaction policy.
 
 **Architecture:** Retain `apps/web`, `apps/api` and `packages/core`. Use deployed Uniswap contracts, server-side RPC reads and wallet-owned signatures. Keep each adapter's chain, router version, approval spender, quote and receipt rules explicit.

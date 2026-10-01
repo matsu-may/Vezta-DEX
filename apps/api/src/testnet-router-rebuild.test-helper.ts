@@ -40,3 +40,28 @@ export function routerRebuildFixture() {
       [immutable]: ast("ImmutableState", [variable(3, "factoryV2"), variable(4, "positionManager")]) } };
   return { value, snapshot, output, contract, metadata };
 }
+
+export function quoterRebuildFixture() {
+  const base = routerRebuildFixture();
+  const path = "contracts/lens/QuoterV2.sol";
+  const periphery = "@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol";
+  const sources = { [path]: { content: "pragma solidity =0.7.6; contract QuoterV2 {}" }, [periphery]: { content: "// fixture periphery" } };
+  const hashes = Object.fromEntries(Object.entries(sources).map(([file, s]) => [file, { keccak256: keccak256(stringToHex(s.content)) }]));
+  const runtime = "0x60" + "0000000000000000000000004752ba5dbc23f44d87826276bf6fd6b1c372ad24"
+    + "0000000000000000000000004200000000000000000000000000000000000006" + "01";
+  const value = { ...base.value, address: "0xC5290058841028F1614F3A6F0F5816cAd0df5E27",
+    metadata: { ...base.value.metadata, sources: hashes, settings: { compilationTarget: { [path]: "QuoterV2" } } },
+    stdJsonInput: { ...base.value.stdJsonInput, sources }, runtimeBytecode: { onchainBytecode: runtime } };
+  const snapshot = snapshotFixture(); const row = snapshot.contracts.find(x => x.role === "quoter")!;
+  row.runtimeBytecode = runtime; row.runtimeHash = keccak256(runtime as `0x${string}`);
+  const metadata = { ...base.metadata, sources: structuredClone(hashes),
+    settings: { ...base.metadata.settings, compilationTarget: { [path]: "QuoterV2" } } };
+  const contract = { metadata: JSON.stringify(metadata), evm: { bytecode: { object: "6001", linkReferences: {} },
+    deployedBytecode: { object: `60${"00".repeat(64)}01`, linkReferences: {},
+      immutableReferences: { "1": [{ start: 1, length: 32 }], "2": [{ start: 33, length: 32 }] } } } };
+  const output = { contracts: { [path]: { QuoterV2: contract } }, sources: {
+    [path]: { ast: { nodes: [{ name: "QuoterV2", nodeType: "ContractDefinition", nodes: [] }] } },
+    [periphery]: base.output.sources[periphery],
+  } };
+  return { value, snapshot, output, contract, metadata };
+}

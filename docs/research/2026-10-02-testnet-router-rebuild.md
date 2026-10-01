@@ -42,6 +42,8 @@ The three nonzero identities match the [official Base Sepolia deployment mapping
 
 ## Next useful owner action
 
+**Completed follow-up:** the owner imported QuoterV2 and its independent runtime rebuild subsequently passed. See [QuoterV2 proof and the current factory-source action](2026-10-02-testnet-quoter-rebuild.md). The command below is the historical handoff; do not download QuoterV2 again.
+
 The next source lookup, QuoterV2, failed `SOURCE_NETWORK_UNAVAILABLE` in the agent environment. To preserve its original public response as with the router, run from `vezta-dex`:
 
 ```bash
