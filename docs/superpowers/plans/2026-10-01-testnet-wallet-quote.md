@@ -1,5 +1,7 @@
 # Testnet wallet-bound quote implementation
 
+**Status:** Tasks 1–3 complete for the read-only slice. 546 Vitest +85 Node, typecheck/lint/build passed; independent review found no material/minor defect. Host quote/state probes and execution gates remain pending; see [handoff](../../research/2026-10-01-testnet-wallet-read-progress.md).
+
 Spec: `docs/superpowers/specs/2026-10-01-testnet-wallet-quote.md`.
 
 ## Global constraints
