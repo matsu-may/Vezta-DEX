@@ -12,6 +12,8 @@ The standalone frontend now has a read-only `/positions` page. It accepts a publ
 
 The owner's first empty-wallet check showed “Data unavailable.” The frontend had expected a raw position page while the server correctly returned `{ page: ... }`; the client now parses that envelope, with a regression test using the actual response shape. Empty-wallet reads also skip the unnecessary pool-tick request. If the view still reports unavailable after the updated processes reload, inspect the direct `/api/v1/lp/positions` HTTP status: 503 means RPC/read failure, while a 200 response should render an empty owner state.
 
+After restarting the local development processes, the owner entered an address without positions and confirmed the page displayed “No positions owned.” This is end-to-end evidence for the empty state only; pages with matching NFTs, mobile layout and LP write controls remain unverified.
+
 ## Disposable fork preflight
 
 `node scripts/smoke-lp-fork-preflight.mjs` uses the ignored `POLYGON_RPC_URL` in `apps/api/.env`. It reads a fresh Polygon block, starts a disposable Anvil process bound to `127.0.0.1` at that exact block, checks chain ID, Anvil identity and source/fork block hash, then repeats the independent v3 pool checks on the fork. It prints only bounded status and booleans, never an RPC URL. It does not use an API key, fund an account, sign or send a transaction. Anvil is stopped when the probe ends.
