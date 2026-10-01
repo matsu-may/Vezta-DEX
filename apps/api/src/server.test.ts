@@ -21,6 +21,18 @@ const quotes = new QuoteReader({
 });
 
 describe("DEX HTTP handler", () => {
+  it("keeps process liveness separate from Polygon readiness", async () => {
+    const healthy = await handleRequest(new Request("http://localhost/health"), reader);
+    expect(await healthy.json()).toEqual({ status: "ok" });
+    const ready = await handleRequest(new Request("http://localhost/ready"), reader, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      { check: async () => ({ status: "ready" as const, polygon: "ok" as const }) });
+    expect(ready.status).toBe(200);
+    expect(await ready.json()).toEqual({ status: "ready", polygon: "ok" });
+    const unavailable = await handleRequest(new Request("http://localhost/ready"), reader, undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined,
+      { check: async () => ({ status: "unavailable" as const, polygon: "unavailable" as const }) });
+    expect(unavailable.status).toBe(503);
+    expect(await unavailable.json()).toEqual({ status: "unavailable", polygon: "unavailable" });
+  });
   it("serves a bounded read-only LP position page and rejects malformed pagination", async () => {
     const owner = "0x1111111111111111111111111111111111111111";
     const positions = { getPage: async () => ({ chainId: 137, positions: [], nextCursor: null, incomplete: false }) };

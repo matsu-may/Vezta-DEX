@@ -9,6 +9,7 @@ import { SwapPreparationInputError, type SwapPreparer } from "./swap-preparation
 
 import { WalletStateUnavailableError, type WalletStateReader } from "./wallet-state";
 import { submissionSchema, type WalletObservationReader } from "./wallet-observation";
+import type { ReadinessReader } from "./readiness";
 
 const tradingIntentSchema = z.object({
   chainId: z.literal(137),
@@ -30,7 +31,7 @@ export interface PositionPageReader {
   getPage(input: { owner: Address; cursor: bigint; limit: number }): Promise<unknown>;
 }
 
-export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer, wallet?: WalletStateReader, observations?: WalletObservationReader, positions?: PositionPageReader): Promise<Response> {
+export async function handleRequest(request: Request, reader: PoolReader, quotes?: QuoteReader, trading?: TradingApiQuoteReader, approval?: AllowanceReader, permits?: PermitReader, swaps?: SwapPreparer, wallet?: WalletStateReader, observations?: WalletObservationReader, positions?: PositionPageReader, readiness?: Pick<ReadinessReader, "check">): Promise<Response> {
   const pathname = new URL(request.url).pathname;
   if (pathname === "/api/v1/wallet-state" || pathname === "/api/v1/transaction-observation" || pathname === "/api/v1/swap-recheck") {
     if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -123,6 +124,11 @@ export async function handleRequest(request: Request, reader: PoolReader, quotes
   if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
 
   if (pathname === "/health") return json({ status: "ok" });
+  if (pathname === "/ready") {
+    if (!readiness) return json({ status: "unavailable", polygon: "unavailable" }, 503);
+    const result = await readiness.check();
+    return json(result, result.status === "ready" ? 200 : 503);
+  }
   if (pathname === "/api/v1/tokens") return json({ tokens: [TOKENS.USDC, TOKENS.WETH] });
 
   if (pathname === "/api/v1/lp/positions") {

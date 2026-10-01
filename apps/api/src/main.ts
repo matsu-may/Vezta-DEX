@@ -1,5 +1,7 @@
 import { createServer } from "node:http";
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
+import { performance } from "node:perf_hooks";
 import { createPolygonPoolSource } from "./chain";
 import { PoolReader } from "./pools";
 import { handleRequest } from "./server";
@@ -15,6 +17,8 @@ import { WalletStateReader } from "./wallet-state";
 import { WalletObservationReader } from "./wallet-observation";
 import { LpPositionReader } from "./lp-position";
 import { requirePrivateApiHost } from "./api-binding";
+import { ReadinessReader } from "./readiness";
+import { formatRequestLog } from "./request-log";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -26,6 +30,7 @@ if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invali
 
 const source = createPolygonPoolSource(rpcUrl);
 const reader = new PoolReader(source);
+const readiness = new ReadinessReader(source);
 const quotes = new QuoteReader(source);
 const wallet = new WalletStateReader(source);
 const observations = new WalletObservationReader(source);
@@ -37,6 +42,9 @@ const trading = tradingClient ? new TradingApiQuoteReader(tradingClient, Date.no
 const permits = trading ? new PermitReader(source, quoteStore) : undefined;
 const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient) : undefined;
 createServer(async (request, response) => {
+  const requestId = randomUUID();
+  const started = performance.now();
+  let status = 500;
   try {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
     let body: string | undefined;
@@ -46,7 +54,8 @@ createServer(async (request, response) => {
       for await (const chunk of request) {
         length += chunk.length;
         if (length > 4_096) {
-          response.writeHead(413, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+          status = 413;
+          response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Request-Id": requestId });
           response.end(JSON.stringify({ error: "Request too large" }));
           return;
         }
@@ -54,12 +63,18 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps, wallet, observations, positions);
-    response.writeHead(result.status, Object.fromEntries(result.headers));
-    response.end(Buffer.from(await result.arrayBuffer()));
+    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
+    const resultBody = Buffer.from(await result.arrayBuffer());
+    status = result.status;
+    response.writeHead(status, { ...Object.fromEntries(result.headers), "X-Request-Id": requestId });
+    response.end(resultBody);
   } catch {
-    response.writeHead(500, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+    status = 500;
+    response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Request-Id": requestId });
     response.end(JSON.stringify({ error: "DEX API request failed" }));
+  } finally {
+    process.stdout.write(formatRequestLog({ requestId, method: request.method, url: request.url,
+      status, durationMs: performance.now() - started }) + "\n");
   }
 }).listen(port, host, () => {
   process.stdout.write(`DEX API listening on http://${host}:${port}\n`);

@@ -74,6 +74,7 @@
 
 - [x] Inventory security, data freshness, observability, rate budgets and deployment boundaries in the [standalone release review](../../research/2026-09-30-standalone-release-review.md). Remediation and external evidence in that review remain open; local two-confirmation observation is not a production finality policy.
 - [x] Restrict the standalone API listener to literal `127.0.0.1` until direct preparation endpoints have access control. Tests cover wildcard, IPv6, LAN and hostname binds. This is a local-process guard, not protection against a public reverse proxy.
+- [x] Add [separate local readiness and sanitized request logs](../../research/2026-10-01-readiness-and-request-logs.md): `/ready` requires a recent Polygon block; JSON request logs include only generated ID, bounded route/method, status and duration. This does not close Uniswap/LP dependency telemetry or durable metrics.
 - [ ] Give the owner one concise checklist of live wallet, RPC, browser and CI checks. Keep Vezta main-site integration outside this plan.
 - [ ] Close the operational gates in the [roadmap gap review](../../research/2026-10-01-roadmap-gap-review.md): access control, shared quotas/state, readiness/telemetry, LP recovery and fee accounting. Validate mobile presentation only after complete standalone flows are ready.
 - [ ] Plan standalone multi-chain adapters and qualify a second chain separately after the Polygon flow is stable; do not fold cross-chain transfers into the first release.
