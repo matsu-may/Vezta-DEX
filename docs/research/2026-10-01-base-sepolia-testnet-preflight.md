@@ -102,3 +102,11 @@ It sequentially reads the API depth endpoint and the web proxy endpoint, printin
 These diagnostics identify the failed boundary; they do not change the pool-depth threshold, retry policy or wallet gates. The user's live web failure remains unresolved until the host diagnostic identifies its layer.
 
 Diagnostic verification: the two new proxy tests failed against the previous generic classification, then passed after separating configuration, fetch and response stages. Three script tests cover fixed endpoints, bounded output and credential/error-body suppression. Full verification passed 516 Vitest tests, 85 Node tests, typecheck, lint and build. The local diagnostic returned `EPERM` for both endpoints, so no live read success is claimed. Restart the development processes after the production build before running the host diagnostic.
+
+## Resolved API process and successful host reads
+
+The owner diagnostic first returned API HTTP 404 and web connection refused. After starting the web, its proxy also reported upstream HTTP 404. Local inspection identified the existing PID `22408` listening on port 3021 from `apps/api`; current source already included the depth endpoint. The owner then restarted the development processes and reported both `DEX API listening on http://127.0.0.1:3021` and Next `Ready`.
+
+The subsequent owner diagnostic passed both boundaries: API HTTP 200 in **18,152 ms** and web HTTP 200 in **18,637 ms**. Both reported `hasDepth:true`, four pools, `depthQualified:true` and `candidateFeeTiers:[3000]`. This confirms the updated API and web proxy can read qualified Base Sepolia depth through the configured RPC on the owner's host. The stale API process caused the observed missing-endpoint failure; no further timeout or pool-policy change was needed.
+
+Next owner check: open `/testnet`, run a pool check, preview the 0.3% candidate and change `Quote sample` between both directions. Confirm the testnet labels, integer-formatted received/minimum amounts, expiry and refresh behavior. Desktop browser smoke evidence and public-testnet wallet/receipt/LP execution remain pending; these successful reads do not close those gates.
