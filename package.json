@@ -14,7 +14,8 @@
     "testnet:quote-probe": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-quote-probe-cli.ts",
     "testnet:depth": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-depth-cli.ts",
     "testnet:wallet-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-quote-cli.ts",
-    "testnet:wallet-state": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-state-cli.ts"
+    "testnet:wallet-state": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-state-cli.ts",
+    "testnet:artifacts": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-artifacts-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

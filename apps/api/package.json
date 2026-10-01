@@ -14,6 +14,9 @@
     "zod": "4.3.6"
   },
   "devDependencies": {
+    "@uniswap/swap-router-contracts": "1.1.0",
+    "@uniswap/v3-core": "1.0.0",
+    "@uniswap/v3-periphery": "1.0.0",
     "tsx": "4.21.0"
   }
 }
