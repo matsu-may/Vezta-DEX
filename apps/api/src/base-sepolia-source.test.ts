@@ -32,6 +32,26 @@ it("pins router/quoter/manager getters and pool tick spacing to the requested bl
   ].map(a => a.toLowerCase()).sort());
 });
 
+it("uses pinned wallet reads and only pending for the separate nonce check", async () => {
+  const calls: Array<{ method: string; params: unknown[] }> = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: body.method === "eth_call"
+      ? encodeAbiParameters([{ type: "uint256" }], [5n]) : "0x7" });
+  });
+  const source = createBaseSepoliaPreflightSource("https://rpc.example.invalid");
+  const wallet = "0x1111111111111111111111111111111111111111";
+  expect(await source.getTokenBalance(C.USDC.address, wallet, 123n)).toBe(5n);
+  expect(await source.getTokenAllowance(C.USDC.address, wallet, P.router, 123n)).toBe(5n);
+  expect(await source.getNativeBalance(wallet, 123n)).toBe(7n);
+  expect(await source.getAccountNonce(wallet, 123n)).toBe(7n);
+  expect(await source.getPendingNonce(wallet)).toBe(7n);
+  expect(calls.map(c => [c.method, c.params[1]])).toEqual([
+    ["eth_call", "0x7b"], ["eth_call", "0x7b"], ["eth_getBalance", "0x7b"],
+    ["eth_getTransactionCount", "0x7b"], ["eth_getTransactionCount", "pending"],
+  ]);
+});
+
 function hungFetch(signals: AbortSignal[]) {
   return vi.fn<typeof fetch>(async (_input, init) => {
     const signal = init?.signal;

@@ -1,6 +1,7 @@
 const ROUTES: Record<string, string> = {
   "/api/v1/testnet/base-sepolia/depth": "testnet_depth",
   "/api/v1/testnet/base-sepolia/quote": "testnet_quote",
+  "/api/v1/testnet/base-sepolia/state": "testnet_state",
   "/health": "health",
   "/ready": "ready",
   "/api/v1/tokens": "tokens",

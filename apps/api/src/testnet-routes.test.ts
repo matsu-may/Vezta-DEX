@@ -5,6 +5,8 @@ import { TestnetDiscoveryReader } from "./testnet-discovery";
 import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
 import { toApiRequest } from "./api-request";
+import { TestnetWalletStateReader } from "./testnet-wallet-state";
+import { BASE_SEPOLIA_CANDIDATE as C } from "@vezta-dex/core";
 
 const path = "/api/v1/testnet/base-sepolia/quote";
 const request = (body: unknown = testnetIntent(), suffix = "", contentType = "application/json") =>
@@ -13,6 +15,23 @@ const request = (body: unknown = testnetIntent(), suffix = "", contentType = "ap
 const reader = () => new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => TESTNET_NOW);
 
 describe("testnet read routing", () => {
+  it("routes valid unfunded wallet state separately and sanitizes failure", async () => {
+    const source = { ...testnetQuoteSource(), async getTokenBalance() { return 0n; },
+      async getNativeBalance() { return 0n; }, async getTokenAllowance() { return 0n; },
+      async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; } };
+    const r = new TestnetWalletStateReader(() => source, () => TESTNET_NOW);
+    const req = () => new Request("http://local/api/v1/testnet/base-sepolia/state", {
+      method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(testnetIntent()),
+    });
+    expect((await handleTestnetRequest(req()))?.status).toBe(503);
+    const response = await handleTestnetRequest(req(), undefined, undefined, r);
+    expect(response?.status).toBe(200);
+    expect(await response?.json()).toMatchObject({ state: { tokenAllowance: "0", approvalKind: "approve",
+      balances: { USDC: "0", WETH: "0", ETH: "0" } } });
+    source.getTokenBalance = async () => { throw new Error(`private-${C.USDC.address}`); };
+    const bad = await handleTestnetRequest(req(), undefined, undefined, r);
+    expect(await bad?.json()).toEqual({ error: "Testnet state unavailable", code: "TESTNET_RPC_UNAVAILABLE" });
+  });
   it("dispatches a quote and keeps discovery/unknown routes separate", async () => {
     const response = await handleTestnetRequest(request(), undefined, reader());
     expect(response?.status).toBe(200);

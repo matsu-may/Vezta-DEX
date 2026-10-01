@@ -2,6 +2,7 @@ import { createPublicClient, erc20Abi, http, parseAbi, type Address } from "viem
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
+import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
@@ -30,7 +31,7 @@ const configurationAbi = parseAbi(["function factory() view returns (address)",
   "function WETH9() view returns (address)", "function positionManager() view returns (address)"]);
 const spacingAbi = parseAbi(["function tickSpacing() view returns (int24)"]);
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -50,6 +51,23 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    getTokenBalance(address, wallet, blockNumber) {
+      return client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [wallet], blockNumber });
+    },
+    getTokenAllowance(address, wallet, spender, blockNumber) {
+      return client.readContract({ address, abi: erc20Abi, functionName: "allowance", args: [wallet, spender], blockNumber });
+    },
+    getNativeBalance(address, blockNumber) { return client.getBalance({ address, blockNumber }); },
+    async getAccountNonce(address, blockNumber) {
+      const nonce = await client.getTransactionCount({ address, blockNumber });
+      if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Invalid account nonce");
+      return BigInt(nonce);
+    },
+    async getPendingNonce(address) {
+      const nonce = await client.getTransactionCount({ address, blockTag: "pending" });
+      if (!Number.isSafeInteger(nonce) || nonce < 0) throw new Error("Invalid pending nonce");
+      return BigInt(nonce);
+    },
     getTickSpacing(address, blockNumber) {
       return client.readContract({ address, abi: spacingAbi, functionName: "tickSpacing", blockNumber });
     },

@@ -42,17 +42,21 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 ## Phase 2 — Qualify executable preparation
 
-**Status:** Pure core policy is implemented; runtime qualification is incomplete.
+**Status:** Pure core policy and read-only wallet-bound quote/state APIs are implemented; live qualification and executable preparation remain incomplete.
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
-- [ ] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions.
+- [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Local tests pass; owner RPC probe remains pending.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
+  - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
+  - [ ] Qualify host state evidence, sufficient gas estimates and executable approvals with receipt/reset/reread behavior.
 - [ ] Simulate/recheck the reviewed swap and expose bounded local API contracts with sanitized errors, deadlines and provenance.
 
 **Exit:** Wrong chain/token/recipient/spender, altered amount/minimum, stale quote, changed allowance/nonce, insufficient balance/gas and failed simulation all block preparation. The API holds no private key and sends no transaction.
 
 **Independent work:** Artifacts, pure/API tests and fork harnesses can progress without owner funding; live RPC/source results still require a reachable provider. **Dependency:** Verified identities from Phase 1. **Likely paths:** core policy, new testnet API quote/state/preparation adapters, scripts and evidence docs; split these into focused implementation plans.
+
+Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md) and [owner checks/progress](../../research/2026-10-01-testnet-wallet-read-progress.md). Quotes expose `configurationVerified:true`, `runtimeVerified:false`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
 
 ## Phase 3 — Complete testnet wallet swaps
 

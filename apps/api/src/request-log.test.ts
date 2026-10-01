@@ -3,7 +3,7 @@ import { formatRequestLog } from "./request-log";
 
 describe("sanitized API request log", () => {
   it("labels the testnet read endpoints without query data", () => {
-    for (const [suffix, label] of [["quote", "testnet_quote"], ["depth", "testnet_depth"]]) {
+    for (const [suffix, label] of [["quote", "testnet_quote"], ["depth", "testnet_depth"], ["state", "testnet_state"]]) {
       expect(JSON.parse(formatRequestLog({ requestId: "id", method: "POST",
         url: `/api/v1/testnet/base-sepolia/${suffix}?rpc=secret`, status: 200, durationMs: 1 })).route).toBe(label);
     }
