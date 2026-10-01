@@ -26,7 +26,7 @@ const quoterAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutab
   ] }], outputs: [{ type: "uint256" }, { type: "uint160" }, { type: "uint32" }, { type: "uint256" }],
 }] as const;
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaDepthSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaDepthSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -34,7 +34,8 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaDep
     throw new Error("Base Sepolia RPC requires HTTPS or loopback HTTP");
   }
   const client = createPublicClient({ chain: baseSepolia,
-    transport: http(rpcUrl, { timeout: 8_000, retryCount: 0 }) });
+    transport: http(rpcUrl, { timeout: 8_000, retryCount: 0,
+      fetchOptions: signal ? { signal } : undefined }) });
   const quoteExactInput: BaseSepoliaDepthSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",

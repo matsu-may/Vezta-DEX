@@ -115,3 +115,4 @@ export * from "./swap-calldata";
 export * from "./permit-signature";
 export * from "./transaction-receipt";
 export { BASE_SEPOLIA_CANDIDATE, BASE_SEPOLIA_CHAIN_ID } from "./testnet";
+export { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "./testnet-depth";

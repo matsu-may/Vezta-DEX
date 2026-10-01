@@ -19,6 +19,9 @@ import { LpPositionReader } from "./lp-position";
 import { requirePrivateApiHost } from "./api-binding";
 import { ReadinessReader } from "./readiness";
 import { formatRequestLog } from "./request-log";
+import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
+import { probeBaseSepoliaDepth } from "./base-sepolia-depth";
+import { TestnetDiscoveryReader, handleTestnetDiscovery } from "./testnet-discovery";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -41,6 +44,9 @@ const tradingClient = process.env.UNISWAP_API_KEY?.trim() ? new TradingApiClient
 const trading = tradingClient ? new TradingApiQuoteReader(tradingClient, Date.now, quoteStore) : undefined;
 const permits = trading ? new PermitReader(source, quoteStore) : undefined;
 const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient) : undefined;
+const testnetRpcUrl = process.env.BASE_SEPOLIA_RPC_URL?.trim();
+const testnet = testnetRpcUrl ? new TestnetDiscoveryReader(signal =>
+  probeBaseSepoliaDepth(createBaseSepoliaPreflightSource(testnetRpcUrl, signal))) : undefined;
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -63,7 +69,10 @@ createServer(async (request, response) => {
       }
       body = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await handleRequest(new Request(url, { method: request.method, body }), reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
+    const apiRequest = new Request(url, { method: request.method, body });
+    const result = url.pathname === "/api/v1/testnet/base-sepolia/depth"
+      ? await handleTestnetDiscovery(apiRequest, testnet)
+      : await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;
     response.writeHead(status, { ...Object.fromEntries(result.headers), "X-Request-Id": requestId });
