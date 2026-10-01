@@ -9,7 +9,9 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint apps packages",
     "build": "pnpm -r --if-present build",
-    "dev:rehearsal": "node scripts/start-rehearsal.mjs"
+    "dev:rehearsal": "node scripts/start-rehearsal.mjs",
+    "testnet:preflight": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-preflight-cli.ts",
+    "testnet:quote-probe": "pnpm --filter @vezta-dex/api exec node --import tsx src/base-sepolia-quote-probe-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
