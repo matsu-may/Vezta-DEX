@@ -30,7 +30,9 @@ Quote should print two `testnet-wallet-quote-read-only` rows with intent/minimum
 
 State should print `testnet-wallet-state-read-only`, `verified:true`, chain 84532 and EOA. Both funding flags may be false for your empty wallet, and `allowanceKind:zero`, `approvalKind:approve` are expected. This verifies reads, not readiness to trade. A pending nonce must settle before a state check can qualify.
 
-If either command returns unavailable, share only its bounded JSON `code`; do not share RPC credentials. `TESTNET_QUOTE_STALE`/`TESTNET_STATE_STALE` indicate old blocks or reads that outlived the deadline; refresh instead of increasing the lifetime. `TESTNET_CONFIGURATION_INVALID` or `TESTNET_BLOCK_CHANGED` require investigation before any write.
+If either command returns unavailable, share its bounded JSON row; do not share RPC credentials. Quote CLI failures now include `rpcDiagnostics.firstFailure` (method, allowlisted failure kind and optional HTTP status) plus method counts/timing. Error messages, URLs, request bodies, wallet addresses and revert bytes are omitted. This instrumentation introduces no retry, fallback or longer deadline. A null first failure means no source-method rejection was recorded; do not infer that the whole study succeeded, particularly after a study timeout. Counters are a snapshot: other concurrent reads may still be aborting.
+
+`TESTNET_QUOTE_STALE`/`TESTNET_STATE_STALE` indicate old blocks or reads that outlived the deadline; refresh instead of increasing the lifetime. `TESTNET_CONFIGURATION_INVALID` or `TESTNET_BLOCK_CHANGED` require investigation before any write. Re-run only `testnet:wallet-quote` once to obtain the reverse-direction failure detail; repeating wallet state is not needed for the supplied successful run.
 
 ## Private API
 
@@ -38,7 +40,19 @@ Restart `pnpm dev` after changes. POST JSON to `/api/v1/testnet/base-sepolia/quo
 
 ## Evidence and remaining gates
 
-Local verification: 546 Vitest +85 Node tests, typecheck, lint and build passed. Independent read-only review of `2dfd03e..d005b12` found no Critical/Important/Minor defect. The agent's live wallet-quote probe returned `TESTNET_RPC_UNAVAILABLE`; no owner result for the new probes is recorded yet. Existing owner depth/preview evidence remains historical and distinct. Existing Next workspace-root and ESLint React-detection warnings persist; no new failure was introduced.
+Initial slice verification: 546 Vitest +85 Node tests, typecheck, lint and build passed. Independent read-only review of `2dfd03e..d005b12` found no Critical/Important/Minor defect. The agent's live wallet-quote probe returned `TESTNET_RPC_UNAVAILABLE`. Existing owner depth/preview evidence remains historical and distinct. Existing Next workspace-root and ESLint React-detection warnings persist; no new failure was introduced.
+
+### Owner evidence received 2026-10-01
+
+| Check | Owner result | Qualification |
+|---|---|---|
+| USDC→WETH wallet quote | Block 47543042, time `2026-10-01T11:32:52.000Z`, expiry `11:33:22Z`; input 1000000, output 6075530877895544, minimum 6045153223506066, impact 3 bps; binding/freshness/configuration checks true | Forward live quote read passed at that observation; not a reusable current quote |
+| WETH→USDC wallet quote | `TESTNET_RPC_UNAVAILABLE` after the forward success | Pending; no RPC method or underlying error category in the original output, so cause remains unknown |
+| Wallet state | Block 47543051, time `2026-10-01T11:33:10.000Z`, EOA, zero allowance, approval kind approve, both funding flags false, verified true | Live read passed; unfunded state is valid, no funded execution qualified |
+
+The CLI exit 1 correctly reflects the failed reverse check. The quote source calls QuoterV2 without spending the wallet's balance; funding is assessed separately by wallet state. The supplied state flags establish insufficient USDC for the 1-USDC intent and no native ETH, not exact balances for both tokens. The reverse probe performs all dependency reads again, so failure is not necessarily in the reverse Quoter call. Diagnostics must locate that rejection before selecting retry, RPC pacing or a pool change. Runtime verification and execution remain false by policy.
+
+Diagnostic follow-up verification: 549 Vitest +85 Node tests, typecheck, lint and web build passed. Tests cover nested viem timeout/429/revert/HTTP/abort classification, secret-safe cause handling, original result/error preservation, and a successful forward quote followed by a reverse Quoter timeout. The agent's instrumented CLI failed at `getChainId` with `kind:transport`, confirming its own network limitation, not the owner's reverse failure. Only CLI diagnostics changed; provider pacing/retries, quote TTL, contract policy and HTTP error response remain unchanged.
 
 Phase 2 still needs artifact/runtime proof, gas estimates, wallet-bound simulation/recheck, executable approval/reset receipt handling and preparation endpoints. Phases 3–6 (wallet swaps/recovery, Base Sepolia LP lifecycle, integrated desktop product, final acceptance) remain open. No need to obtain real USDC; faucet assets will be needed only for the later owner-operated testnet transaction checks.
 

@@ -1,8 +1,9 @@
 import { BASE_SEPOLIA_CANDIDATE as C, parseTestnetSwapIntent, buildTestnetSwapTransaction } from "@vezta-dex/core";
 import { TestnetQuoteError, type TestnetSwapQuoteReader } from "./testnet-swap-quote";
+import type { TestnetRpcDiagnosticSnapshot } from "./testnet-rpc-diagnostics";
 
 export async function runTestnetWalletQuoteProbe(wallet: unknown, createReader: () => TestnetSwapQuoteReader,
-  now = Date.now) {
+  now = Date.now, readDiagnostics?: () => TestnetRpcDiagnosticSnapshot) {
   const inputs = [
     { direction: "USDC_TO_WETH", tokenIn: C.USDC.address, tokenOut: C.WETH.address, amountIn: "1000000" },
     { direction: "WETH_TO_USDC", tokenIn: C.WETH.address, tokenOut: C.USDC.address, amountIn: "100000000000000" },
@@ -30,7 +31,8 @@ export async function runTestnetWalletQuoteProbe(wallet: unknown, createReader: 
           quoteFresh: true, opaqueQuoteId: /^[a-f0-9]{48}$/.test(result.quoteId), ...result.qualification } });
     } catch (error) {
       rows.push({ status: "testnet-wallet-quote-unavailable", direction: inputs[index].direction,
-        code: error instanceof TestnetQuoteError ? error.code : "TESTNET_RPC_UNAVAILABLE" });
+        code: error instanceof TestnetQuoteError ? error.code : "TESTNET_RPC_UNAVAILABLE",
+        ...(readDiagnostics ? { rpcDiagnostics: readDiagnostics() } : {}) });
       break;
     }
   }
