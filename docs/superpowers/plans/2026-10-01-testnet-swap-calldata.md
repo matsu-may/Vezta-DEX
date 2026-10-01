@@ -22,13 +22,17 @@ Files: `packages/core/src/testnet-swap.ts`, `testnet-swap.test.ts`, `index.ts`.
 
 - [x] Write failing tests for both directions and independently decoded ABI tuple/deadline, intent/evidence validation, envelope/calldata mutation and exact/reset approvals.
 - [x] Observe RED, then implement the strict pure policy, canonical encoder/inspector and sequential approval plan.
-- [ ] Run focused tests and full tests; commit the implementation.
+- [x] Run focused tests and full tests; commit the implementation (`e56d2fe`).
 
 ## Task 2: Review and handoff
 
 Files: this plan, the RPC demo spec, architecture/roadmap and testnet runbook.
 
-- [ ] Record the owner-confirmed preview and selected demo pool, and document the separate router/spender and execution gates.
-- [ ] Run typecheck, lint and build; preserve the existing next-env.d.ts edit.
-- [ ] Dispatch one independent final review; fix material findings with RED→GREEN and a green full suite.
-- [ ] Record verification and autonomous choices; preserve the branch and leave wallet writes disabled.
+- [x] Record the owner-confirmed preview and selected demo pool, and document the separate router/spender and execution gates.
+- [x] Run typecheck, lint and build; preserve the existing next-env.d.ts edit.
+- [x] Dispatch one independent final review; no material finding required a fix.
+- [x] Record verification and autonomous choices; preserve the branch and leave wallet writes disabled.
+
+## Verification and review
+
+Observed RED before implementation; six focused tests and the full suite passed (522 Vitest, 85 Node). Typecheck, lint and build passed. Independent read-only review found no Critical or Important issue. Optional named mutation tests for `amountIn` and alternate multicall overloads are deferred; canonical calldata comparison already rejects them. This validates the pure foundation only. Source mapping is not deployed-bytecode proof; authentic pinned quotes, full consumption, live wallet state, reset receipt/reread, simulation, signing/recovery and receipt/LP checks remain mandatory before execution. The owner's existing next-env.d.ts change is preserved.
