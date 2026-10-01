@@ -2,7 +2,7 @@
 
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 
-**Latest phase-2 implementation:** host wallet-state and both post-pacing quote directions passed. Installed official artifacts now have pinned fingerprints and compatible router/Quoter ABI; both swap encodings match the artifact ABI offline. A bounded stable-block runtime snapshot command is prepared; live runtime/rebuild proof, gas/simulation and executable API/web flows remain open. See [artifact progress and the one-command host check](research/2026-10-01-testnet-artifact-progress.md). No funded wallet is needed for that check.
+**Latest phase-2 implementation:** host wallet-state and both post-pacing quote directions passed. Installed official artifacts have pinned fingerprints and compatible router/Quoter ABI; both swap encodings match offline. Bounded stable-block runtime snapshots and single-contract source/compiler-input acquisition are prepared; live runtime/rebuild proof, gas/simulation and executable API/web flows remain open. See [source progress and the two host commands](research/2026-10-01-testnet-source-progress.md). No funded wallet is needed for these checks.
 
 ## Goal and boundaries
 
