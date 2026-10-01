@@ -92,4 +92,4 @@ it("sanitizes provider failures and rejects unsupported CLI options before netwo
     { cwd: new URL("../", import.meta.url), encoding: "utf8", timeout: 10000 });
   expect(result.status).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({ status: "testnet-deployment-snapshot-unavailable", code: "INVALID_OPTION" });
-});
+}, 15000); // Allow the bounded Node/tsx subprocess to start under parallel suite load.

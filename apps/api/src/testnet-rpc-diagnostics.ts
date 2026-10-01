@@ -2,7 +2,7 @@ import { performance } from "node:perf_hooks";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 
 type FailureKind = "rate-limited" | "timeout" | "contract-revert" | "http-error" | "transport"
-  | "rpc-error" | "aborted" | "unclassified";
+  | "rpc-error" | "aborted" | "response-too-large" | "unclassified";
 interface Failure { kind: FailureKind; httpStatus?: number }
 const METHODS = ["getChainId", "getLatestBlock", "getBlockHash", "getCode", "getDecimals",
   "getPool", "getPoolState", "quoteOneUsdc", "quoteExactInput", "getTickSpacing", "getDependencyConfiguration"] as const satisfies readonly (keyof BaseSepoliaSwapSource)[];
@@ -32,6 +32,7 @@ export function classifyTestnetRpcFailure(error: unknown): Failure {
       else if (name === "ContractFunctionRevertedError" || name === "ExecutionRevertedError") return { kind: "contract-revert" };
       else if (name === "RpcRequestError") fallback = { kind: "rpc-error" };
       else if (name === "AbortError") return { kind: "aborted" };
+      else if (name === "RpcResponseTooLargeError") return { kind: "response-too-large" };
       error = value.cause;
     }
   } catch { /* Even malformed error objects must not alter the RPC result or expose details. */ }

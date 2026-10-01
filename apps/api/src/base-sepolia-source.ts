@@ -32,6 +32,35 @@ const configurationAbi = parseAbi(["function factory() view returns (address)",
   "function WETH9() view returns (address)", "function positionManager() view returns (address)"]);
 const spacingAbi = parseAbi(["function tickSpacing() view returns (int24)"]);
 
+// Bound bytes before JSON decoding, including chunked or incorrectly declared bodies.
+const RPC_RESPONSE_BYTE_LIMIT = 1048576;
+class RpcResponseTooLargeError extends Error {
+  constructor() { super("Base Sepolia RPC response exceeds byte limit"); this.name = "RpcResponseTooLargeError"; }
+}
+async function readRpcBody(response: Response, signal?: AbortSignal | null) {
+  signal?.throwIfAborted();
+  if (Number(response.headers.get("content-length")) > RPC_RESPONSE_BYTE_LIMIT) {
+    void response.body?.cancel().catch(() => {});
+    throw new RpcResponseTooLargeError();
+  }
+  if (!response.body) return new Uint8Array(0);
+  const reader = response.body.getReader();
+  const cancel = () => { void reader.cancel().catch(() => {}); };
+  signal?.addEventListener("abort", cancel, { once: true });
+  const body = new Uint8Array(RPC_RESPONSE_BYTE_LIMIT); let size = 0;
+  try {
+    while (true) {
+      signal?.throwIfAborted();
+      const { done, value } = await reader.read();
+      signal?.throwIfAborted();
+      if (done) break;
+      if (value.byteLength > RPC_RESPONSE_BYTE_LIMIT - size) { cancel(); throw new RpcResponseTooLargeError(); }
+      body.set(value, size); size += value.byteLength;
+    }
+    return body.subarray(0, size);
+  } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
+}
+
 export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
@@ -45,9 +74,10 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       // viem's timeout surrounds fetchFn, otherwise ending when headers arrive.
       // Consume the body here so stalled bodies cannot retain both shared slots.
       fetchFn: async (input, init) => {
-        const response = await fetch(input, { ...init, signal: signal
-          ? init?.signal ? AbortSignal.any([signal, init.signal]) : signal : init?.signal });
-        const body = await response.arrayBuffer();
+        const requestSignal = signal
+          ? init?.signal ? AbortSignal.any([signal, init.signal]) : signal : init?.signal;
+        const response = await fetch(input, { ...init, signal: requestSignal });
+        const body = await readRpcBody(response, requestSignal);
         return new Response([204, 205, 304].includes(response.status) ? null : body,
           { status: response.status, statusText: response.statusText, headers: response.headers });
       } })(options);

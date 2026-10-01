@@ -28,23 +28,23 @@ Artifact/package drift or misleading provenance flags; wrong router deadline tup
 **Files:** create `apps/api/src/testnet-artifacts.ts`, `testnet-artifacts.test.ts`, `testnet-artifacts-cli.ts`; update root scripts and include the owner-installed API devDependencies/lockfile.
 **Interfaces:** `loadPinnedTestnetArtifacts()` returns five validated artifacts, role/address/runtime and fingerprints; `inspectTestnetArtifactInputs(inputs)` rejects changed version/bytes/identity; `assertTestnetArtifactAbi(routerAbi,quoterAbi)` checks exact selected functions; `reviewTestnetArtifactBundle(bundle)` returns bounded inventory and fixture-only bidirectional calldata compatibility, runtime/execution false.
 
-- [ ] Write failing tests using installed artifacts: valid inventory and two canonical encodings; wrong version/duplicate role/changed bytes; incompatible original-router deadline tuple and Quoter fee/amount order.
-- [ ] Run focused tests; expect missing implementation.
-- [ ] Implement manifest of observed artifact SHA256 values, bounded JSON reads (2 MB/file), selected ABI checks and real encoder comparison with artifact ABI using deterministic quotes/known deadline.
-- [ ] Add `pnpm testnet:artifacts`; run focused tests and offline CLI. Expect all checks pass, fixture-only and runtime/execution false.
-- [ ] Commit and complete with `pnpm test`.
+- [x] Write failing tests using installed artifacts: valid inventory and two canonical encodings; wrong version/duplicate role/changed bytes; incompatible original-router deadline tuple and Quoter fee/amount order.
+- [x] Run focused tests; expect missing implementation.
+- [x] Implement manifest of observed artifact SHA256 values, bounded JSON reads (2 MB/file), selected ABI checks and real encoder comparison with artifact ABI using deterministic quotes/known deadline.
+- [x] Add `pnpm testnet:artifacts`; run focused tests and offline CLI. Expect all checks pass, fixture-only and runtime/execution false.
+- [x] Commit and complete with `pnpm test`.
 
 ### Task 2: Abortable stable-block deployment snapshot
 
 **Files:** create `apps/api/src/testnet-deployment-snapshot.ts`, colocated tests and CLI; update root scripts, `.gitignore` and progress docs.
 **Interfaces:** `TestnetDeploymentSnapshotReader(sourceFactory, clock?)` consumes Task 1 bundle plus source `getChainId/getLatestBlock/getCode/getBlockHash`, returns public snapshot and a bounded summary. Save uses only that snapshot; exact artifact runtime comparison never masks immutables or promotes execution.
 
-- [ ] Write failing tests: pinned role/address reads and exact/mismatch comparisons; missing/odd/oversized code, wrong chain/zero hash, stale/future/late block, reorg, source rejection with sanitized error, hung source cancelled at 25 seconds.
-- [ ] Run focused tests; expect missing implementation.
-- [ ] Implement reader with original study deadline and final freshness check; add strict `--save` CLI and ignored public evidence path. Add `pnpm testnet:deployment-snapshot`.
-- [ ] Run tests/typecheck/lint/build, restore owner next-env diff, run offline artifact CLI and one bounded read-only live snapshot attempt. Live network failure is recorded, not qualification.
-- [ ] Record actual inventory and remaining independent compile/immutable/source gates; commit and complete with `pnpm test`.
-- [ ] Independent whole-slice review; material fixes use one RED→GREEN pass, then required gates. Keep existing branch locally.
+- [x] Write failing tests: pinned role/address reads and exact/mismatch comparisons; missing/odd/oversized code, wrong chain/zero hash, stale/future/late block, reorg, source rejection with sanitized error, hung source cancelled at 25 seconds.
+- [x] Run focused tests; expect missing implementation.
+- [x] Implement reader with original study deadline and final freshness check; add strict `--save` CLI and ignored public evidence path. Add `pnpm testnet:deployment-snapshot`.
+- [x] Run tests/typecheck/lint/build, restore owner next-env diff, run offline artifact CLI and one bounded read-only live snapshot attempt. Live network failure is recorded, not qualification.
+- [x] Record actual inventory and remaining independent compile/immutable/source gates; commit and complete with `pnpm test`.
+- [x] Independent whole-slice review; material fixes use one RED→GREEN pass, then required gates. Keep existing branch locally.
 
 ## Self-review
 

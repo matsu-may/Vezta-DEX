@@ -3,8 +3,32 @@ import { decodeAbiParameters, encodeAbiParameters, toFunctionSelector } from "vi
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
 import { TestnetDiscoveryReader } from "./testnet-discovery";
+import { classifyTestnetRpcFailure } from "./testnet-rpc-diagnostics";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+it.each(["no-length", "understated-length", "large-declared"])("rejects and cancels oversized RPC response streams (%s)", async mode => {
+  const limit = 1048576; let emitted = 0; let cancelled = false;
+  vi.stubGlobal("fetch", async () => new Response(new ReadableStream<Uint8Array>({
+    pull(controller) { emitted += 65536; controller.enqueue(new Uint8Array(65536));
+      if (emitted === 2097152) controller.close(); },
+    cancel() { cancelled = true; },
+  }), { headers: mode === "no-length" ? {} : { "content-length": mode === "large-declared" ? "2097152" : "64" } }));
+  const failure = await createBaseSepoliaPreflightSource(`https://${mode}.example.invalid`)
+    .getCode(P.pool, 123n).then(() => null, error => error);
+  expect(classifyTestnetRpcFailure(failure)).toEqual({ kind: "response-too-large" });
+  expect(cancelled).toBe(true);
+  expect(emitted).toBeLessThanOrEqual(limit + 131072);
+});
+
+it("accepts a valid RPC response exactly at the byte ceiling", async () => {
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const request = JSON.parse(String(init.body));
+    const payload = JSON.stringify({ jsonrpc: "2.0", id: request.id, result: "0x6001" });
+    return new Response(payload + " ".repeat(1048576 - payload.length));
+  });
+  expect(await createBaseSepoliaPreflightSource("https://byte-boundary.example.invalid").getCode(P.pool, 123n)).toBe("0x6001");
+});
 
 it("pins router/quoter/manager getters and pool tick spacing to the requested block", async () => {
   const calls: Array<{ method: string; params: [{ to: string; data: string }, string] }> = [];
