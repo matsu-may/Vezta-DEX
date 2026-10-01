@@ -24,4 +24,18 @@ This repeats the pool preflight and requests a `CLASSIC` v3 quote for a public d
 
 The owner ran `pnpm testnet:preflight` on 2026-10-01 at block `47530734`: all four standard-fee USDC/WETH pools were initialized, had positive active liquidity and returned a positive 1-USDC QuoterV2 result. The outputs varied by almost ninefold across fees, so this establishes contract identity and basic quotability, **not** a usable price or safe pool selection. The hosted `pnpm testnet:quote-probe` returned HTTP 404 with `UpstreamTimeoutError` on the next run. This identifies a transient upstream routing failure, not a proved viable API route. Re-run with the bounded retry diagnostic before changing routing, trade size or pool policy. No hosted quote, faucet balance or LP API support is confirmed. The agent sandbox's public DNS lookup for `sepolia.base.org` failed, so it cannot repeat these live observations here. The pure tests cover successful qualification, absent/unquotable pools, wrong chain, stale/reorganized blocks, missing code, token/pool mismatch, and quote route/amount failures. The owner can supply only the sanitized JSON output of the two commands; do not paste RPC credentials or API keys.
 
-Only after these probes pass should a separate `/testnet` wallet route be built and exercised. It must verify account/chain, exact allowance, balance/gas, API route and router address, quote expiration, simulation, explicit wallet submission and receipt recovery. Hosted LP create/increase/decrease/collect payloads and an owner-controlled NFT require separate tests. The existing Polygon `/swap` and `/rehearsal` remain unchanged and gated.
+The owner subsequently reported `404 UpstreamTimeoutError` after **all three** attempts. Hosted routing remains unqualified. The [RPC demo decision](../superpowers/specs/2026-10-01-base-sepolia-rpc-demo.md) now selects a separate direct-v3 adapter for the testnet demo; the hosted probe is optional investigation, not a prerequisite for that adapter.
+
+## Next check: direct RPC depth
+
+With the same `BASE_SEPOLIA_RPC_URL` already configured, run from `vezta-dex/`:
+
+```bash
+pnpm testnet:depth
+```
+
+No API key or wallet is needed. This repeats contract/pool preflight, quotes 0.1/1/5 test USDC and 0.00001/0.0001/0.001 WETH for each eligible pool at the same block, then rechecks its hash. The amounts in JSON use raw token units. `priceImpactBps` compares the quote to that pool's marginal spot output after its fee, rounding up; 100 bps = 1%. `quoterGasEstimate` excludes full router/approval costs. These testnet quotes have no reliable dollar valuation.
+
+`candidateFeeTiers` lists pools for which all six samples have valid positive outputs, compatible post-swap prices and impact ≤100 bps. `depthQualified:true` is **read-only depth evidence**, not a verified wallet flow. Samples with provider/revert failures report `QUOTE_UNAVAILABLE`; impossible/boundary values report `QUOTE_INVALID`. `withinImpactLimit:false` excludes a pool. No candidate produces exit 1; a reorg or wrong identity rejects the entire study. Send the sanitized JSON result. Do not repeatedly run the hosted probe while it returns the same timeout.
+
+After live depth evidence, select one candidate and implement `/testnet` through the RPC adapter. It must verify account/chain, exact allowance, balance/gas, contract/calldata identity, quote expiration, simulation, explicit wallet submission and receipt recovery. NFT manager reads and create/increase/decrease/collect/close need separate on-chain tests with a testnet NFT. Faucet ETH and test USDC will be needed only for the later installed-wallet transaction check.

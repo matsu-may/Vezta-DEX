@@ -33,6 +33,7 @@ export class BaseSepoliaPreflightError extends Error {
 export interface BaseSepoliaPreflightResult {
   chainId: typeof C.chainId;
   blockNumber: string;
+  blockHash: `0x${string}`;
   observedAt: string;
   pools: Array<{ feeTier: number; address: Address; initialized: boolean; activeLiquidityPositive: boolean;
     quoteAvailable: boolean; oneUsdcAmountOut: string | null; gasEstimate: string | null }>;
@@ -98,7 +99,7 @@ export async function qualifyBaseSepoliaPools(source: BaseSepoliaPreflightSource
   }
   const confirmedHash = await source.getBlockHash(block.number);
   if (!sameAddress(confirmedHash, block.hash)) throw new BaseSepoliaPreflightError("BLOCK_CHANGED");
-  return { chainId: C.chainId, blockNumber: block.number.toString(),
+  return { chainId: C.chainId, blockNumber: block.number.toString(), blockHash: block.hash,
     observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
     pools, readOnlyQualified: pools.some(pool => pool.quoteAvailable) };
 }

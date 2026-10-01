@@ -1,7 +1,7 @@
 import { createPublicClient, erc20Abi, http, type Address } from "viem";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE } from "@vezta-dex/core";
-import type { BaseSepoliaPreflightSource } from "./base-sepolia-preflight";
+import type { BaseSepoliaDepthSource } from "./base-sepolia-depth";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
@@ -26,7 +26,7 @@ const quoterAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutab
   ] }], outputs: [{ type: "uint256" }, { type: "uint160" }, { type: "uint32" }, { type: "uint256" }],
 }] as const;
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaPreflightSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaDepthSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -35,6 +35,13 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaPre
   }
   const client = createPublicClient({ chain: baseSepolia,
     transport: http(rpcUrl, { timeout: 8_000, retryCount: 0 }) });
+  const quoteExactInput: BaseSepoliaDepthSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
+    const { result } = await client.simulateContract({ address: C.v3QuoterV2,
+      abi: quoterAbi, functionName: "quoteExactInputSingle",
+      args: [{ tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96: 0n }], blockNumber });
+    return { amountOut: result[0], sqrtPriceX96After: result[1],
+      initializedTicksCrossed: result[2], gasEstimate: result[3] };
+  };
   return {
     getChainId() { return client.getChainId(); },
     async getLatestBlock() {
@@ -68,11 +75,9 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string): BaseSepoliaPre
       return { token0, token1, factory, fee, liquidity, sqrtPriceX96: slot0[0] };
     },
     async quoteOneUsdc(feeTier, blockNumber) {
-      const { result } = await client.simulateContract({ address: C.v3QuoterV2,
-        abi: quoterAbi, functionName: "quoteExactInputSingle",
-        args: [{ tokenIn: C.USDC.address, tokenOut: C.WETH.address,
-          amountIn: 1_000_000n, fee: feeTier, sqrtPriceLimitX96: 0n }], blockNumber });
-      return { amountOut: result[0], gasEstimate: result[3] };
+      const result = await quoteExactInput(C.USDC.address, C.WETH.address, 1_000_000n, feeTier, blockNumber);
+      return { amountOut: result.amountOut, gasEstimate: result.gasEstimate };
     },
+    quoteExactInput,
   };
 }

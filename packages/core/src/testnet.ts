@@ -3,7 +3,7 @@ import type { Address, TokenRecord } from "./index";
 export const BASE_SEPOLIA_CHAIN_ID = 84532 as const;
 
 // Address provenance: Circle testnet USDC and Uniswap v3 Base deployments.
-// This registry is a read-only candidate until live RPC and API checks pass.
+// This registry is a read-only candidate until the selected adapter's live gates pass.
 export const BASE_SEPOLIA_CANDIDATE = {
   chainId: BASE_SEPOLIA_CHAIN_ID,
   USDC: {

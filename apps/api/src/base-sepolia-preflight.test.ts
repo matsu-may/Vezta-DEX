@@ -28,7 +28,7 @@ function source(overrides: Partial<BaseSepoliaPreflightSource> = {}): BaseSepoli
 describe("Base Sepolia read-only pool qualification", () => {
   it("binds Circle test USDC, official v3 deployments, pool and quote to one stable block", async () => {
     const result = await qualifyBaseSepoliaPools(source(), now);
-    expect(result).toMatchObject({ chainId: 84532, blockNumber: "123", readOnlyQualified: true,
+    expect(result).toMatchObject({ chainId: 84532, blockNumber: "123", blockHash: block.hash, readOnlyQualified: true,
       pools: [{ feeTier: 500, address: pool, activeLiquidityPositive: true,
         quoteAvailable: true, oneUsdcAmountOut: "400000000000000" }] });
   });

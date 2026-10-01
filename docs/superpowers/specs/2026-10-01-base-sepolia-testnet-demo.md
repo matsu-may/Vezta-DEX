@@ -24,6 +24,8 @@ Candidate tokens: Circle-issued **testnet** USDC `0x036CbD53842c5426634e7929541e
 
 ## Follow-on slices
 
+The later [RPC demo decision](2026-10-01-base-sepolia-rpc-demo.md) supersedes the hosted-API dependency in slices 2–4 below after three consecutive `UpstreamTimeoutError` responses. The token, chain and pinned-block verification rules remain applicable; direct RPC quote, calldata and LP gates replace hosted payload qualification for the testnet adapter.
+
 1. Owner runs the read-only preflight with a reachable Base Sepolia RPC. Record a pool, fee and small quote or the exact bounded failure stage.
 2. Probe Trading API `CLASSIC` route/Permit2 and hosted LP API for that pair, without signing. Choose a pool only after both sources agree with pinned chain data.
 3. Build a separate `/testnet` wallet route with explicit Base Sepolia network selection, exact approvals, signature review, simulation, one-shot submission and receipt recovery. Test rejection, expiry, wrong chain and uncertain submission.
