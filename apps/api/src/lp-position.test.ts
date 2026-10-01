@@ -8,7 +8,7 @@ const POOL = "0xA4D8c89f0c20efbe54cBa9e7e7a7E509056228D9";
 const HASH = `0x${"a".repeat(64)}`;
 const NOW = Date.UTC(2026, 9, 1, 12, 0, 0);
 
-function fixture(options: { reorg?: boolean; stale?: boolean; wrongOwner?: boolean; wrongPair?: boolean } = {}) {
+function fixture(options: { reorg?: boolean; stale?: boolean; wrongOwner?: boolean; wrongPair?: boolean; count?: bigint } = {}) {
   const reads: Array<{ method: string; blockNumber?: bigint }> = [];
   const source: LpPositionSource = {
     getChainId: async () => 137,
@@ -18,7 +18,7 @@ function fixture(options: { reorg?: boolean; stale?: boolean; wrongOwner?: boole
       return { number: 123n, timestamp: BigInt(NOW / 1000 - (options.stale ? 180 : 10)),
         hash: blockNumber && options.reorg ? `0x${"b".repeat(64)}` : HASH };
     },
-    getPositionCount: async (_owner, blockNumber) => { reads.push({ method: "count", blockNumber }); return 2n; },
+    getPositionCount: async (_owner, blockNumber) => { reads.push({ method: "count", blockNumber }); return options.count ?? 2n; },
     getPositionId: async (_owner, index, blockNumber) => { reads.push({ method: `id-${index}`, blockNumber }); return index + 10n; },
     getPositionOwner: async (_id, blockNumber) => { reads.push({ method: "owner", blockNumber }); return options.wrongOwner ? TOKENS.WETH.address : OWNER; },
     getPosition: async (id, blockNumber) => {
@@ -50,6 +50,14 @@ describe("read-only Polygon v3 LP positions", () => {
     expect(page.positions.map(item => item.tokenId)).toEqual(["10"]);
     expect(page.nextCursor).toBe("1");
     expect(page.incomplete).toBe(true);
+  });
+
+  it("returns an empty owned-NFT page without a needless pool tick RPC", async () => {
+    const { source, reads } = fixture({ count: 0n });
+    source.getPoolTick = async () => { throw new Error("pool tick unavailable"); };
+    const page = await new LpPositionReader(source, () => NOW).getPage({ owner: OWNER, cursor: 0n, limit: 5 });
+    expect(page).toMatchObject({ totalOwned: "0", positions: [], nextCursor: null, incomplete: false });
+    expect(reads.map(read => read.method)).toEqual(["block", "count", "block"]);
   });
 
   it("fails closed for stale or reorganized blocks and NFT owner mismatch", async () => {

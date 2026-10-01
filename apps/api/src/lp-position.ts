@@ -48,8 +48,8 @@ export class LpPositionReader implements PositionPageReader {
     const count = await this.chain.getPositionCount(owner, blockNumber);
     if (typeof count !== "bigint" || count < 0n || count > 1_000_000n) throw new Error("Invalid NFT count");
     const end = cursor + BigInt(limit) < count ? cursor + BigInt(limit) : count;
-    const tick = await this.chain.getPoolTick(blockNumber);
-    if (!validTick(tick)) throw new Error("Invalid pool tick");
+    const tick = end > cursor ? await this.chain.getPoolTick(blockNumber) : null;
+    if (tick !== null && !validTick(tick)) throw new Error("Invalid pool tick");
     const positions = [];
     for (let index = cursor; index < end; index++) {
       const id = await this.chain.getPositionId(owner, index, blockNumber);
@@ -66,7 +66,7 @@ export class LpPositionReader implements PositionPageReader {
         || !validUint128(position.liquidity) || !validUint128(position.tokensOwed0)
         || !validUint128(position.tokensOwed1)) throw new Error("Invalid position state");
       positions.push({ tokenId: id.toString(), tickLower: position.tickLower, tickUpper: position.tickUpper,
-        inRange: tick >= position.tickLower && tick < position.tickUpper,
+        inRange: tick !== null && tick >= position.tickLower && tick < position.tickUpper,
         liquidity: position.liquidity.toString(), currentAmounts: null, uncollectedFees: null });
     }
     const after = await this.chain.getPositionBlock({ blockNumber });

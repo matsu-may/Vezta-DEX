@@ -102,7 +102,7 @@ describe("DEX API client", () => {
       observedAt: "2026-10-01T00:00:00.000Z", totalOwned: "7", nextCursor: "5", incomplete: true, positions: [] };
     const api = createDexApi("http://127.0.0.1:3021", async (input) => {
       expect(String(input)).toContain(`/api/v1/lp/positions?chainId=137&owner=${owner}&cursor=0&limit=5`);
-      return Response.json(page);
+      return Response.json({ page });
     });
     expect(await api.getPositionPage(owner)).toEqual(page);
   });
@@ -121,10 +121,10 @@ describe("DEX API client", () => {
       { ...page, nextCursor: "0" },
       { ...page, totalOwned: "0", nextCursor: "5" },
     ]) {
-      const api = createDexApi("http://127.0.0.1:3021", async () => Response.json(altered));
+      const api = createDexApi("http://127.0.0.1:3021", async () => Response.json({ page: altered }));
       await expect(api.getPositionPage(owner)).rejects.toThrow("Invalid DEX API response");
     }
-    const pastEnd = createDexApi("http://127.0.0.1:3021", async () => Response.json({ ...page, nextCursor: null, incomplete: false }));
+    const pastEnd = createDexApi("http://127.0.0.1:3021", async () => Response.json({ page: { ...page, nextCursor: null, incomplete: false } }));
     await expect(pastEnd.getPositionPage(owner, 8)).rejects.toThrow("Invalid DEX API response");
   });
 });

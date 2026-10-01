@@ -158,7 +158,7 @@ export function createDexApi(
       if (!address.safeParse(owner).success || !Number.isSafeInteger(cursor) || cursor < 0 || cursor > 1_000_000
         || !Number.isInteger(limit) || limit < 1 || limit > 5) throw new DexApiError("Invalid LP page request", 400);
       const query = new URLSearchParams({ chainId: "137", owner, cursor: String(cursor), limit: String(limit) });
-      const body = await request(`/api/v1/lp/positions?${query}`, lpPositionPageSchema);
+      const { page: body } = await request(`/api/v1/lp/positions?${query}`, z.object({ page: lpPositionPageSchema }));
       const progresses = body.incomplete && body.nextCursor !== null && BigInt(body.nextCursor) > BigInt(cursor)
         && BigInt(body.nextCursor) <= BigInt(body.totalOwned);
       if (body.owner.toLowerCase() !== owner.toLowerCase() || BigInt(cursor) > BigInt(body.totalOwned)

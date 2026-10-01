@@ -4,11 +4,13 @@
 
 ## Position reads
 
-`GET /api/v1/lp/positions?chainId=137&owner=0x...&cursor=0&limit=5` enumerates at most five v3 Position Manager NFTs per request. It checks the actual NFT owner, filters to the fixed native-USDC/WETH 0.05% pool, reads the pool tick at the same Polygon block, and confirms that block's hash after the reads. It returns a `nextCursor` and `incomplete` flag because the wallet may own NFTs for other pools. An empty page does not prove that a wallet has no positions until all pages are read.
+`GET /api/v1/lp/positions?chainId=137&owner=0x...&cursor=0&limit=5` enumerates at most five v3 Position Manager NFTs per request. It checks the actual NFT owner, filters to the fixed native-USDC/WETH 0.05% pool, reads the pool tick at the same Polygon block when a position needs classification, and confirms that block's hash after the reads. An owner with zero NFTs no longer needs a pool-tick RPC. The endpoint returns a `nextCursor` and `incomplete` flag because the wallet may own NFTs for other pools. An empty page does not prove that a wallet has no positions until all pages are read.
 
 The response exposes NFT ID, ticks, in-range state and raw liquidity. `currentAmounts` and `uncollectedFees` are `null`: `positions(tokenId).tokensOwed*` alone does not include all fees accumulated since the last accounting update. No principal, USD TVL, APR or claimable earnings are inferred. Invalid requests return 400; stale/reorganized blocks or provider errors return a sanitized 503. No LP wallet controls were added.
 
 The standalone frontend now has a read-only `/positions` page. It accepts a public EVM owner address, requests at most five owner NFTs per page, verifies the response is bound to Polygon, that owner, the pinned v3 manager and pool, and preserves `nextCursor` even when a page contains only unrelated NFTs. It shows NFT ID, tick range, in-range state, raw liquidity and block freshness. Amounts and fees stay explicitly unavailable. The view uses the token launchpad's compact dark table cues and has empty/loading/error states; no wallet signature or LP action is exposed. Automated component and API validation pass. Browser-level visual inspection is still pending because the agent's local Chrome session could not launch in the restricted environment.
+
+The owner's first empty-wallet check showed “Data unavailable.” The frontend had expected a raw position page while the server correctly returned `{ page: ... }`; the client now parses that envelope, with a regression test using the actual response shape. Empty-wallet reads also skip the unnecessary pool-tick request. If the view still reports unavailable after the updated processes reload, inspect the direct `/api/v1/lp/positions` HTTP status: 503 means RPC/read failure, while a 200 response should render an empty owner state.
 
 ## Disposable fork preflight
 
