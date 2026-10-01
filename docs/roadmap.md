@@ -1,5 +1,7 @@
 # Vezta DEX Roadmap
 
+**Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
+
 ## Goal and boundaries
 
 Build an independent `vezta-dex/` project using existing Uniswap liquidity on Polygon. Users discover pools, swap, and manage liquidity with their own wallets. Vezta does not deploy an AMM, router, or LP token for the first release. Integrating these routes into the main Vezta frontend and backend is a separate final phase.
