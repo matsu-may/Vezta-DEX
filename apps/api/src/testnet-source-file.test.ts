@@ -24,7 +24,9 @@ function isolatedCli(payload: unknown) {
 }
 
 it("reuses a valid cache in the actual CLI without RPC, source fetch or wallet access", () => {
-  const result = isolatedCli(sourceFixture());
+  const fixture = sourceFixture(); const path = "contracts/SwapRouter02.sol";
+  Object.assign(fixture.stdJsonInput.sources[path], { keccak256: fixture.metadata.sources[path].keccak256 });
+  const result = isolatedCli(fixture);
   expect(result.status).toBe(0);
   expect(JSON.parse(result.stdout)).toMatchObject({ cached: true, evidenceSaved: true, sourceGraphValidated: true,
     snapshotAvailable: false, runtimeVerified: false, executionEnabled: false });
@@ -33,7 +35,7 @@ it("reuses a valid cache in the actual CLI without RPC, source fetch or wallet a
 it("an invalid cached null payload fails before any source fetch", () => {
   const result = isolatedCli(null);
   expect(result.status).toBe(1);
-  expect(JSON.parse(result.stdout)).toMatchObject({ code: "SOURCE_EVIDENCE_INVALID" });
+  expect(JSON.parse(result.stdout)).toMatchObject({ code: "SOURCE_EVIDENCE_INVALID", stage: "identity" });
 }, 15000);
 
 it("atomically publishes and revalidates only its selected public cache", () => {

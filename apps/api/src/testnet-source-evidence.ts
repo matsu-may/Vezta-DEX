@@ -2,11 +2,12 @@ import { createHash } from "node:crypto";
 import { keccak256, stringToHex, type Hex } from "viem";
 import { TESTNET_ARTIFACT_MANIFEST, type TestnetArtifactRole, type PinnedTestnetArtifact } from "./testnet-artifacts";
 
+type SourceValidationStage = "artifact" | "identity" | "compiler" | "target" | "source-graph" | "source-content" | "runtime" | "snapshot";
 export class TestnetSourceError extends Error {
   constructor(readonly code: "SOURCE_EVIDENCE_INVALID" | "SOURCE_SNAPSHOT_INVALID" | "SOURCE_RUNTIME_MISMATCH"
     | "SOURCE_TIMEOUT" | "SOURCE_NETWORK_UNAVAILABLE" | "SOURCE_HTTP_UNAVAILABLE" | "SOURCE_NOT_FOUND"
     | "SOURCE_RATE_LIMITED" | "SOURCE_RESPONSE_TOO_LARGE" | "SOURCE_FILE_UNAVAILABLE" | "SOURCE_INVALID_OPTION",
-    readonly httpStatus?: number) { super(code); }
+    readonly httpStatus?: number, readonly stage?: SourceValidationStage) { super(code); }
 }
 const reject = (code: TestnetSourceError["code"] = "SOURCE_EVIDENCE_INVALID"): never => { throw new TestnetSourceError(code); };
 const object = (x: unknown): Record<string, unknown> => {
@@ -56,18 +57,24 @@ function checkSnapshot(value: unknown, bundle: readonly PinnedTestnetArtifact[],
 /** Graph consistency and compiler input preparation only; no independent compiler proof. */
 export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: unknown,
   bundle: readonly PinnedTestnetArtifact[], snapshot?: unknown) {
+  let stage: SourceValidationStage = "artifact";
   try {
     const pinned = artifacts(bundle); const pin = TESTNET_ARTIFACT_MANIFEST.find(x => x.role === role);
     if (!pin) return reject();
-    const data = object(value); const metadata = object(data.metadata); const compilation = object(data.compilation);
-    const compilerVersion = object(metadata.compiler).version;
-    const targets = Object.entries(object(object(metadata.settings).compilationTarget));
+    stage = "identity";
+    const data = object(value);
     if (![84532, "84532"].includes(data.chainId as number | string) || typeof data.address !== "string"
-      || data.address.toLowerCase() !== pin.address.toLowerCase() || !["match", "exact_match"].includes(data.runtimeMatch as string)
-      || compilation.language !== "Solidity" || typeof compilerVersion !== "string"
-      || !/^0\.\d+\.\d+\+commit\.[a-f0-9]{8}$/.test(compilerVersion) || compilation.compilerVersion !== compilerVersion
-      || targets.length !== 1 || targets[0][1] !== pin.contractName
+      || data.address.toLowerCase() !== pin.address.toLowerCase() || !["match", "exact_match"].includes(data.runtimeMatch as string)) return reject();
+    stage = "compiler";
+    const metadata = object(data.metadata); const compilation = object(data.compilation);
+    const compilerVersion = object(metadata.compiler).version;
+    if (compilation.language !== "Solidity" || typeof compilerVersion !== "string"
+      || !/^0\.\d+\.\d+\+commit\.[a-f0-9]{8}$/.test(compilerVersion) || compilation.compilerVersion !== compilerVersion) return reject();
+    stage = "target";
+    const targets = Object.entries(object(object(metadata.settings).compilationTarget));
+    if (targets.length !== 1 || targets[0][1] !== pin.contractName
       || !(targets[0][0] === pin.sourceName || targets[0][0].endsWith(`/${pin.sourceName}`))) return reject();
+    stage = "source-graph";
     const target = targets[0][0]; const original = object(data.stdJsonInput);
     const sources = object(original.sources); const hashes = object(metadata.sources); const settings = object(original.settings);
     const keys = Object.keys(sources).sort();
@@ -75,14 +82,17 @@ export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: u
       || !Object.hasOwn(sources, target) || Buffer.byteLength(JSON.stringify(settings)) > 500000) return reject();
     const literal: Record<string, { content: string }> = {}; const normalizedHashes: Record<string, { keccak256: string }> = {};
     let sourceBytes = 0;
+    stage = "source-content";
     for (const path of keys) {
       if (path.length === 0 || path.length > 512 || path.includes("\0") || ["__proto__", "constructor", "prototype"].includes(path)) return reject();
       const source = object(sources[path]); const digest = object(hashes[path]).keccak256;
-      if (typeof source.content !== "string" || Object.keys(source).length !== 1) return reject();
+      if (typeof source.content !== "string" || Object.keys(source).some(key => key !== "content" && key !== "keccak256")
+        || (Object.hasOwn(source, "keccak256") && source.keccak256 !== digest)) return reject();
       sourceBytes += Buffer.byteLength(source.content);
       if (sourceBytes > 4000000 || digest !== keccak256(stringToHex(source.content))) return reject();
       literal[path] = { content: source.content }; normalizedHashes[path] = { keccak256: digest };
     }
+    stage = "runtime";
     const code = object(data.runtimeBytecode).onchainBytecode;
     if (!hex(code)) return reject();
     const input = { language: "Solidity", sources: literal, settings: { ...structuredClone(settings),
@@ -92,11 +102,15 @@ export function prepareTestnetSourceEvidence(role: TestnetArtifactRole, value: u
         settings: { compilationTarget: { [target]: pin.contractName } }, sources: normalizedHashes },
       stdJsonInput: { language: "Solidity", sources: structuredClone(literal), settings: structuredClone(settings) },
       runtimeBytecode: { onchainBytecode: code } };
+    stage = "snapshot";
     const blockNumber = snapshot === undefined ? undefined : checkSnapshot(snapshot, pinned, role, code);
     return { payload, input, summary: { status: "testnet-source-evidence-read-only", role, chainId: 84532, address: pin.address,
       compilerVersion, compilationTarget: `${target}:${pin.contractName}`, sourceCount: keys.length, sourceBytes,
       inputSha256: createHash("sha256").update(JSON.stringify(input)).digest("hex"), runtimeHash: keccak256(code),
       sourceGraphValidated: true, snapshotAvailable: snapshot !== undefined, runtimeSnapshotMatches: snapshot === undefined ? null : true,
       ...(blockNumber ? { blockNumber } : {}), independentRebuildVerified: false, runtimeVerified: false, executionEnabled: false } };
-  } catch (error) { if (error instanceof TestnetSourceError) throw error; return reject(); }
+  } catch (error) {
+    if (error instanceof TestnetSourceError) throw new TestnetSourceError(error.code, error.httpStatus, error.stage ?? stage);
+    throw new TestnetSourceError("SOURCE_EVIDENCE_INVALID", undefined, stage);
+  }
 }

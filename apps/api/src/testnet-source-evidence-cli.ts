@@ -24,6 +24,7 @@ void main().catch(error => {
   try { evidence?.discardTemporary(); } catch { /* Only bounded error codes reach stdout. */ }
   process.stdout.write(`${JSON.stringify({ status: "testnet-source-evidence-unavailable",
     code: error instanceof TestnetSourceError || error instanceof TestnetArtifactError ? error.code : "SOURCE_EVIDENCE_INVALID",
+    ...(error instanceof TestnetSourceError && error.stage ? { stage: error.stage } : {}),
     ...(error instanceof TestnetSourceError && error.httpStatus ? { httpStatus: error.httpStatus } : {}) })}\n`);
   process.exitCode = 1;
 });

@@ -17,6 +17,25 @@ it("prepares literal compiler input while preserving settings and withholding ru
   expect(prepareTestnetSourceEvidence("router", result.payload, sourceBundle).summary.inputSha256).toBe(result.summary.inputSha256);
 });
 
+it("accepts documented standard-JSON source hashes only after checking literal content and metadata", () => {
+  const fixture = sourceFixture(); const path = "contracts/SwapRouter02.sol";
+  const source = fixture.stdJsonInput.sources[path];
+  const hashedSource = { ...source, keccak256: fixture.metadata.sources[path].keccak256 };
+  const withHash = { ...fixture, stdJsonInput: { ...fixture.stdJsonInput, sources: { [path]: hashedSource } } };
+  const result = prepareTestnetSourceEvidence("router", withHash, sourceBundle);
+  expect(result.input.sources[path]).toEqual({ content: "pragma solidity =0.7.6; contract SwapRouter02 {}" });
+  expect(result.summary).toMatchObject({ sourceGraphValidated: true, independentRebuildVerified: false, runtimeVerified: false, executionEnabled: false });
+  expect(prepareTestnetSourceEvidence("router", result.payload, sourceBundle).summary.inputSha256).toBe(result.summary.inputSha256);
+  for (const keccak256 of [`0x${"00".repeat(32)}`, null, 123]) {
+    expect(() => prepareTestnetSourceEvidence("router", { ...withHash,
+      stdJsonInput: { ...withHash.stdJsonInput, sources: { [path]: { ...hashedSource, keccak256 } } } }, sourceBundle))
+      .toThrow("SOURCE_EVIDENCE_INVALID");
+  }
+  expect(() => prepareTestnetSourceEvidence("router", { ...withHash,
+    stdJsonInput: { ...withHash.stdJsonInput, sources: { [path]: { ...hashedSource, urls: ["https://example.invalid/source.sol"] } } } }, sourceBundle))
+    .toThrow("SOURCE_EVIDENCE_INVALID");
+});
+
 it("rejects wrong deployment, unverified source, compiler and target mismatch", () => {
   const mutations = [
     (x: ReturnType<typeof sourceFixture>) => { x.chainId = "137"; },
@@ -66,4 +85,30 @@ it("rejects forged snapshot inventory, code/hash flags and selected runtime mism
   for (const snapshot of cases) expect(() => prepareTestnetSourceEvidence("router", sourceFixture(), sourceBundle, snapshot)).toThrow("SOURCE_SNAPSHOT_INVALID");
   expect(() => prepareTestnetSourceEvidence("router", { ...sourceFixture(), runtimeBytecode: { onchainBytecode: "0x6002" } }, sourceBundle, snapshotFixture()))
     .toThrow("SOURCE_RUNTIME_MISMATCH");
+});
+
+const stageCases: [string, () => unknown][] = [
+  ["identity", () => null],
+  ["identity", () => ({ ...sourceFixture(), chainId: "137" })],
+  ["compiler", () => ({ ...sourceFixture(), metadata: { compiler: { version: "private upstream text" } } })],
+  ["target", () => ({ ...sourceFixture(), metadata: { ...sourceFixture().metadata,
+    settings: { compilationTarget: { "contracts/Other.sol": "Other" } } } })],
+  ["source-graph", () => ({ ...sourceFixture(), stdJsonInput: { ...sourceFixture().stdJsonInput, sources: {} } })],
+  ["source-content", () => ({ ...sourceFixture(), stdJsonInput: { ...sourceFixture().stdJsonInput,
+    sources: { "contracts/SwapRouter02.sol": { content: "private modified source" } } } })],
+  ["runtime", () => ({ ...sourceFixture(), runtimeBytecode: { onchainBytecode: "private malformed bytecode" } })],
+];
+it.each(stageCases)("reports the bounded %s rejection stage without exposing rejected data", (stage, fixture) => {
+  let error: unknown;
+  try { prepareTestnetSourceEvidence("router", fixture(), sourceBundle); } catch (caught) { error = caught; }
+  expect(error).toMatchObject({ code: "SOURCE_EVIDENCE_INVALID", stage });
+  expect(JSON.stringify(error)).not.toContain("private");
+});
+
+it("distinguishes artifact and snapshot validation failures from source-provider rejection", () => {
+  let artifactError: unknown; let snapshotError: unknown;
+  try { prepareTestnetSourceEvidence("router", sourceFixture(), []); } catch (error) { artifactError = error; }
+  try { prepareTestnetSourceEvidence("router", sourceFixture(), sourceBundle, {}); } catch (error) { snapshotError = error; }
+  expect(artifactError).toMatchObject({ code: "SOURCE_EVIDENCE_INVALID", stage: "artifact" });
+  expect(snapshotError).toMatchObject({ code: "SOURCE_SNAPSHOT_INVALID", stage: "snapshot" });
 });
