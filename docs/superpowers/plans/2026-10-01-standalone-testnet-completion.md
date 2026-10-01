@@ -23,7 +23,7 @@
 | Wallet-free `/demo` | Simulated swap/LP lifecycle | Uniswap/public-testnet execution; fixture earnings are illustrative |
 | Polygon | Live reads/unsigned probes, wallet mocks and owner-operated Anvil LP lifecycle passed | Funded mainnet swaps/LP receipts and public release |
 | Base Sepolia discovery | Owner reported qualified live depth, API/web HTTP 200, matching preview/minimum in both directions | Current executable quotes; expiry/refresh/browser smoke acceptance |
-| Testnet preparation | Pure swap builder/inspector, exact/reset planner, pinned wallet-bound quote/store and EOA state APIs; initial slice 546 Vitest +85 Node, typecheck/lint/build and independent read-only review passed. Owner forward quote and unfunded state reads passed | Reverse quote RPC failure diagnosis, artifact/runtime proof, gas/simulation and executable API/web wiring |
+| Testnet preparation | Pure swap builder/inspector, exact/reset planner, pinned wallet-bound quote/store and EOA state APIs; pacing fix verified by 562 Vitest +85 Node, typecheck/lint/build and independent review/fix. Owner unfunded state and both post-pacing quote directions passed | Artifact/runtime proof, gas/simulation and executable API/web wiring |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -46,7 +46,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
-- [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Local tests pass; owner forward quote passed. Reverse diagnostics confirmed HTTP 429 during dependency configuration reads before Quoter. Origin-shared RPC pacing is implemented; host rerun of both directions remains pending.
+- [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Reverse diagnostics confirmed HTTP 429 during dependency reads; origin-shared pacing and bounded response-body reads were added. Owner post-fix host quotes passed in both directions at blocks 47547007 and 47547012.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
   - [x] Qualify host EOA state evidence (block 47543051); insufficient input balance, no native ETH, and zero allowance reported without a read failure.

@@ -31,6 +31,30 @@
 
 ## Stage 1 — Artifact provenance before swap execution
 
+### Acquisition prerequisite, checked 2026-10-01
+
+Host wallet quotes now pass both directions. Official Base deployments still map to core `1.0.0`, periphery `1.0.0` and swap-router-contracts `1.1.0`. Use `SwapRouter02` **and QuoterV2** from the latter package: [its tagged QuoterV2 source](https://raw.githubusercontent.com/Uniswap/swap-router-contracts/v1.1.0/contracts/lens/QuoterV2.sol) exists, while the attempted periphery `v1.0.0` QuoterV2 source path returned 404. The router package's [tagged manifest](https://raw.githubusercontent.com/Uniswap/swap-router-contracts/v1.1.0/package.json) also pins its own periphery dependency at `1.3.0`; preserve that transitive dependency rather than rewriting it to the manager's release.
+
+Required verification-only package inputs:
+
+| Contract | Package/version | Expected artifact path under that package |
+|---|---|---|
+| SwapRouter02 | `@uniswap/swap-router-contracts@1.1.0` | `artifacts/contracts/SwapRouter02.sol/SwapRouter02.json` |
+| QuoterV2 | same router package | `artifacts/contracts/lens/QuoterV2.sol/QuoterV2.json` |
+| Factory/pool | `@uniswap/v3-core@1.0.0` | `artifacts/contracts/{UniswapV3Factory,UniswapV3Pool}.sol/*.json` |
+| NFT position manager | `@uniswap/v3-periphery@1.0.0` | `artifacts/contracts/NonfungiblePositionManager.sol/NonfungiblePositionManager.json` |
+
+These paths/versions are acquisition targets, not installed-artifact/runtime proof. The agent environment's bounded npm metadata request failed with `ENOTFOUND registry.npmjs.org`; these packages are absent locally. No dependency manifest or lockfile was changed from an uncompleted download. On the host with npm access, run from `vezta-dex`:
+
+```bash
+pnpm --filter @vezta-dex/api add -D --save-exact --ignore-scripts \
+  @uniswap/swap-router-contracts@1.1.0 \
+  @uniswap/v3-core@1.0.0 \
+  @uniswap/v3-periphery@1.0.0
+```
+
+Expected: exact API devDependency entries, lockfile integrity/resolution data and locally readable artifacts. Keep these verification artifacts out of browser/runtime imports. Then verify installed package paths, ABI/calldata correspondence, source/build provenance and actual deployment bytecode, including immutables/linked libraries as applicable. Installing the packages alone does not enable execution; the remaining Stage 1 gates below stay unchecked.
+
 - [ ] Resolve the exact package/release/source for the selected SwapRouter02, QuoterV2, pool and position manager. Record chain, address, package version, source revision and verification evidence; do not invent versions or equate an ABI match with runtime-bytecode proof.
 - [ ] Add only needed official artifacts with exact versions and lockfile integrity. Avoid shipping full artifacts/source into the browser bundle; expose bounded ABI definitions through the adapter boundary.
 - [ ] Compare independently decoded selectors/tuple fields and canonical calldata with the current builder for both directions, deadline and zero native value. Preserve mutation and expiry checks.
