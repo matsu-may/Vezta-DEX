@@ -28,11 +28,13 @@ On that disposable fork only, the script funds the test EOA with POL and transfe
 
 The owner's run at block `94738685` returned `verified:true` for source/fork identity, pool verification, exact local approvals, successful simulation with bounded gas, successful mint receipt, simulated/minted NFT ID match, owner/pool/liquidity match, bounded token spend, exact balance deltas and residual allowance. This qualifies the **local-fork create rehearsal only**. It does not qualify live-wallet LP writes, real market economics or `/lp/increase`, `/lp/decrease` and `/lp/claim_fees` payloads. The fork NFT disappears when Anvil stops; the hosted LP API cannot read that local token ID as an actual Polygon position.
 
-## Disposable fork lifecycle rehearsal (host run pending)
+## Disposable fork lifecycle rehearsal
 
 `node scripts/smoke-lp-fork-lifecycle.mjs` extends the same verified fork mint with **direct v3 Position Manager calls**: reset residual mint allowances, approve a second exact local cap, increase, partially and fully decrease, collect owed tokens, burn the empty NFT, then clear both residual allowances. It previews each increase/decrease output and puts a 50 bps minimum in the local calldata. The review checks owner and liquidity at each step, owed amounts after each decrease, no wallet transfer before collection, exact collection balance deltas, residual allowances, zero final allowances and the burn event. It prints bounded status only and exits with a failure code if any check fails.
 
-This is an Anvil contract-wiring check, not hosted Uniswap LP API validation or a live economic result. The fixture again moves forked pool balances. The agent's restricted upstream returned `FORK_UNAVAILABLE` at `upstream` on 2026-10-01, so the owner-host run is still required. No real wallet, funding, key or signature is needed. Later hosted `increase`, `decrease` and `claim_fees` checks still require a Polygon NFT actually controlled by the owner.
+The owner ran this on a disposable Anvil fork from Polygon block `94746016`. Fork identity and pool checks, mint, exact reapprovals, bounded increase spend, partial/full decrease, owed-token accrual, collection balance deltas, successful receipts, zero final allowances and NFT burn all returned `true`; the script exited after `fork-lifecycle-local-only` reported `verified:true`.
+
+This is an Anvil contract-wiring check, not hosted Uniswap LP API validation or a live economic result. The fixture again moves forked pool balances. No real wallet, funding, key or signature was needed. Later hosted `increase`, `decrease` and `claim_fees` checks still require a Polygon NFT actually controlled by the owner.
 
 ## Decision record
 
