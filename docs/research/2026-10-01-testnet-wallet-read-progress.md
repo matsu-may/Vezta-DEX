@@ -62,7 +62,20 @@ Confirmed HTTP 429 prompted a bounded scheduler shared by RPC origin across sour
 
 Admission happens before HTTP dispatch, so queue waiting does not consume the eight-second network timeout. The 30-second original quote lifetime and 25-/45-second study deadlines remain unchanged. No retry, identity-read skip, stale cache or fallback was added. Cost: reads take longer; simultaneous independent processes, slower providers or stricter/shared quotas can still reject or time out. Three starts/second leaves room for the existing four-pool discovery study; a slower configured rate can exceed its deadline. Local transport tests cover spacing across factories, cancellation, timeout after a long queue wait and four-pool/24-sample discovery with simulated 300-ms RPC latency. Host rerun remains the live qualification gate.
 
-Pacing verification: 559 Vitest +85 Node tests, typecheck, lint and build passed. These results verify local behavior; they do not establish that the owner's provider now accepts both quote directions.
+Initial pacing verification: 559 Vitest +85 Node tests, typecheck, lint and build passed. Independent review found one Important defect: viem's timeout ended at response headers, so stalled bodies could permanently retain both shared slots when no study signal was supplied. A regression reproduced this before the fix. The source now consumes response bodies inside viem's timed fetch function, preserving its request wrapper, HTTP status/content type and zero-retry policy. The regression passes: both stalled reads abort and a queued healthy read completes. Final verification: 562 Vitest +85 Node tests, typecheck, lint and build passed. No minor findings were deferred. These results verify local behavior; they do not establish that the owner's provider now accepts both quote directions.
+
+### Review and execution rulings
+
+- Default three starts/second, two active requests, shared by origin: suppress the observed burst while keeping discovery bounded. Cost: slower reads; stricter/shared provider quotas may still reject.
+- Keep all identity reads and existing deadlines, with no retry/cache/fallback: freshness remains authoritative. Cost: failures require a new explicit study.
+- Use a fresh gpt-6.1-sol reviewer after the initial gpt-6-astra attempt ended at its usage limit without a verdict. Cost: a different model performed the independent review; the completed review still supplied the material body-stall finding.
+- Buffer the response body inside the existing timed fetch function: preserve viem's request/error behavior while covering body I/O. Cost: an extra body buffer/Response allocation.
+- Leave live provider acceptance pending until the owner rerun. Cost: local tests cannot establish that HTTP 429 stopped.
+- Keep quota coordination process-local. Cost: other CLI/server processes or clients can exceed the shared external quota.
+- Preserve the owner's `next-env.d.ts` dev-route import. Cost: web builds regenerate that file and require restoration; this owner diff is not committed.
+- Keep funded execution, deployment authenticity, approvals, simulation and LP readiness as separate completion gates. Cost: bounded reads do not complete an executable testnet demo.
+
+The reviewed pacing range is `e29199a..a14669c`; the Important finding was fixed in one RED→GREEN pass with the full suite and required gates rerun. No second review was substituted for regression verification. The existing feature branch is retained locally under the owner's standalone-development authorization.
 
 Phase 2 still needs artifact/runtime proof, gas estimates, wallet-bound simulation/recheck, executable approval/reset receipt handling and preparation endpoints. Phases 3–6 (wallet swaps/recovery, Base Sepolia LP lifecycle, integrated desktop product, final acceptance) remain open. No need to obtain real USDC; faucet assets will be needed only for the later owner-operated testnet transaction checks.
 

@@ -32,3 +32,7 @@ The limiter is single-process; independent CLI/API processes or other applicatio
 ## Review focus
 
 Queue/abort races, release on rejection, no deadlocks or duplicate requests, origin sharing across factories, strict RPS configuration, no timeout disabling, no stale quote acceptance, registry/queue resource bounds, secret-safe failures. Confirm discovery remains bounded with default pacing and no claim that local tests prove the owner's 429 resolved.
+
+## Completion record
+
+Tasks 1 and 2 completed in `539e519` and `a14669c`. The independent review of `e29199a..a14669c` found one Important stalled-response-body timeout defect, fixed by consuming the body inside the existing timed fetch function. Its regression failed before the fix and passed afterward; queued healthy work now recovers both active slots. Final gates: 562 Vitest +85 Node tests, typecheck, lint and build passed. No minor findings were deferred. All execution/review rulings and remaining host checks are recorded in [wallet read progress](../../research/2026-10-01-testnet-wallet-read-progress.md). The owner still needs to rerun both wallet quote directions; deployed-runtime and wallet-execution gates remain open.

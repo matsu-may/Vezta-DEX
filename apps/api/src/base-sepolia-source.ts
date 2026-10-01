@@ -42,9 +42,15 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
   const pacer = baseSepoliaRpcPacers.get(url, parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS));
   const transport: Transport = options => {
     const inner = http(rpcUrl, { timeout: 8_000, retryCount: 0,
-      // viem supplies its per-request timeout signal here. fetchOptions.signal would replace it.
-      fetchFn: signal ? (input, init) => fetch(input, { ...init,
-        signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }) : undefined })(options);
+      // viem's timeout surrounds fetchFn, otherwise ending when headers arrive.
+      // Consume the body here so stalled bodies cannot retain both shared slots.
+      fetchFn: async (input, init) => {
+        const response = await fetch(input, { ...init, signal: signal
+          ? init?.signal ? AbortSignal.any([signal, init.signal]) : signal : init?.signal });
+        const body = await response.arrayBuffer();
+        return new Response([204, 205, 304].includes(response.status) ? null : body,
+          { status: response.status, statusText: response.statusText, headers: response.headers });
+      } })(options);
     // Queue before the HTTP transport starts its per-request network timeout.
     return { ...inner, request: (args, requestOptions) =>
       pacer.run(() => inner.request(args, requestOptions), signal) };

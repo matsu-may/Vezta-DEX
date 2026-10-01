@@ -7,6 +7,38 @@ import { TestnetDiscoveryReader } from "./testnet-discovery";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
+it.each([
+  { status: 429, body: '{"error":"rate limited"}', contentType: "application/json" },
+  { status: 503, body: "unavailable", contentType: "text/plain" },
+])("preserves HTTP $status errors while buffering response bodies within the timeout", async fixture => {
+  const fetchMock = vi.fn(async () => new Response(fixture.body, { status: fixture.status,
+    headers: { "Content-Type": fixture.contentType } }));
+  vi.stubGlobal("fetch", fetchMock);
+  const source = createBaseSepoliaPreflightSource(`https://pacing-http-${fixture.status}.example.invalid`);
+  await expect(source.getChainId()).rejects.toMatchObject({ name: "HttpRequestError", status: fixture.status });
+  expect(fetchMock).toHaveBeenCalledTimes(1);
+});
+
+it("aborts stalled response bodies without a study signal and releases slots for a healthy queued read", async () => {
+  vi.useFakeTimers(); const signals: AbortSignal[] = []; let calls = 0;
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls++;
+    if (calls > 2) return Response.json({ jsonrpc: "2.0", id: body.id, result: "0x6000" });
+    const signal = init.signal!; signals.push(signal);
+    return new Response(new ReadableStream({ start(controller) {
+      const abort = () => controller.error(new DOMException("aborted body", "AbortError"));
+      if (signal.aborted) abort(); else signal.addEventListener("abort", abort, { once: true });
+    } }), { headers: { "Content-Type": "application/json" } });
+  });
+  const source = createBaseSepoliaPreflightSource("https://pacing-body.example.invalid");
+  const reads = Array.from({ length: 3 }, (_, i) => source
+    .getCode(`0x${(i + 1).toString(16).padStart(40, "0")}`, 123n).catch(() => "failed"));
+  await vi.advanceTimersByTimeAsync(8500);
+  expect(signals.map(signal => signal.aborted)).toEqual([true, true]);
+  expect(calls).toBe(3);
+  expect(await Promise.all(reads)).toEqual(["failed", "failed", "0x6000"]);
+});
+
 it("shares the request start budget across source factories on the same RPC origin", async () => {
   vi.useFakeTimers(); const starts: number[] = []; const beginning = Date.now();
   vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
