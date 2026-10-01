@@ -2,6 +2,10 @@
 
 Standalone development project for Vezta's Uniswap spot trading and liquidity experience. The first chain is Polygon. Native USDC/WETH v3 pools are the read-only starting set; no pool is approved for live trading yet.
 
+## Wallet-free demo
+
+Run `pnpm install` and `pnpm --filter @vezta-dex/web dev`, then open [http://127.0.0.1:3020/demo](http://127.0.0.1:3020/demo). This page needs no wallet, USDC, API key or RPC. It starts with virtual USDC/WETH, demonstrates a simulated swap and a separate LP create → increase → decrease → collect → close lifecycle, and resets on reload. Every amount, fee and receipt on `/demo` is illustrative; it does not execute Uniswap transactions or prove testnet/mainnet readiness. See the [demo handoff](docs/research/2026-10-01-standalone-demo-handoff.md) for exact checks and remaining gates.
+
 Start with [the roadmap](docs/roadmap.md), [six-phase standalone plan](docs/superpowers/plans/2026-09-30-standalone-dex-next-phases.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [Trading API swap spec](docs/specs/2026-09-27-trading-api-swap.md). The current app implements read-only pool discovery, an indicative v3 single-pool comparison, and a wallet-bound Trading API quote preview. `apps/api` reads Polygon RPC and calls Uniswap Trading API; `apps/web` renders `/explore`, `/pools`, pool detail and `/swap`; `packages/core` holds chain-aware IDs, the curated token registry and quote validation.
 
 ## Local setup

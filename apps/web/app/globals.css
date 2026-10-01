@@ -112,3 +112,56 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
   .position-search-button { justify-content: center; }
   .rehearsal-layout .quote-details > div { align-items: flex-start; flex-direction: column; gap: 6px; }
 }
+
+/* The standalone demo follows the token-launchpad's black/lime/near-square language. */
+.demo-page { max-width: 1200px; }
+.demo-page .page-heading h1 { max-width: 950px; font-size: clamp(36px, 4.5vw, 58px); }
+.demo-links { display: flex; flex-wrap: wrap; gap: 10px 22px; margin-top: 20px; color: var(--accent); font-size: 13px; font-weight: 700; }
+.demo-links a:hover { text-decoration: underline; }
+.demo-stack { display: grid; gap: 18px; }
+.demo-banner { display: flex; align-items: center; justify-content: space-between; gap: 30px; padding: 30px; border: 1px solid #3f4c27; border-radius: 3px; background: #141b10; }
+.demo-banner h2 { margin-top: 8px; }
+.demo-banner p { max-width: 760px; margin: 9px 0 0; color: #bdc9b5; font-size: 13px; }
+.demo-reset { flex: none; border: 1px solid #697260; border-radius: 2px; background: #1a2018; color: var(--text); cursor: pointer; }
+.demo-reset:hover { border-color: var(--accent); }
+.demo-balance-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.demo-balance { display: flex; flex-direction: column; gap: 13px; min-width: 0; padding: 21px 23px; border: 1px solid #292929; border-radius: 2px; background: #111; }
+.demo-balance span { color: #8c8c8c; font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+.demo-balance strong { overflow-wrap: anywhere; font-size: 22px; }
+.demo-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.demo-card, .demo-receipt { border-radius: 2px; background: #111; }
+.demo-card { min-height: 610px; }
+.demo-card h2 { margin-top: 9px; }
+.demo-copy { min-height: 60px; margin: 10px 0 20px; color: #a6ada4; font-size: 13px; }
+.demo-card .field { border-radius: 2px; background: #0d0d0d; }
+.demo-card .form-label { margin-top: 15px; }
+.demo-card .button { border-radius: 2px; cursor: pointer; }
+.demo-card .button:disabled { opacity: .45; cursor: not-allowed; }
+.demo-action { width: 100%; justify-content: center; margin-top: 20px; border: 0; }
+.demo-preview { display: grid; gap: 12px; margin-top: 22px; padding: 18px; border: 1px solid #46572a; background: #141a11; }
+.demo-preview > div, .demo-position > div { display: flex; justify-content: space-between; align-items: start; gap: 14px; font-size: 12px; }
+.demo-preview span, .demo-position div span { color: #a3ada0; }
+.demo-preview strong, .demo-position div strong { text-align: right; overflow-wrap: anywhere; }
+.demo-empty { margin-top: 22px; padding: 19px; border: 1px dashed #414841; color: #aab4a7; font-size: 13px; }
+.demo-position { display: grid; gap: 16px; padding: 20px; border: 1px solid #3d4a31; background: #151915; }
+.demo-position > strong { font-size: 18px; }
+.demo-position > span { color: var(--accent); font-size: 12px; }
+.demo-position > div { padding-top: 12px; border-top: 1px solid #333b30; }
+.demo-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 20px; }
+.demo-actions .button { min-height: 45px; justify-content: center; border: 1px solid #3b4435; background: #1a1d18; color: #f1f4f0; font-size: 12px; }
+.demo-actions .button-primary { grid-column: 1 / -1; border-color: var(--accent); background: var(--accent); color: #101408; }
+.demo-actions .button:hover:not(:disabled) { border-color: var(--accent); }
+.demo-error { margin: 0; padding: 13px 16px; border: 1px solid #754141; background: #2b1919; }
+.demo-receipt { min-height: 145px; }
+.demo-receipt h2 { margin: 10px 0 16px; font-size: 20px; }
+.demo-receipt p { margin: 5px 0; color: #bec8ba; font-size: 12px; overflow-wrap: anywhere; }
+@media (max-width: 860px) {
+  .demo-grid { grid-template-columns: 1fr; }
+  .demo-card { min-height: 0; }
+}
+@media (max-width: 600px) {
+  .demo-banner { align-items: stretch; flex-direction: column; padding: 22px; }
+  .demo-balance-grid { grid-template-columns: 1fr; }
+  .demo-actions { grid-template-columns: 1fr; }
+  .demo-actions .button-primary { grid-column: auto; }
+}

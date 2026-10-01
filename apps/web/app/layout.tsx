@@ -19,12 +19,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <span>VEZTA <em>DEX</em></span>
             </Link>
             <nav aria-label="Main navigation" className="main-nav">
+              <Link href="/demo">Demo</Link>
               <Link href="/explore">Explore</Link>
               <Link href="/pools">Pools</Link>
               <Link href="/positions">Positions</Link>
               <Link href="/swap">Swap preview</Link>
             </nav>
-            <span className="network-pill"><span className="network-dot" /> Polygon</span>
+            <span className="network-pill"><span className="network-dot" /> Live pages: Polygon</span>
           </header>
           <main>{children}</main>
           <footer className="site-footer">
