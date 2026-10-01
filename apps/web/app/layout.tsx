@@ -26,7 +26,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
               <Link href="/positions">Positions</Link>
               <Link href="/swap">Swap preview</Link>
             </nav>
-            <span className="network-pill"><span className="network-dot" /> Live pages: Polygon</span>
+            <span className="network-pill"><span className="network-dot" /> Mainnet reads: Polygon</span>
           </header>
           <main>{children}</main>
           <footer className="site-footer">

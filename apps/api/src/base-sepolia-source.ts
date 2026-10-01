@@ -35,7 +35,9 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
   }
   const client = createPublicClient({ chain: baseSepolia,
     transport: http(rpcUrl, { timeout: 8_000, retryCount: 0,
-      fetchOptions: signal ? { signal } : undefined }) });
+      // viem supplies its per-request timeout signal here. fetchOptions.signal would replace it.
+      fetchFn: signal ? (input, init) => fetch(input, { ...init,
+        signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }) : undefined }) });
   const quoteExactInput: BaseSepoliaDepthSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",

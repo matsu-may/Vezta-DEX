@@ -31,5 +31,18 @@ Files: web testnet client/proxy/components and tests, `/testnet`, route and navi
 - [x] Write and observe failing proxy and user-flow tests.
 - [x] Implement bounded proxy, manual snapshot screen, refresh/error/expiry states and desktop styling.
 - [x] Run full tests/typecheck/lint/build; perform browser check if the runtime permits localhost (blocked by `listen EPERM` and Chrome access denial; owner check remains).
-- [ ] Run one independent final review; fix material findings through RED→GREEN tests.
-- [ ] Commit and record actual evidence plus owner checks. Leave public-testnet writes unqualified.
+- [x] Run one independent final review; fix material findings through RED→GREEN tests.
+- [x] Commit and record actual evidence plus owner checks. Leave public-testnet writes unqualified.
+
+## Verification and choices
+
+Implementation commits: `484ae42` (shared contract/API), `283f63a` (web proxy/page/browser script). Final verification: **514 Vitest + 82 Node tests**, typecheck, lint, production build and whitespace check passed. Existing React detection and Next workspace-root warnings remain. The independent reviewer found one material timeout regression: passing a study signal through `fetchOptions` replaced viem's eight-second request signal. The actual-source regression test failed first, then passed after composing both signals in `fetchFn`; another transport test proves a late request is aborted at the whole-study deadline. No other actionable findings were reported. Author handled the fix with RED→GREEN and a green full suite; no second review was dispatched.
+
+Choices made under the owner's autonomous authorization, in order:
+
+1. Expose all six quote samples without choosing a pool, so an unfunded owner can inspect live depth. If unsuitable, repeat the study before selecting a pool.
+2. Use a 45-second study cap, concurrent-request deduplication and no completed-result cache. A slow provider can report unavailable and require a better RPC.
+3. Preserve the feature branch and mark browser/live evidence pending: localhost binding failed with `listen EPERM`, browser transport was unavailable, and native Chrome access was denied. Host-only rendering or provider issues may need a follow-on fix.
+4. Keep live pool suitability, public-testnet wallet execution and receipts explicitly unverified; defer mobile polish as requested. Transaction and desktop evidence must pass before claiming demo execution readiness.
+
+No deferred minor findings. The owner should run `pnpm testnet:depth`, open `/testnet` with `pnpm dev`, and run the deterministic browser script in the [runbook](../../research/2026-10-01-base-sepolia-testnet-preflight.md). These checks need no funded wallet. Public-testnet swap and LP lifecycle remain next stages.
