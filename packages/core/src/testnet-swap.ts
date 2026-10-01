@@ -54,6 +54,14 @@ export interface TestnetSwapTransaction {
   value: "0";
 }
 
+export function parseTestnetSwapIntent(value: unknown): TestnetSwapIntent {
+  return intentSchema.parse(value);
+}
+
+export function parseTestnetSwapQuote(value: unknown, nowMs = Date.now()): TestnetSwapQuote {
+  return reviewedQuote(value, nowMs).quote;
+}
+
 function reviewedQuote(value: unknown, nowMs: number): { quote: TestnetSwapQuote; deadline: bigint } {
   if (!Number.isSafeInteger(nowMs) || nowMs < 0) throw new Error("Invalid testnet clock");
   const quote = quoteSchema.parse(value);

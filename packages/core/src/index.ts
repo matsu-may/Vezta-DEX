@@ -117,5 +117,5 @@ export * from "./transaction-receipt";
 export { BASE_SEPOLIA_CANDIDATE, BASE_SEPOLIA_CHAIN_ID } from "./testnet";
 export { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "./testnet-depth";
 export { TESTNET_SWAP_POLICY, buildTestnetSwapTransaction, inspectTestnetSwapTransaction,
-  planTestnetTokenApproval, type TestnetSwapIntent, type TestnetSwapQuote,
+  planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, type TestnetSwapIntent, type TestnetSwapQuote,
   type TestnetSwapTransaction, type TestnetApprovalPlan } from "./testnet-swap";

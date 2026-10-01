@@ -1,7 +1,7 @@
-import { createPublicClient, erc20Abi, http, type Address } from "viem";
+import { createPublicClient, erc20Abi, http, parseAbi, type Address } from "viem";
 import { baseSepolia } from "viem/chains";
-import { BASE_SEPOLIA_CANDIDATE } from "@vezta-dex/core";
-import type { BaseSepoliaDepthSource } from "./base-sepolia-depth";
+import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
+import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
@@ -26,7 +26,11 @@ const quoterAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutab
   ] }], outputs: [{ type: "uint256" }, { type: "uint160" }, { type: "uint32" }, { type: "uint256" }],
 }] as const;
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaDepthSource {
+const configurationAbi = parseAbi(["function factory() view returns (address)",
+  "function WETH9() view returns (address)", "function positionManager() view returns (address)"]);
+const spacingAbi = parseAbi(["function tickSpacing() view returns (int24)"]);
+
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -38,7 +42,7 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       // viem supplies its per-request timeout signal here. fetchOptions.signal would replace it.
       fetchFn: signal ? (input, init) => fetch(input, { ...init,
         signal: init?.signal ? AbortSignal.any([signal, init.signal]) : signal }) : undefined }) });
-  const quoteExactInput: BaseSepoliaDepthSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
+  const quoteExactInput: BaseSepoliaSwapSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",
       args: [{ tokenIn, tokenOut, amountIn, fee, sqrtPriceLimitX96: 0n }], blockNumber });
@@ -46,6 +50,25 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    getTickSpacing(address, blockNumber) {
+      return client.readContract({ address, abi: spacingAbi, functionName: "tickSpacing", blockNumber });
+    },
+    async getDependencyConfiguration(blockNumber) {
+      const periphery = async (address: Address) => {
+        const [factory, weth] = await Promise.all([
+          client.readContract({ address, abi: configurationAbi, functionName: "factory", blockNumber }),
+          client.readContract({ address, abi: configurationAbi, functionName: "WETH9", blockNumber }),
+        ]);
+        return { factory, weth };
+      };
+      const [router, positionManager, quoter, manager] = await Promise.all([
+        periphery(TESTNET_SWAP_POLICY.router),
+        client.readContract({ address: TESTNET_SWAP_POLICY.router, abi: configurationAbi,
+          functionName: "positionManager", blockNumber }),
+        periphery(C.v3QuoterV2), periphery(C.v3PositionManager),
+      ]);
+      return { router: { ...router, positionManager }, quoter, manager };
+    },
     getChainId() { return client.getChainId(); },
     async getLatestBlock() {
       const block = await client.getBlock({ blockTag: "latest" });

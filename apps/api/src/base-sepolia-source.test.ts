@@ -1,10 +1,36 @@
 import { afterEach, expect, it, vi } from "vitest";
-import { decodeAbiParameters, encodeAbiParameters } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C } from "@vezta-dex/core";
+import { decodeAbiParameters, encodeAbiParameters, toFunctionSelector } from "viem";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
 import { TestnetDiscoveryReader } from "./testnet-discovery";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+it("pins router/quoter/manager getters and pool tick spacing to the requested block", async () => {
+  const calls: Array<{ method: string; params: [{ to: string; data: string }, string] }> = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    const selector = body.params[0].data;
+    const result = selector === toFunctionSelector("tickSpacing()")
+      ? encodeAbiParameters([{ type: "int24" }], [60])
+      : encodeAbiParameters([{ type: "address" }], [selector === toFunctionSelector("factory()") ? C.v3Factory
+        : selector === toFunctionSelector("WETH9()") ? C.WETH.address : C.v3PositionManager]);
+    return Response.json({ jsonrpc: "2.0", id: body.id, result });
+  });
+  const source = createBaseSepoliaPreflightSource("https://rpc.example.invalid");
+  expect(await source.getDependencyConfiguration(123n)).toEqual({
+    router: { factory: C.v3Factory, weth: C.WETH.address, positionManager: C.v3PositionManager },
+    quoter: { factory: C.v3Factory, weth: C.WETH.address },
+    manager: { factory: C.v3Factory, weth: C.WETH.address },
+  });
+  expect(await source.getTickSpacing(P.pool, 123n)).toBe(60);
+  expect(calls).toHaveLength(8);
+  expect(calls.every(c => c.method === "eth_call" && c.params[1] === "0x7b")).toBe(true);
+  expect(calls.map(c => c.params[0].to.toLowerCase()).sort()).toEqual([
+    P.router, P.router, P.router, C.v3QuoterV2, C.v3QuoterV2,
+    C.v3PositionManager, C.v3PositionManager, P.pool,
+  ].map(a => a.toLowerCase()).sort());
+});
 
 function hungFetch(signals: AbortSignal[]) {
   return vi.fn<typeof fetch>(async (_input, init) => {
