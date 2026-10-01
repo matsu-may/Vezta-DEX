@@ -5,8 +5,9 @@ import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwap
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
+import { planTestnetGas, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
-export interface BaseSepoliaApprovalSource extends BaseSepoliaWalletSource {
+export interface BaseSepoliaApprovalSource extends BaseSepoliaWalletSource, TestnetFeeSource {
   simulateApproval(transaction: TestnetSwapTransaction, block: bigint): Promise<Hex>;
   estimateApprovalGas(transaction: TestnetSwapTransaction, block: bigint): Promise<bigint>;
   getGasPrice(): Promise<bigint>;
@@ -22,14 +23,14 @@ type Code = "TESTNET_INTENT_INVALID" | "TESTNET_QUOTE_UNAVAILABLE" | "TESTNET_AP
   | "TESTNET_APPROVAL_STALE" | "TESTNET_CONFIGURATION_INVALID" | "TESTNET_EOA_REQUIRED"
   | "TESTNET_RUNTIME_MISMATCH" | "TESTNET_STATE_INVALID" | "TESTNET_NONCE_CHANGED"
   | "TESTNET_ALLOWANCE_CHANGED" | "TESTNET_BLOCK_CHANGED" | "TESTNET_APPROVAL_SIMULATION_FAILED"
-  | "TESTNET_APPROVAL_GAS_INVALID";
+  | "TESTNET_APPROVAL_GAS_INVALID" | "TESTNET_FEE_INVALID" | "TESTNET_FEE_MODEL_UNAVAILABLE";
 export class TestnetApprovalError extends Error {
   constructor(readonly code: Code) { super(code); }
 }
 const fail = (code: Code): never => { throw new TestnetApprovalError(code); };
 const uint = (value: bigint, bits = 256) => typeof value === "bigint" && value >= 0n && value < 2n ** BigInt(bits);
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-type GasStudy = { estimatedGas: string; gasLimit: string; gasPrice: string; l2FeeCeiling: string; totalFeeQualified: false };
+type GasStudy = ReturnType<typeof completeTestnetFeeBudget>;
 type UnsignedApproval = TestnetSwapTransaction & { nonce: string; gas: string; gasPrice: string };
 
 export class TestnetApprovalReader {
@@ -51,6 +52,7 @@ export class TestnetApprovalReader {
       return await Promise.race([this.probe(this.createSource(controller.signal), request, controller.signal), timeout]);
     } catch (error) {
       if (error instanceof TestnetApprovalError) throw error;
+      if (error instanceof TestnetFeeError) return fail(error.code);
       return fail("TESTNET_RPC_UNAVAILABLE");
     } finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
@@ -95,9 +97,9 @@ export class TestnetApprovalReader {
     if (nonce !== pending) return fail("TESTNET_NONCE_CHANGED");
     const plan = planTestnetTokenApproval(i, allowance);
     const funding = { inputBalanceSufficient: input >= BigInt(i.amountIn), nativeEthPositive: eth > 0n,
-      l2BudgetCovered: null as boolean | null };
+      l2BudgetCovered: null as boolean | null, totalBudgetCovered: null as boolean | null };
     let status: "blocked" | "allowance-ready" | "unsigned-prepared" = "blocked";
-    let reason: "TESTNET_INPUT_BALANCE_LOW" | "TESTNET_NATIVE_BALANCE_LOW" | "TESTNET_L2_BUDGET_LOW" | null = null;
+    let reason: "TESTNET_INPUT_BALANCE_LOW" | "TESTNET_NATIVE_BALANCE_LOW" | "TESTNET_L2_BUDGET_LOW" | "TESTNET_TOTAL_BUDGET_LOW" | null = null;
     let gas: GasStudy | null = null; let transaction: UnsignedApproval | null = null;
     let simulation: { status: "success" } | null = null;
     if (plan.kind !== "reset" && !funding.inputBalanceSufficient) reason = "TESTNET_INPUT_BALANCE_LOW";
@@ -113,18 +115,18 @@ export class TestnetApprovalReader {
         source.estimateApprovalGas(plan.transaction, block.number), source.getGasPrice(),
       ]);
       fresh();
-      if (!uint(estimate) || estimate < 21000n || estimate > 200000n || !uint(price)
-        || price === 0n || price > 1000000000000n) return fail("TESTNET_APPROVAL_GAS_INVALID");
-      const limit = (estimate * 120n + 99n) / 100n;
-      if (limit > 250000n) return fail("TESTNET_APPROVAL_GAS_INVALID");
-      const gasPrice = price * 2n; const l2Fee = limit * gasPrice;
-      gas = { estimatedGas: estimate.toString(), gasLimit: limit.toString(), gasPrice: gasPrice.toString(),
-        l2FeeCeiling: l2Fee.toString(), totalFeeQualified: false };
-      simulation = { status: "success" }; funding.l2BudgetCovered = eth >= l2Fee;
+      let planGas;
+      try { planGas = planTestnetGas(estimate, price, "approval"); } catch { return fail("TESTNET_APPROVAL_GAS_INVALID"); }
+      const additional = await source.getAdditionalFees(plan.transaction, nonce, planGas.gasLimit, planGas.gasPrice, block.number);
+      fresh();
+      gas = completeTestnetFeeBudget(planGas, additional);
+      simulation = { status: "success" }; funding.l2BudgetCovered = eth >= BigInt(gas.l2FeeCeiling);
+      funding.totalBudgetCovered = eth >= BigInt(gas.totalFeeBudget);
       if (!funding.l2BudgetCovered) reason = "TESTNET_L2_BUDGET_LOW";
+      else if (!funding.totalBudgetCovered) reason = "TESTNET_TOTAL_BUDGET_LOW";
       else {
         status = "unsigned-prepared";
-        transaction = { ...plan.transaction, nonce: nonce.toString(), gas: limit.toString(), gasPrice: gasPrice.toString() };
+        transaction = { ...plan.transaction, nonce: nonce.toString(), gas: gas.gasLimit, gasPrice: gas.gasPrice };
       }
     }
     const [stateHash, quoteHash, finalPending, finalAllowance] = await Promise.all([

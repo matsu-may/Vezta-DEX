@@ -21,6 +21,7 @@ async function setup(reverse = false) {
     async getTokenAllowance() { return 0n; }, async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
     async simulateApproval() { return TRUE; }, async estimateApprovalGas() { return 50000n; },
     async getGasPrice() { return 10000000n; },
+    async getAdditionalFees() { return { l1FeeUpperBound: 3000000000n, operatorFeeUpperBound: 1000000000n, fork: "jovian" as const }; },
   };
   const create = vi.fn<(signal: AbortSignal) => typeof source>(() => source);
   const reader = new TestnetApprovalReader(create, quotes.store, () => now);
@@ -34,7 +35,7 @@ it.each([false, true])("builds only an exact unsigned approval after real runtim
   expect(result).toMatchObject({ status: "unsigned-prepared", approvalKind: "approve", quoteId: request.quoteId,
     chainId: 84532, accountNonce: "7", blockNumber: "123", runtimeVerified: true, executionEnabled: false,
     simulation: { status: "success" }, gas: { estimatedGas: "50000", gasLimit: "60000", gasPrice: "20000000",
-      l2FeeCeiling: "1200000000000", totalFeeQualified: false },
+      l2FeeCeiling: "1200000000000", totalFeeBudget: "1208000000000", totalFeeQualified: true },
     transaction: { from: "0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e", to: request.intent.tokenIn, value: "0", nonce: "7",
       gas: "60000", gasPrice: "20000000" } });
   expect(decodeFunctionData({ abi, data: result.transaction!.data })).toEqual({ functionName: "approve",
@@ -92,7 +93,10 @@ it("returns valid blocked studies without calldata for unfunded input/native/L2 
   expect(await reader.read(request)).toMatchObject({ status: "blocked", reason: "TESTNET_NATIVE_BALANCE_LOW", transaction: null });
   source.getNativeBalance = async () => 1n;
   expect(await reader.read(request)).toMatchObject({ status: "blocked", reason: "TESTNET_L2_BUDGET_LOW",
-    transaction: null, gas: { totalFeeQualified: false }, executionEnabled: false });
+    transaction: null, gas: { totalFeeQualified: true }, executionEnabled: false });
+  source.getNativeBalance = async () => 1200000000000n;
+  expect(await reader.read(request)).toMatchObject({ status: "blocked", reason: "TESTNET_TOTAL_BUDGET_LOW",
+    transaction: null, funding: { l2BudgetCovered: true, totalBudgetCovered: false } });
 });
 
 it("rejects malformed, forged, expired and misbound requests before creating an RPC source", async () => {

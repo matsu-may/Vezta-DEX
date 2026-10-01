@@ -9,7 +9,8 @@ it("reports both unfunded approval studies without wallet/calldata/provider secr
     async getNativeBalance() { return 0n; }, async getTokenAllowance() { return 0n; },
     async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
     async simulateApproval() { throw new Error("must not simulate"); },
-    async estimateApprovalGas() { throw new Error("must not estimate"); }, async getGasPrice() { return 1n; } };
+    async estimateApprovalGas() { throw new Error("must not estimate"); }, async getGasPrice() { return 1n; },
+    async getAdditionalFees() { throw new Error("must not read fees"); } };
   const create = vi.fn(() => {
     const quotes = new TestnetSwapQuoteReader(() => source, undefined, () => TESTNET_NOW);
     return { quotes, approvals: new TestnetApprovalReader(() => source, quotes.store, () => TESTNET_NOW) };

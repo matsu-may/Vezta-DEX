@@ -110,6 +110,37 @@ it("simulates/estimates only the internally built approval at the pinned block w
   }
 });
 
+it("reads every fee-oracle component at the pinned block and never assumes unsupported/failed operator fees are zero", async () => {
+  const calls: Array<{ method: string; params: [{ to: string; data: `0x${string}` }, string] }> = [];
+  let supported = true; let operatorFails = false;
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    const selector = body.params[0]?.data?.slice(0, 10);
+    if (operatorFails && selector === toFunctionSelector("getOperatorFee(uint256)"))
+      return Response.json({ jsonrpc: "2.0", id: body.id, error: { code: -32000, message: "private-provider-message" } });
+    const result = body.method === "eth_getCode" ? "0x6000"
+      : selector === toFunctionSelector("isFjord()") || selector === toFunctionSelector("isJovian()")
+        ? encodeAbiParameters([{ type: "bool" }], [supported])
+        : encodeAbiParameters([{ type: "uint256" }], [selector === toFunctionSelector("getOperatorFee(uint256)") ? 0n : 3000000000n]);
+    return Response.json({ jsonrpc: "2.0", id: body.id, result });
+  });
+  const source = createBaseSepoliaPreflightSource("https://fee-wire.example.invalid");
+  const { planTestnetTokenApproval } = await import("@vezta-dex/core");
+  const plan = planTestnetTokenApproval({ chainId: 84532, wallet: "0x1111111111111111111111111111111111111111",
+    tokenIn: C.USDC.address, tokenOut: C.WETH.address, amountIn: "1000000", slippageBps: 50 }, 0n);
+  if (plan.kind === "ready") throw new Error("unexpected test fixture");
+  expect(await source.getAdditionalFees(plan.transaction, 7n, 60000n, 20000000n, 123n))
+    .toEqual({ l1FeeUpperBound: 3000000000n, operatorFeeUpperBound: 0n, fork: "jovian" });
+  expect(calls.every(c => c.params[1] === "0x7b")).toBe(true);
+  const l1 = calls.find(c => c.params[0]?.data?.startsWith(toFunctionSelector("getL1FeeUpperBound(uint256)")))!;
+  // RLP: nonce1 + price5 + gas3 + to21 + value1 + data70 + chain4 + r1 + s1 + list2 = 109 bytes.
+  expect(decodeAbiParameters([{ type: "uint256" }], `0x${l1.params[0].data.slice(10)}`)[0]).toBe(109n);
+  supported = false;
+  await expect(source.getAdditionalFees(plan.transaction, 7n, 60000n, 20000000n, 123n)).rejects.toThrow();
+  supported = true; operatorFails = true;
+  await expect(source.getAdditionalFees(plan.transaction, 7n, 60000n, 20000000n, 123n)).rejects.toThrow();
+});
+
 it("preserves the eight-second RPC timeout while a study signal is supplied", async () => {
   vi.useFakeTimers();
   const signals: AbortSignal[] = [];

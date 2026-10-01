@@ -22,7 +22,8 @@ describe("testnet read routing", () => {
       async getNativeBalance() { return 0n; }, async getTokenAllowance() { return 0n; },
       async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
       async simulateApproval() { throw new Error("must not simulate"); },
-      async estimateApprovalGas() { throw new Error("must not estimate"); }, async getGasPrice() { return 1n; } };
+      async estimateApprovalGas() { throw new Error("must not estimate"); }, async getGasPrice() { return 1n; },
+      async getAdditionalFees() { throw new Error("must not read fees"); } };
     const create = vi.fn(() => source);
     const approvals = new TestnetApprovalReader(create, quoteReader.store, () => TESTNET_NOW);
     const req = (value: unknown, suffix = "") => new Request(`http://local/api/v1/testnet/base-sepolia/approval${suffix}`, {

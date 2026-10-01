@@ -1,9 +1,10 @@
-import { createPublicClient, erc20Abi, http, parseAbi, type Address, type Transport } from "viem";
+import { createPublicClient, erc20Abi, http, parseAbi, size, type Address, type Transport } from "viem";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
+import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
 import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
 const C = BASE_SEPOLIA_CANDIDATE;
@@ -32,6 +33,9 @@ const quoterAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutab
 const configurationAbi = parseAbi(["function factory() view returns (address)",
   "function WETH9() view returns (address)", "function positionManager() view returns (address)"]);
 const spacingAbi = parseAbi(["function tickSpacing() view returns (int24)"]);
+const feeOracleAbi = parseAbi(["function isFjord() view returns (bool)", "function isJovian() view returns (bool)",
+  "function getL1FeeUpperBound(uint256 unsignedSize) view returns (uint256)",
+  "function getOperatorFee(uint256 gasUsed) view returns (uint256)"]);
 
 // Bound bytes before JSON decoding, including chunked or incorrectly declared bodies.
 const RPC_RESPONSE_BYTE_LIMIT = 1048576;
@@ -95,6 +99,23 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    async getAdditionalFees(transaction, nonce, gas, gasPrice, blockNumber) {
+      const serialized = serializeTestnetFeeEnvelope(transaction, nonce, gas, gasPrice);
+      const [code, fjord, jovian] = await Promise.all([
+        client.getCode({ address: TESTNET_FEE_ORACLE, blockNumber }),
+        client.readContract({ address: TESTNET_FEE_ORACLE, abi: feeOracleAbi, functionName: "isFjord", blockNumber }),
+        client.readContract({ address: TESTNET_FEE_ORACLE, abi: feeOracleAbi, functionName: "isJovian", blockNumber }),
+      ]);
+      if (!code || !/^0x(?:[0-9a-fA-F]{2})+$/.test(code) || !fjord || !jovian) {
+        throw new TestnetFeeError("TESTNET_FEE_MODEL_UNAVAILABLE");
+      }
+      const [l1FeeUpperBound, operatorFeeUpperBound] = await Promise.all([
+        client.readContract({ address: TESTNET_FEE_ORACLE, abi: feeOracleAbi, functionName: "getL1FeeUpperBound",
+          args: [BigInt(size(serialized))], blockNumber }),
+        client.readContract({ address: TESTNET_FEE_ORACLE, abi: feeOracleAbi, functionName: "getOperatorFee", args: [gas], blockNumber }),
+      ]);
+      return { l1FeeUpperBound, operatorFeeUpperBound, fork: "jovian" as const };
+    },
     async simulateApproval(transaction, blockNumber) {
       const result = await client.call({ account: transaction.from, to: transaction.to,
         data: transaction.data, value: 0n, blockNumber });

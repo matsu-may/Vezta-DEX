@@ -16,6 +16,7 @@
     "testnet:wallet-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-quote-cli.ts",
     "testnet:wallet-state": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-wallet-state-cli.ts",
     "testnet:approval": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-approval-cli.ts",
+    "testnet:fees": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-fees-cli.ts",
     "testnet:artifacts": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-artifacts-cli.ts",
     "testnet:deployment-snapshot": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-deployment-snapshot-cli.ts",
     "testnet:source-evidence": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-source-evidence-cli.ts",
