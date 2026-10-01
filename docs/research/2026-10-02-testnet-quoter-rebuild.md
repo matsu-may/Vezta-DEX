@@ -29,6 +29,8 @@ Settings match the [router proof](2026-10-02-testnet-router-rebuild.md): optimiz
 
 ## Next owner action
 
+**Completed follow-up:** factory source import and independent runtime rebuild passed. See [factory proof and the current pool/manager downloads](2026-10-02-testnet-factory-rebuild.md). The factory handoff below is historical; do not repeat that download.
+
 Factory source acquisition returned `SOURCE_NETWORK_UNAVAILABLE` in the agent environment. From `vezta-dex`, use the owner's working network:
 
 ```bash

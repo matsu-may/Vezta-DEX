@@ -11,7 +11,7 @@ const sha = (bytes: string | Buffer) => createHash("sha256").update(bytes).diges
 let role: TestnetSwapDependencyRole = "router";
 try {
   const args = process.argv.slice(2);
-  if (args.length === 2 && args[0] === "--role" && (args[1] === "router" || args[1] === "quoter")) role = args[1];
+  if (args.length === 2 && args[0] === "--role" && (args[1] === "router" || args[1] === "quoter" || args[1] === "factory")) role = args[1];
   else if (args.length !== 0) throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
   const file = new TestnetSourceEvidenceFile(new URL("../../../.local-evidence/", import.meta.url), role);
   const source = file.read(); const snapshot = file.readSnapshot(); const bundle = loadPinnedTestnetArtifacts();

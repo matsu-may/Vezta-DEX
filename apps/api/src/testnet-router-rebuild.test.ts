@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import { keccak256 } from "viem";
 import { verifyTestnetRouterRebuild, assertTestnetRouterCompiler, verifyTestnetSwapDependencyRebuild } from "./testnet-router-rebuild";
 import { sourceBundle } from "./testnet-source.test-helper";
-import { routerRebuildFixture, quoterRebuildFixture } from "./testnet-router-rebuild.test-helper";
+import { routerRebuildFixture, quoterRebuildFixture, factoryRebuildFixture } from "./testnet-router-rebuild.test-helper";
 const version = "0.7.6+commit.7338295f.Emscripten.clang";
 const compilerHash = "b94e69dfb056b3e26080f805ab43b668afbc0ac70bf124bfb7391ecfc0172ad2";
 
@@ -88,4 +88,37 @@ it("rejects changed quoter runtime bytes, settings, metadata and immutable addre
     const f = quoterRebuildFixture(); mutate(f);
     expect(() => verifyTestnetSwapDependencyRebuild("quoter", f.value, f.snapshot, f.output, version, sourceBundle)).toThrow("REBUILD_OUTPUT_INVALID");
   }
+});
+
+it("verifies the factory's complete runtime with NoDelegateCall bound to its own address", () => {
+  const f = factoryRebuildFixture(); const before = structuredClone(f);
+  const result = verifyTestnetSwapDependencyRebuild("factory", f.value, f.snapshot, f.output, version, sourceBundle);
+  expect(result).toMatchObject({ status: "testnet-factory-rebuild-verified", role: "factory", immutableVariableCount: 1,
+    immutableReferenceCount: 1, independentRuntimeMatch: true, independentRebuildVerified: true,
+    independentCreationMatch: false, runtimeVerified: false, executionEnabled: false });
+  expect(result.configuration).toEqual({ factoryV3: "0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24" });
+  expect(f).toEqual(before);
+});
+
+it("rejects factory compiler output with altered bytes, settings, source hashes or unexpected immutables", () => {
+  const mutations: Array<(f: ReturnType<typeof factoryRebuildFixture>) => void> = [
+    f => { f.contract.evm.deployedBytecode.object = f.contract.evm.deployedBytecode.object.slice(0, -2) + "02"; },
+    f => { f.metadata.settings.optimizer.runs = 1000000; f.contract.metadata = JSON.stringify(f.metadata); },
+    f => { f.metadata.sources["contracts/UniswapV3Factory.sol"].keccak256 = `0x${"00".repeat(32)}`; f.contract.metadata = JSON.stringify(f.metadata); },
+    f => { Object.assign(f.contract.evm.deployedBytecode.immutableReferences, { "1": [{ start: 0, length: 32 }] }); },
+    f => { f.value.runtimeBytecode.onchainBytecode = f.value.runtimeBytecode.onchainBytecode.replace("4752ba5d", "4752ba5e");
+      const row = f.snapshot.contracts.find(x => x.role === "factory")!; row.runtimeBytecode = f.value.runtimeBytecode.onchainBytecode;
+      row.runtimeHash = keccak256(row.runtimeBytecode as `0x${string}`); },
+  ];
+  for (const mutate of mutations) {
+    const f = factoryRebuildFixture(); mutate(f);
+    expect(() => verifyTestnetSwapDependencyRebuild("factory", f.value, f.snapshot, f.output, version, sourceBundle)).toThrow("REBUILD_OUTPUT_INVALID");
+  }
+});
+
+it("requires the factory's observed 800-run settings and rejects a different role's evidence", () => {
+  const f = factoryRebuildFixture(); f.value.stdJsonInput.settings.optimizer.runs = 1000000;
+  expect(() => verifyTestnetSwapDependencyRebuild("factory", f.value, f.snapshot, f.output, version, sourceBundle)).toThrow("REBUILD_SETTINGS_INVALID");
+  const q = quoterRebuildFixture();
+  expect(() => verifyTestnetSwapDependencyRebuild("factory", q.value, q.snapshot, q.output, version, sourceBundle)).toThrow("SOURCE_EVIDENCE_INVALID");
 });

@@ -1,6 +1,6 @@
 # Testnet source evidence progress and host checks
 
-**Latest update, 2026-10-02:** router and QuoterV2 source/independent runtime rebuilds both passed at the historical snapshot. Router uses 63 sources /24,497 runtime bytes /4 immutable declarations across 23 references; QuoterV2 uses 21 sources /8,273 runtime bytes /2 declarations across 4 references. Rebuilt summaries are role-scoped; overall runtime/execution flags stay false. Factory lookup failed in the agent environment; see [QuoterV2 proof and the next factory-source action](2026-10-02-testnet-quoter-rebuild.md). Factory/pool/manager, creation-bytecode and fresh execution gates remain open. Earlier notes below are historical.
+**Latest update, 2026-10-02:** router, QuoterV2 and factory independent runtime rebuilds passed at historical block 47551649. Factory adds 33 sources, optimizer 800, 24,535 runtime bytes and one `NoDelegateCall.original` immutable bound to the factory itself. Router/quoter regression fingerprints are unchanged. Pool and manager lookups failed in the agent environment; see [factory proof and both next source downloads](2026-10-02-testnet-factory-rebuild.md). Pool/manager, creation-bytecode and fresh execution gates remain open; overall runtime/execution flags stay false and Phase 2 remains incomplete. Earlier notes below are historical.
 
 ## Latest host evidence and compatibility fix
 

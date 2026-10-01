@@ -8,6 +8,8 @@
 
 **Stage 1 follow-up:** QuoterV2 acquisition and independent rebuild also passed (21 sources, 8,273 bytes, four immutable slots). Router regression compilation preserves its original fingerprints. Factory source acquisition is next; factory/pool/manager and fresh qualification remain open. See [QuoterV2 progress](../../research/2026-10-02-testnet-quoter-rebuild.md).
 
+**Current Stage 1 follow-up:** factory acquisition and independent rebuild passed (33 sources, optimizer 800, 24,535 runtime bytes, one self-address immutable); router/quoter regression fingerprints remain unchanged. Pool/manager downloads need the owner's network. See [factory proof and both source actions](../../research/2026-10-02-testnet-factory-rebuild.md). Fresh qualification and demo execution remain open.
+
 **Goal:** Complete the standalone Base Sepolia demo using official Uniswap dependencies where they reduce maintenance, while preserving independently validated transaction policy.
 
 **Architecture:** Retain `apps/web`, `apps/api` and `packages/core`. Use deployed Uniswap contracts, server-side RPC reads and wallet-owned signatures. Keep each adapter's chain, router version, approval spender, quote and receipt rules explicit.

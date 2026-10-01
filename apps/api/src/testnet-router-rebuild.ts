@@ -27,20 +27,26 @@ export function assertTestnetRouterCompiler(version: unknown, hash: unknown): vo
     throw new TestnetRebuildError("REBUILD_COMPILER_INVALID");
 }
 
-export type TestnetSwapDependencyRole = "router" | "quoter";
+export type TestnetSwapDependencyRole = "router" | "quoter" | "factory";
 function policy(role: TestnetSwapDependencyRole) {
-  if (role !== "router" && role !== "quoter") throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
+  if (role !== "router" && role !== "quoter" && role !== "factory") throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
+  if (role === "factory") return {
+    target: "contracts/UniswapV3Factory.sol", name: "UniswapV3Factory", optimizerRuns: 800,
+    // NoDelegateCall stores address(this), independently bound to the curated factory deployment.
+    immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": C.v3Factory } as Record<string, string>,
+    configuration: { factoryV3: C.v3Factory },
+  };
   const periphery = "@uniswap/v3-periphery/contracts/base/PeripheryImmutableState.sol:PeripheryImmutableState";
   const common = { [`${periphery}:factory`]: C.v3Factory, [`${periphery}:WETH9`]: C.WETH.address };
   const configuration = { factoryV3: C.v3Factory, weth: C.WETH.address };
   // Observed zero factoryV2 is an explicit router-only v3 constraint; never applied to QuoterV2.
   const factoryV2 = "0x0000000000000000000000000000000000000000";
   return role === "router" ? {
-    target: "contracts/SwapRouter02.sol", name: "SwapRouter02",
+    target: "contracts/SwapRouter02.sol", name: "SwapRouter02", optimizerRuns: 1000000,
     immutables: { ...common, "contracts/base/ImmutableState.sol:ImmutableState:factoryV2": factoryV2,
       "contracts/base/ImmutableState.sol:ImmutableState:positionManager": C.v3PositionManager } as Record<string, string>,
     configuration: { ...configuration, factoryV2, positionManager: C.v3PositionManager },
-  } : { target: "contracts/lens/QuoterV2.sol", name: "QuoterV2", immutables: common as Record<string, string>, configuration };
+  } : { target: "contracts/lens/QuoterV2.sol", name: "QuoterV2", optimizerRuns: 1000000, immutables: common as Record<string, string>, configuration };
 }
 
 export function prepareTestnetRouterRebuild(value: unknown, snapshot: unknown, bundle: readonly PinnedTestnetArtifact[]) {
@@ -53,7 +59,7 @@ export function prepareTestnetSwapDependencyRebuild(role: TestnetSwapDependencyR
   if (snapshot === undefined) throw new TestnetRebuildError("REBUILD_SNAPSHOT_REQUIRED");
   const prepared = prepareTestnetSourceEvidence(role, value, bundle, snapshot);
   const settings = Object.fromEntries(Object.entries(prepared.input.settings).filter(([key]) => key !== "outputSelection"));
-  const expected = { optimizer: { enabled: true, runs: 1000000 }, evmVersion: "istanbul",
+  const expected = { optimizer: { enabled: true, runs: selected.optimizerRuns }, evmVersion: "istanbul",
     metadata: { bytecodeHash: "none" }, libraries: {}, remappings: [] };
   if (prepared.summary.compilerVersion !== "0.7.6+commit.7338295f"
     || prepared.summary.compilationTarget !== `${selected.target}:${selected.name}` || canonical(settings) !== canonical(expected))

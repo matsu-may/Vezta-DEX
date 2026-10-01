@@ -3,17 +3,17 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 import { afterEach, expect, it } from "vitest";
-import { routerRebuildFixture, quoterRebuildFixture } from "./testnet-router-rebuild.test-helper";
+import { routerRebuildFixture, quoterRebuildFixture, factoryRebuildFixture } from "./testnet-router-rebuild.test-helper";
 const owned: string[] = [];
 afterEach(() => { for (const path of owned.splice(0)) rmSync(path, { recursive: true, force: true }); });
-function cli(snapshotPresent = true, args: string[] = [], role: "router" | "quoter" = "router") {
+function cli(snapshotPresent = true, args: string[] = [], role: "router" | "quoter" | "factory" = "router") {
   const root = mkdtempSync(join(tmpdir(), "dex-router-rebuild-cli-")); owned.push(root);
   const api = join(root, "apps/api"); const src = join(api, "src"); mkdirSync(src, { recursive: true });
   for (const name of ["testnet-router-rebuild-cli.ts", "testnet-router-rebuild.ts", "testnet-compiler-runner.ts", "testnet-source-evidence.ts", "testnet-source-file.ts", "testnet-artifacts.ts"])
     copyFileSync(new URL(name, import.meta.url), join(src, name));
   writeFileSync(join(api, "package.json"), '{"type":"module"}'); symlinkSync(new URL("../node_modules", import.meta.url), join(api, "node_modules"));
   const evidence = join(root, ".local-evidence"); mkdirSync(evidence);
-  const fixture = role === "router" ? routerRebuildFixture() : quoterRebuildFixture();
+  const fixture = role === "router" ? routerRebuildFixture() : role === "quoter" ? quoterRebuildFixture() : factoryRebuildFixture();
   const bytes = JSON.stringify({ version: 1, role, payload: fixture.value });
   writeFileSync(join(evidence, `base-sepolia-source-${role}.json`), bytes);
   if (snapshotPresent) writeFileSync(join(evidence, "base-sepolia-deployment.json"), JSON.stringify(fixture.snapshot));
@@ -54,4 +54,12 @@ it.each([["--role", "pool"], ["--role"], ["--role", "router", "--role", "quoter"
   const result = cli(false, args);
   expect(result.status).toBe(1);
   expect(JSON.parse(result.stdout)).toMatchObject({ code: "REBUILD_INVALID_OPTION" });
+}, 15000);
+
+it("selects only the factory cache and settings before checking the isolated compiler", () => {
+  const result = cli(true, ["--role", "factory"], "factory");
+  expect(result.status).toBe(1);
+  expect(JSON.parse(result.stdout)).toMatchObject({ status: "testnet-factory-rebuild-unavailable", code: "REBUILD_COMPILE_UNAVAILABLE" });
+  expect(readFileSync(join(result.evidence, "base-sepolia-source-factory.json"), "utf8")).toBe(result.bytes);
+  expect(readdirSync(result.evidence).sort()).toEqual(["base-sepolia-deployment.json", "base-sepolia-source-factory.json"]);
 }, 15000);

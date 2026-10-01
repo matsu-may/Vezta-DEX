@@ -26,6 +26,7 @@
 | Testnet preparation | Pure swap builder/inspector, exact/reset planner, pinned wallet-bound quote/store and EOA state APIs; pacing fix verified by 562 Vitest +85 Node, typecheck/lint/build and independent review/fix. Owner unfunded state and both post-pacing quote directions passed | Artifact/runtime proof, gas/simulation and executable API/web wiring |
 | Router rebuild (2026-10-02) | Exact Solidity 0.7.6 binary hash and 63-source reconstruction independently reproduce all 24,497 historical runtime bytes, including four AST-bound immutables /23 slots | Creation-bytecode proof, other dependency rebuilds, fresh live qualification and execution |
 | QuoterV2 rebuild (2026-10-02) | 21 hash-checked sources independently reproduce all 8,273 historical runtime bytes, including two AST-bound immutables /4 slots | Factory/pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
+| Factory rebuild (2026-10-02) | 33 hash-checked sources, optimizer 800 and one self-address immutable independently reproduce all 24,535 historical runtime bytes | Pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -140,3 +141,4 @@ Prepare pinned artifacts, deployment probes, quote/state/preparation logic, cont
 - [Release gaps](../../research/2026-10-01-roadmap-gap-review.md) and [standalone release inventory](../../research/2026-09-30-standalone-release-review.md); distinguish mainnet/public gates from local demo requirements.
 - [Historical router rebuild and next QuoterV2 source action](../../research/2026-10-02-testnet-router-rebuild.md).
 - [Historical QuoterV2 rebuild and current factory-source action](../../research/2026-10-02-testnet-quoter-rebuild.md).
+- [Historical factory rebuild and current pool/manager source actions](../../research/2026-10-02-testnet-factory-rebuild.md).

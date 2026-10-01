@@ -19,7 +19,8 @@
     "testnet:deployment-snapshot": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-deployment-snapshot-cli.ts",
     "testnet:source-evidence": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-source-evidence-cli.ts",
     "testnet:router-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts",
-    "testnet:quoter-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role quoter"
+    "testnet:quoter-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role quoter",
+    "testnet:factory-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role factory"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
