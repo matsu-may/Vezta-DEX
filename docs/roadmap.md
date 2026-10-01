@@ -42,6 +42,8 @@ The [roadmap gap review](research/2026-10-01-roadmap-gap-review.md) separates lo
 
 ## Implementation rhythm with Superpowers
 
+**Accepted dependency/adapter follow-up, 2026-10-01:** the owner accepted reuse of deployed Uniswap contracts with pinned official artifacts and selective SDKs. The [follow-up plan](superpowers/plans/2026-10-01-uniswap-dependency-and-adapter-strategy.md) sequences artifact/deployment verification, completion of the bounded testnet swap, SDK-assisted v3 LP and later Universal Router/API expansion review. Keep viem and the separate SwapRouter02 policy for the current single-pool demo; prefer v3 SDK position math when LP work begins. Source checkout is optional for verification, and Smart Order Router is deferred until routing needs justify it. This is queued preparation, not a dependency install, router migration or completed wallet gate.
+
 Keep this roadmap stable at the milestone level. For each milestone, review a focused design/spec, write an implementation plan with small verifiable tasks, implement one slice at a time, and verify actual commands and wallet behavior before calling it complete. Record discoveries that change scope in the relevant spec; do not silently broaden a slice. The first plan follows review of the [foundation and discovery spec](specs/2026-09-27-foundation-and-pool-discovery.md).
 
 Use Vezta's `dex-threat-model` before new signing or data boundaries, `dex-chain-data` for chain/pool identity, `dex-swap-flow` for milestone 2, and `dex-lp-position` for milestone 3. Foundry and Slither become relevant only if Vezta later maintains its own Solidity.

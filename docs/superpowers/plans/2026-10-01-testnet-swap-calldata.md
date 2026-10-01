@@ -35,4 +35,6 @@ Files: this plan, the RPC demo spec, architecture/roadmap and testnet runbook.
 
 ## Verification and review
 
+Next: follow the [accepted dependency and adapter strategy](2026-10-01-uniswap-dependency-and-adapter-strategy.md) for artifact/deployment provenance, wallet-bound preparation, SDK-assisted LP and later router expansion. This completed foundation remains the compatibility baseline; the follow-up has not been implemented.
+
 Observed RED before implementation; six focused tests and the full suite passed (522 Vitest, 85 Node). Typecheck, lint and build passed. Independent read-only review found no Critical or Important issue. Optional named mutation tests for `amountIn` and alternate multicall overloads are deferred; canonical calldata comparison already rejects them. This validates the pure foundation only. Source mapping is not deployed-bytecode proof; authentic pinned quotes, full consumption, live wallet state, reset receipt/reread, simulation, signing/recovery and receipt/LP checks remain mandatory before execution. The owner's existing next-env.d.ts change is preserved.
