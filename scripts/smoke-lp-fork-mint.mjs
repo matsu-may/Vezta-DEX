@@ -57,7 +57,7 @@ async function localSend(client, origin, tx) {
 }
 
 export async function rehearseLpForkMint({ client, localOrigin, sourceBlock, apiKey, fetcher = fetch,
-  now = Date.now, write = line => process.stdout.write(line + "\n") }) {
+  now = Date.now, write = line => process.stdout.write(line + "\n"), onMinted }) {
   let stage = "origin";
   try {
     assertLocalForkOrigin(localOrigin);
@@ -143,7 +143,10 @@ export async function rehearseLpForkMint({ client, localOrigin, sourceBlock, api
       && residual.WETH === plan.desired.WETH - amount1;
     const verified = resultChecks.verified && allowanceResidualMatches;
     write(JSON.stringify({ status: "fork-mint-local-only", checks: { ...resultChecks, allowanceResidualMatches }, verified }));
-    return verified;
+    if (!verified || !onMinted) return verified;
+    stage = "post-mint";
+    return await onMinted({ client, localOrigin, wallet: WALLET, tokenId: minted[0],
+      mintedLiquidity: liquidity, desired: plan.desired });
   } catch {
     write(JSON.stringify({ stage, errorKind: "FORK_MINT_UNAVAILABLE" }));
     return false;

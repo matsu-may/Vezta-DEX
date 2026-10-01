@@ -12,7 +12,7 @@
 
 - Polygon 137, native USDC/WETH, EOA-only local rehearsal, exact ERC20 allowance, Uniswap V2/V3/V4 without hooks for swaps; public `/swap` remains read-only until its release gate passes.
 - No main Vezta integration, deployment, agent wallet signature, broadcast, funding, or guessed economic results.
-- If UI changes, use the independent `vezta-tokenlaunchpad` frontend as the reference: black canvas, `#D4FF2B` accent, near-square controls, Space Grotesk/JetBrains Mono, responsive wallet states. Validate desktop and mobile before claiming visual parity.
+- If UI changes, use the independent `vezta-tokenlaunchpad` frontend as the reference: black canvas, `#D4FF2B` accent, near-square controls, Space Grotesk/JetBrains Mono. Validate desktop now; defer mobile visual acceptance until the complete standalone product is ready.
 - Treat RPC timeout, stale block, wrong chain, quote expiry, changed allowance, pending nonce, indexer lag, and receipt reorg as fail-closed cases.
 
 ## Phase 1 — RPC reliability and diagnosis
@@ -57,16 +57,20 @@
 - [x] Owner host verified the read-only Anvil preflight at block `94738219`: same Polygon chain, Anvil client, exact source block number/hash, fresh source and independently verified v3 pool all passed. This is separate from approval/mint simulation.
 - [x] Implement a disposable local-fork mint harness behind the verified preflight: fixed 1-USDC unsigned create, 0.001-WETH local fixture cap, zero starting balances/allowances, exact local approvals, gas/simulation, receipt/NFT/balance/allowance review. Unit tests pass; only Anvil-local transactions are allowed. See [fork research](../../research/2026-10-01-lp-position-and-fork.md).
 - [x] Owner host ran the local-fork mint harness at block `94738685`: preflight, exact local approvals, simulation, gas bound, mint receipt, NFT owner/pool/liquidity, token balance deltas and residual allowances all passed. This does not qualify real-wallet LP controls or true market economics because the local fixture moves pool balances.
+- [ ] Rehearse direct v3 manager increase, partial/full decrease, collect and close on the disposable fork. Verify owed-token accounting, owner, liquidity, receipts and residual allowances. This qualifies only contract-level wiring, not hosted LP API responses.
 - [ ] Obtain an owner-controlled Polygon v3 position ID before qualifying LP API increase, decrease and fee-claim flows. The verified fork NFT exists only on disposable Anvil, while Uniswap's hosted LP API reads Polygon; do not substitute the fork token ID or another owner's position.
+- [ ] Decode and simulate each hosted LP action separately; verify any bundled collection, exact input caps, remaining allowances, replacement/reorg recovery and actual wallet deltas before connecting wallet controls.
 - [ ] Design chain-aware position ownership, ticks/range, principal, current amounts and uncollected fees separately. Never infer APR or USD TVL from raw `liquidity()`.
 
 ## Phase 5 — Standalone product and quality
 
 - [x] Add a read-only `/positions` view for the fixed Polygon v3 pool. Validate owner/manager/pool binding, bounded pagination and unsupported economics at the frontend boundary; show empty/loading/error and current/stale states. No LP wallet control is exposed. Component and API tests pass. The owner confirmed “No positions owned” for an empty wallet after the response-envelope fix; matching-NFT and mobile browser checks remain open.
 - [ ] Complete verified position amount/fee displays and the LP write lifecycle after Phase 4 source and payload checks; add wrong-chain, reversed-token, in/out-of-range, partial/full decrease, rejected signature and lag tests.
-- [ ] Align any changed UI with the token launchpad design reference, add normal/loading/empty/error desktop/mobile browser checks, and ensure CI runs tests, typecheck, lint and build.
+- [ ] Align any changed UI with the token launchpad design reference and add normal/loading/empty/error desktop browser checks. Mobile visual acceptance is deferred to final standalone acceptance. Ensure CI runs tests, typecheck, lint and build.
 
 ## Phase 6 — Standalone acceptance and handoff
 
 - [x] Inventory security, data freshness, observability, rate budgets and deployment boundaries in the [standalone release review](../../research/2026-09-30-standalone-release-review.md). Remediation and external evidence in that review remain open; local two-confirmation observation is not a production finality policy.
 - [ ] Give the owner one concise checklist of live wallet, RPC, browser and CI checks. Keep Vezta main-site integration outside this plan.
+- [ ] Close the operational gates in the [roadmap gap review](../../research/2026-10-01-roadmap-gap-review.md): access control, shared quotas/state, readiness/telemetry, LP recovery and fee accounting. Validate mobile presentation only after complete standalone flows are ready.
+- [ ] Plan standalone multi-chain adapters and qualify a second chain separately after the Polygon flow is stable; do not fold cross-chain transfers into the first release.
