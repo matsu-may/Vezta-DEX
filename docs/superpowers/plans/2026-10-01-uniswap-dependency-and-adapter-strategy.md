@@ -47,13 +47,16 @@ Required verification-only package inputs:
 These paths/versions are acquisition targets, not installed-artifact/runtime proof. The agent environment's bounded npm metadata request failed with `ENOTFOUND registry.npmjs.org`; these packages are absent locally. No dependency manifest or lockfile was changed from an uncompleted download. On the host with npm access, run from `vezta-dex`:
 
 ```bash
-pnpm --filter @vezta-dex/api add -D --save-exact --ignore-scripts \
+pnpm --store-dir=/Users/thongtran/Vezta/.pnpm-store \
+  --filter @vezta-dex/api add -D --save-exact --ignore-scripts \
   @uniswap/swap-router-contracts@1.1.0 \
   @uniswap/v3-core@1.0.0 \
   @uniswap/v3-periphery@1.0.0
 ```
 
 Expected: exact API devDependency entries, lockfile integrity/resolution data and locally readable artifacts. Keep these verification artifacts out of browser/runtime imports. Then verify installed package paths, ABI/calldata correspondence, source/build provenance and actual deployment bytecode, including immutables/linked libraries as applicable. Installing the packages alone does not enable execution; the remaining Stage 1 gates below stay unchecked.
+
+The first host installation attempt failed with `ERR_PNPM_UNEXPECTED_STORE`: existing dependencies link to `/Users/thongtran/Vezta/.pnpm-store/v10`, whereas the host's default resolves to `/Users/thongtran/Library/pnpm/store/v10`. The command above explicitly selects the existing store root for this operation; `pnpm --store-dir=/Users/thongtran/Vezta/.pnpm-store store path` resolves to the required `v10` directory. Do not append `/v10` to `--store-dir`. This needs no global configuration change or dependency reinstall; successful package acquisition remains pending the host rerun. On another checkout, substitute its actual store root.
 
 - [ ] Resolve the exact package/release/source for the selected SwapRouter02, QuoterV2, pool and position manager. Record chain, address, package version, source revision and verification evidence; do not invent versions or equate an ABI match with runtime-bytecode proof.
 - [ ] Add only needed official artifacts with exact versions and lockfile integrity. Avoid shipping full artifacts/source into the browser bundle; expose bounded ABI definitions through the adapter boundary.
