@@ -23,6 +23,14 @@ export interface TestnetWalletSnapshot { stage: Stage; busy: boolean; message: s
 const initial = (): TestnetWalletSnapshot => ({ stage: "disconnected", busy: false, message: "", account: null,
   review: null, quote: null, action: null, submission: null, observation: null });
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+class WrongTestnetNetwork extends Error {}
+function connectionMessage(error: unknown) {
+  if (error instanceof WrongTestnetNetwork) return "Wrong wallet network. Select Base Sepolia (chain 84532), then connect again.";
+  const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
+  if (code === 4001) return "Wallet connection rejected. Open MetaMask and connect again when ready.";
+  if (code === -32002) return "A wallet request is already pending. Open MetaMask and complete or reject that request first.";
+  return "Unable to connect wallet. Unlock MetaMask, select Base Sepolia (chain 84532), and connect again.";
+}
 const require = (condition: unknown) => { if (!condition) throw new Error("Testnet review unavailable"); };
 function account(value: unknown): Address {
   require(Array.isArray(value) && typeof value[0] === "string"); return getAddress((value as string[])[0]);
@@ -66,7 +74,8 @@ export class TestnetWalletController {
   private async walletCheck(owner: string, g: number) {
     const accounts = await this.wallet.request({ method: "eth_accounts" }); this.generationCheck(g);
     const chain = await this.wallet.request({ method: "eth_chainId" }); this.generationCheck(g);
-    require(same(account(accounts), owner) && typeof chain === "string" && /^0x[0-9a-f]+$/i.test(chain) && BigInt(chain) === BigInt(P.chainId));
+    require(same(account(accounts), owner) && typeof chain === "string" && /^0x[0-9a-f]+$/i.test(chain));
+    if (BigInt(chain as string) !== BigInt(P.chainId)) throw new WrongTestnetNetwork();
   }
   private synchronize() {
     const saved = readTestnetSubmission(this.storage);
@@ -84,15 +93,16 @@ export class TestnetWalletController {
     if (this.state.submission) { this.publish({ stage: "recovery-blocked", review: null, quote: null, action: null }); throw new Error("Recovery conflict"); }
     this.publish({ submission: current, review: null, quote: null, action: null, observation: null, stage: current?.hash ? "pending" : "uncertain" });
   }
-  private async run(action: () => Promise<void>) {
+  private async run(action: () => Promise<void>, purpose: "connect" | "action" = "action") {
     if (this.active || this.disposed) return;
     this.active = true; this.publish({ busy: true, message: "" });
     try { await this.coordination.run(async () => { this.synchronize(); require(this.state.stage !== "recovery-blocked"); await action(); }); }
-    catch {
+    catch (error) {
       const stage = this.state.stage === "recovery-blocked" ? "recovery-blocked" : this.state.submission
         ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.stage === "invalidated" ? "invalidated" : "error";
       this.publish({ stage, review: null, quote: null, action: null, message: this.state.submission
-        ? "Preserve the original context and hash. Check its receipt; do not send again." : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
+        ? "Preserve the original context and hash. Check its receipt; do not send again." : purpose === "connect" ? connectionMessage(error)
+          : error instanceof WrongTestnetNetwork ? connectionMessage(error) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
     } finally { this.active = false; this.publish({ busy: false }); }
   }
   private free() { require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
@@ -105,7 +115,7 @@ export class TestnetWalletController {
       require(!this.grantAccount || same(owner, this.grantAccount));
       await this.walletCheck(owner, g); this.publish({ account: owner, stage: this.state.submission ? this.state.stage : "connected" });
     } finally { this.connecting = false; this.grantAccount = null; }
-  }); }
+  }, "connect"); }
   async quote(value: TestnetSwapIntent) { return this.run(async () => {
     this.free(); const intent = parseTestnetSwapIntent(value); require(this.state.account && same(this.state.account, intent.wallet));
     const g = ++this.generation; this.publish({ review: null, quote: null, action: null, observation: null });

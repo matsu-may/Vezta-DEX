@@ -16,6 +16,8 @@ Dùng extension MetaMask trên trình duyệt desktop, mở khóa ví bạn mu�
 
 Thông tin mạng theo [Base](https://docs.base.org/get-started/connect-to-base); thao tác thêm mạng theo [MetaMask](https://support.metamask.io/configure/networks/how-to-add-a-custom-network-rpc). RPC công khai ở trên dùng để cấu hình ví; app vẫn dùng `BASE_SEPOLIA_RPC_URL` server-only của bạn.
 
+**Nếu Connect báo sai mạng:** Sepolia thông thường là Ethereum Sepolia, khác Base Sepolia. Thêm mạng theo bảng trên, chọn Base Sepolia rồi nhấn Connect lại. Việc kết nối chưa cần ETH/USDC; balance được kiểm tra ở bước quote/review.
+
 ## 2. Nhận test ETH và test USDC
 
 1. Copy địa chỉ account đang chọn trong MetaMask.
