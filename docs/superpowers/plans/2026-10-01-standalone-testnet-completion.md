@@ -17,6 +17,8 @@
 
 ## Evidence already obtained
 
+Earlier rows retain their historical remaining-gate descriptions; later rows and phase checklists record which gates have since closed.
+
 | Area | Evidence | What remains unproven |
 |---|---|---|
 | Standalone foundation | Web/API/core, discovery routes, diagnostics, tests and CI workflow exist | Complete testnet product and remote CI execution |

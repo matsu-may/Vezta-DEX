@@ -1,5 +1,7 @@
 # Base Sepolia unsigned approval study
 
+**Historical slice:** the [fee/preparation follow-up](2026-10-02-testnet-fees-swap-preparation.md) supersedes the L2-only budget and `totalFeeQualified:false` contract for funded studies. It preserves this exact/reset/ready policy and execution-disabled boundary. Owner unfunded acceptance is recorded in [current progress](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md).
+
 ## Purpose and boundary
 
 Continue the approved standalone testnet roadmap after the owner qualified both runtime-guarded quote directions at blocks 47556679 and 47556684. Produce one reviewed ERC20 approval/reset study, without signing, sending, a wallet button or enabling execution. The owner authorized routine choices; this slice uses native implementation with an independent final review.

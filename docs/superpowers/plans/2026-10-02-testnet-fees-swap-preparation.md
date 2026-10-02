@@ -32,9 +32,9 @@
 
 **Interfaces:** Produce `planTestnetGas(estimate,price,kind)`, `serializeTestnetFeeEnvelope(transaction,nonce,gas,price)`, `completeTestnetFeeBudget(plan,additional)` and `TestnetFeeSource.getAdditionalFees(transaction,nonce,gas,price,block)`. Fee probe emits snapshot/model/budget metadata only. Existing approval request/result binding stays unchanged; funded gas gains total budget qualification.
 
-- [ ] Write/run failing pure/wire/approval tests for arithmetic, actual serialization fields, unsupported/error oracle and total-funding block. Expected missing helpers/methods and old L2-only result failures.
-- [ ] Implement pure policy and pinned oracle methods; upgrade funded approval budgets and add bounded no-funds fee probe.
-- [ ] Run `pnpm exec vitest run apps/api/src/testnet-fees.test.ts apps/api/src/testnet-fees-probe.test.ts apps/api/src/base-sepolia-source.test.ts apps/api/src/testnet-approval.test.ts apps/api/src/testnet-approval-probe.test.ts apps/api/src/testnet-routes.test.ts`; expected pass; commit scoped task.
+- [x] Write/run failing pure/wire/approval tests for arithmetic, actual serialization fields, unsupported/error oracle and total-funding block. Expected missing helpers/methods and old L2-only result failures.
+- [x] Implement pure policy and pinned oracle methods; upgrade funded approval budgets and add bounded no-funds fee probe.
+- [x] Run `pnpm exec vitest run apps/api/src/testnet-fees.test.ts apps/api/src/testnet-fees-probe.test.ts apps/api/src/base-sepolia-source.test.ts apps/api/src/testnet-approval.test.ts apps/api/src/testnet-approval-probe.test.ts apps/api/src/testnet-routes.test.ts`; expected pass; commit scoped task.
 
 ## Task 2: Unsigned swap preparation
 
@@ -42,7 +42,11 @@
 
 **Interfaces:** Consume Task 1 fee source/policy, existing quote store, runtime guard and core swap builder/inspector. Produce `TestnetSwapPreparer.read({intent,quoteId})`, source pinned simulation/estimate methods and bounded prepare CLI. Returned transaction retains original intent/minimum/deadline; execution stays disabled.
 
-- [ ] Write/run failing reader/wire/API/probe tests for both directions, funding/approval gates, original protections, malformed/reverted/mismatched simulation, total gas, canonical movement and late completion. Expected missing reader/source/API/probe failures.
-- [ ] Implement reader, source simulation/estimate, local API/main and CLI wiring.
-- [ ] Run focused new preparation/probe/routes/source tests; expected pass. Full `pnpm test`, typecheck/lint/build; expected pass. Attempt live fee/prepare probes and record reachability honestly.
-- [ ] Fresh final review against both tasks/spec/Review Focus; fix material findings with failing tests. Record owner approval acceptance and independent/public gates; commit scoped task excluding owner diff.
+- [x] Write/run failing reader/wire/API/probe tests for both directions, funding/approval gates, original protections, malformed/reverted/mismatched simulation, total gas, canonical movement and late completion. Expected missing reader/source/API/probe failures.
+- [x] Implement reader, source simulation/estimate, local API/main and CLI wiring.
+- [x] Run focused new preparation/probe/routes/source tests; expected pass. Full `pnpm test`, typecheck/lint/build; expected pass. Attempt live fee/prepare probes and record reachability honestly.
+- [x] Fresh final review against both tasks/spec/Review Focus; fix material findings with failing tests. Record owner approval acceptance and independent/public gates; commit scoped task excluding owner diff.
+
+## Outcome
+
+Implementation and local gates passed; fresh review found no material defect and one deferred regression-test suggestion. See [actual evidence and host checks](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md). The two implementation tasks are complete; demo phase 2 and all public execution gates remain incomplete.

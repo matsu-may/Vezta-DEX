@@ -32,9 +32,19 @@ Both had `runtimeVerified:true`, `quoteIdMatches:true`, `executionEnabled:false`
 
 Task 1 RED: seven missing-policy/source or old-budget failures; focused GREEN: 34 tests. Full gate: 681 Vitest +85 script tests, typecheck/lint/build passed. Commit `88a50d3`.
 
-Task 2 RED: 15 missing-reader/source/API/probe failures; focused GREEN: 32 tests. Full gate: 696 Vitest +85 script tests and typecheck passed. A wire-test casing assumption was corrected to viem's actual checksum-preserving encoding; payload/block checks remain intact. Final lint/build and fresh review are recorded below after completion.
+Task 2 RED: 15 missing-reader/source/API/probe failures; focused GREEN: 32 tests. Full gate: 696 Vitest +85 script tests and typecheck passed. A wire-test casing assumption was corrected to viem's actual checksum-preserving encoding; payload/block checks remain intact. Final lint/build and diff check passed; a new unused-variable warning was removed. Remaining notices are the preexisting React detection and Next workspace/lockfile warnings. The existing owner dev-route import was restored after build and excluded from commits; SHA-256 comparisons preserved all 11 source/snapshot evidence files. Code commit `4a10d62`.
+
+The final task-completion run repeated the full suite after the last test cleanup: 80 Vitest files /696 tests plus 85 script tests passed. Review did not require code fixes. The plan's two implementation tasks are complete; the broader demo phases retain their stated open gates.
 
 Both live probes in the agent environment failed at `getChainId` with diagnostic `kind:transport`, before reading fees or preparing a swap. This does not establish a fault in the owner's RPC. No transaction was sent. Local doubles/bytecode fixtures do not establish funded public-testnet compatibility. Remote CI/browser/public receipt gates remain unobserved.
+
+## Independent review and deferred item
+
+Fresh read-only review covered `5ef8b63..4a10d62`, including all five stated review focus areas. It found no Critical/Important defects and accepted the diagnostic scope. One Minor is deferred: add expiry regression advancing time during final asynchronous hash/nonce/allowance reads when extending the lifecycle; the implemented final `fresh()` guard is present and correct.
+
+Reviewer boundaries and rulings: public RPC/model access requires host probes; funded execution/charged fees require fork/public evidence; independent oracle proof remains the explicit system-predeploy trust assumption; post-response/signing freshness needs final submission recheck; receipt/replacement/recovery/consume work remains gated off. Browser/mobile/main Vezta changes are outside this slice. Earlier runtime rebuilds/features retain their own evidence/reviews, with new guard consumption and the full regression suite checked here. The owner `next-env.d.ts` modification stays untouched by commits. Costs if these assumptions fail: provider/model rejection, unqualified funded compatibility/actual fees, incorrect oracle estimates, expired future submissions, incomplete recovery/replay protection, or unqualified later UI/integration. None permits enabling execution now.
+
+The final review deliberately covers this plan's two commits rather than repeat earlier branch reviews; cost if wrong is reliance on existing historical reviews plus the full regression suite for broader integration. This follows the owner's standing authorization to keep the branch local; no merge/push decision is needed in this unfinished demo.
 
 ## Two host checks — no funded wallet needed
 
@@ -45,7 +55,7 @@ pnpm testnet:fees
 DEX_SMOKE_WALLET=0xb4f286aeb57ab61af848f7c1619ff98144aed44e pnpm testnet:prepare
 ```
 
-1. Fee check: expect `status:testnet-fee-model-read-only`, `chainId:84532`, `referenceOnly:true`, `model:jovian`, positive L1 estimate/budget, and `executionEnabled:false`. A successfully read zero operator fee is permitted. The reference gas limit is not an estimate for a real wallet action; this only qualifies oracle/model access. An unavailable result needs its bounded code/diagnostics, not a guess or weaker gate.
+1. Fee check: expect `status:testnet-fee-model-read-only`, `chainId:84532`, `referenceOnly:true`, `model:jovian`, positive L1 estimate/budget, and `executionEnabled:false`. A successfully read zero operator fee is permitted. The reference gas limit is not an estimate for a real wallet action; this only qualifies oracle/model access. If this result is unavailable, stop and share its bounded code/diagnostics before progressing; do not guess a model or weaken the gate.
 2. Prepare check: for the still-unfunded wallet, expect two `testnet-swap-preparation-study` rows, `studyStatus:blocked`, `reason:TESTNET_INPUT_BALANCE_LOW`, `runtimeVerified:true`, `quoteIdMatches:true`, `transactionPresent:false`, `executionEnabled:false`. False simulation/gas/total-fee flags are expected because these branches skip funded work. This is a successful blocked study, unlike an `unavailable` row.
 
 Share the sanitized JSON rows. Do not buy real USDC, paste RPC keys or sign a transaction for these checks. If the quote expires during preparation, share the code/timings; do not extend the deadline or weaken freshness to force a pass.
