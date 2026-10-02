@@ -32,7 +32,8 @@ Earlier rows retain their historical remaining-gate descriptions; later rows and
 | Pool/manager rebuilds (2026-10-02) | Both owner imports and full independent rebuilds passed: 22,142 /24,384 runtime bytes, 7 /5 typed immutables across 27 /17 references. All five historical proofs pass | Fresh live code/configuration/depth, creation-bytecode/proxy gaps, gas/simulation and executable API/web flows |
 | Runtime quote gate (2026-10-02) | Owner fresh inventory passed; guarded quotes also passed both directions at 47556679 /47556684 with runtimeVerified:true /executionEnabled:false | Current depth by intent, gas/simulation and executable API/web flows |
 | Unsigned approval study (2026-10-02) | Owner unfunded studies passed at 47564799 /47564808 with runtime verified/no transaction; exact/reset/ready and pinned approval simulation implemented | Funded qualification, reset receipts/rereads |
-| Fees and swap preparation (2026-10-02) | Complete pinned snapshot fee policy; original minimum/deadline-bound swap simulation, exact allowance and final state checks; local API/CLI implemented | Host oracle/new-path acceptance, funded fork/live qualification, final submission recheck and receipt/recovery |
+| Fees and swap preparation (2026-10-02) | Complete pinned snapshot fee policy; original minimum/deadline-bound swap simulation, exact allowance and final state checks; owner oracle/unfunded prepare paths passed at 47566198 /47566220 /47566228 | Funded fork/live qualification, final submission recheck and receipt/recovery |
+| Funded fork harness (2026-10-02) | Single-command owned Anvil lifecycle implemented; strict receipt, send-boundary and cleanup tests; [current evidence/runbook](../../research/2026-10-02-testnet-fork-lifecycle.md) | Actual host funded EVM run; public wallet behavior and actual L1/operator charged fees |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -51,7 +52,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 ## Phase 2 — Qualify executable preparation
 
-**Status:** Runtime proof, owner unfunded approval acceptance, full snapshot fee policy and unsigned approval/swap APIs are implemented; host new-path and funded qualification plus final submission/receipt consumers remain incomplete.
+**Status:** Runtime proof, owner unfunded approval/preparation acceptance, oracle model access, full snapshot fee policy and unsigned approval/swap APIs are implemented. A disposable funded fork harness is implemented; actual funded qualification and public submission/receipt consumers remain incomplete.
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
@@ -62,7 +63,8 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
     - [x] Owner runtime-guarded quote path passed in both directions at 47556679 /47556684.
     - [x] Implement bounded complete fee budgets and original-quote unsigned swap preparation.
     - [x] Accept owner unfunded approval studies in both directions.
-    - [ ] Qualify new host oracle/preparation paths and funded gas/simulation; [two no-funds checks](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md).
+    - [x] Accept host oracle model access and unfunded preparation paths at blocks 47566198 /47566220 /47566228.
+    - [ ] Qualify funded gas/simulation with the [one-command disposable fork run](../../research/2026-10-02-testnet-fork-lifecycle.md). Buffered snapshot budgets remain distinct from actual charged public fees.
 - [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Reverse diagnostics confirmed HTTP 429 during dependency reads; origin-shared pacing and bounded response-body reads were added. Owner post-fix host quotes passed in both directions at blocks 47547007 and 47547012.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
@@ -80,7 +82,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
 
-Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [current progress/two host checks](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md). Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
+Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [funded fork group/current host check](../../research/2026-10-02-testnet-fork-lifecycle.md). Earlier no-funds oracle/preparation handoff is accepted. Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
 
 ## Phase 3 — Complete testnet wallet swaps
 
