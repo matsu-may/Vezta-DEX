@@ -9,6 +9,22 @@ import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
+it("distinguishes missing original transaction/receipt from RPC failures without sending", async () => {
+  let limited = false; const methods: string[] = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); methods.push(body.method);
+    return limited ? Response.json({ error: { code: -32000, message: "private-provider-key" } }, { status: 429 })
+      : Response.json({ jsonrpc: "2.0", id: body.id, result: null });
+  });
+  const source = createBaseSepoliaPreflightSource("https://receipt-wire.example.invalid");
+  const hash = `0x${"ab".repeat(32)}` as const;
+  expect(await source.getTransaction(hash)).toBeNull(); expect(await source.getReceipt(hash)).toBeNull();
+  limited = true;
+  await expect(source.getTransaction(hash)).rejects.toThrow();
+  await expect(source.getReceipt(hash)).rejects.toThrow();
+  expect(methods).toEqual(["eth_getTransactionByHash", "eth_getTransactionReceipt", "eth_getTransactionByHash", "eth_getTransactionReceipt"]);
+});
+
 it("simulates and estimates the actual reviewed swap at the pinned block without sending", async () => {
   const quoted = await new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => TESTNET_NOW).read(testnetIntent());
   const tx = buildTestnetSwapTransaction(quoted.quote, TESTNET_NOW);

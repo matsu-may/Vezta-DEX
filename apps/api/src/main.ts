@@ -28,6 +28,8 @@ import { toApiRequest } from "./api-request";
 import { TestnetWalletStateReader } from "./testnet-wallet-state";
 import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
+import { TestnetActionStore, TestnetRechecker } from "./testnet-action";
+import { TestnetReceiptReader } from "./testnet-receipt";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -61,6 +63,11 @@ const testnetApprovals = testnetRpcUrl && testnetQuotes ? new TestnetApprovalRea
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetQuotes.store) : undefined;
 const testnetPreparer = testnetRpcUrl && testnetQuotes ? new TestnetSwapPreparer(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetQuotes.store) : undefined;
+const testnetContexts = new TestnetActionStore();
+const testnetRechecker = testnetQuotes && testnetApprovals && testnetPreparer
+  ? new TestnetRechecker(testnetApprovals, testnetPreparer, testnetQuotes.store, testnetContexts) : undefined;
+const testnetReceipts = testnetRpcUrl ? new TestnetReceiptReader(signal =>
+  createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetContexts) : undefined;
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -84,7 +91,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer)
+    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts)
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

@@ -1,10 +1,12 @@
-import { createPublicClient, erc20Abi, http, parseAbi, size, type Address, type Transport } from "viem";
+import { createPublicClient, erc20Abi, http, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
+  type Address, type Transport } from "viem";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
+import type { BaseSepoliaReceiptSource } from "./testnet-receipt";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
 import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
@@ -67,7 +69,7 @@ async function readRpcBody(response: Response, signal?: AbortSignal | null) {
   } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -100,6 +102,14 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    async getTransaction(hash) {
+      try { return await client.getTransaction({ hash }); }
+      catch (error) { if (error instanceof TransactionNotFoundError) return null; throw error; }
+    },
+    async getReceipt(hash) {
+      try { return await client.getTransactionReceipt({ hash }); }
+      catch (error) { if (error instanceof TransactionReceiptNotFoundError) return null; throw error; }
+    },
     async simulateTestnetSwap(transaction, blockNumber) {
       const result = await client.call({ account: transaction.from, to: transaction.to,
         data: transaction.data, value: 0n, blockNumber });

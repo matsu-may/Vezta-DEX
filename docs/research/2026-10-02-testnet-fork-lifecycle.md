@@ -21,20 +21,26 @@ Anvil's gas charge is local L2 accounting. Reading the forked fee oracle does no
 - [x] RED tests for local transport restrictions and strict receipt/token/allowance/gas reconciliation; send-boundary and snapshot cleanup tests also exercised missing-module RED→GREEN.
 - [x] Implement guarded fork helpers, lifecycle and owned-child CLI with bounded diagnostics/cleanup.
 - [x] Focused tests and one final full suite/typecheck/lint/build gate; fresh independent review and Important clock fix confirmed.
-- [x] Attempt funded fork run; upstream access unavailable, so actual funded EVM acceptance remains open.
+- [x] Accept owner funded EVM evidence at block 47573721 after the agent upstream attempt failed.
 - [x] Record results and one host handoff; no repeat of accepted oracle/unfunded probes.
 
 Prior scope: [fee/preparation progress](2026-10-02-testnet-fees-swap-preparation-progress.md). Delivery phases: [roadmap](../superpowers/plans/2026-10-01-standalone-testnet-completion.md).
 
 ## Current execution evidence
 
-The native test first failed with `listen EPERM` in the agent sandbox, before allocating Anvil. It is now explicitly opt-in (`DEX_ANVIL_INTEGRATION=1`) for environments allowed to bind localhost; a skipped integration is not a passing Anvil run. The agent's one `pnpm testnet:fork` attempt failed at `upstream-read` /`FORK_UNAVAILABLE`, before local mutations. Actual funded EVM qualification remains open.
+**Accepted owner EVM run:** `pnpm testnet:fork` passed at upstream block **47573721**. Reset plus exact USDC approval, exact WETH approval, both simulated swaps and canonical two-confirmation receipts passed. Forward spend/output: **1000000 USDC units →6077681066841653 WETH units**; reverse: **100000000000000 WETH units →16358 USDC units**. Final allowances cleared, snapshot restored and owned Anvil stopped. No owner funds were used. This closes the funded disposable-fork gate; actual public-testnet wallet compatibility and L1/operator charged fees remain open.
+
+The native test first failed with `listen EPERM` in the agent sandbox, before allocating Anvil. It is now explicitly opt-in (`DEX_ANVIL_INTEGRATION=1`) for environments allowed to bind localhost; a skipped integration is not a passing Anvil run. The agent's one `pnpm testnet:fork` attempt failed at `upstream-read` /`FORK_UNAVAILABLE`, before local mutations. The subsequent owner run above supplies actual funded EVM evidence.
 
 Final local verification, 2026-10-02: focused 16 passed /one native integration skipped; `pnpm test` 712 Vitest +85 Node tests passed /one native integration skipped; `pnpm typecheck`, `pnpm lint` and `pnpm build` exited zero. ESLint retains its existing React-detection notice; no source lint warnings remain. No UI changes, so no repeated browser smoke was required. Fresh review confirmed no remaining Critical/Important findings after the clock fix. These results do not substitute for the host fork run.
 
 Fresh review found one Important issue: Anvil retains the fork header's wall-clock offset, so ordinary mining can preserve enough lag to expire a 30-second quote during paced validation. Fixed by guarded next-block timestamp alignment and prequote read-only warmup, retaining every original reader check. [Pinned Foundry time implementation](https://raw.githubusercontent.com/foundry-rs/foundry/4072e48705af9d93e3c0f6e29e93b5e9a40caed8/crates/anvil/src/eth/backend/time.rs). Also reuse the study's already-pinned input/native balances for receipt context rather than reading them twice.
 
-## One host check
+## Original host check — accepted
+
+This historical command passed at block 47573721. Do not repeat old qualification probes; the next grouped slice adds `contextBound`/`trackingVerified` checks to this same command.
+
+### Command
 
 From `vezta-dex`, with your existing `apps/api/.env` containing `BASE_SEPOLIA_RPC_URL` and Anvil installed, run:
 
@@ -54,4 +60,4 @@ On error, send the last JSON rows; do not manually approve, fund a wallet, or ex
 - Seed a differing allowance so reset is exercised; trust only confirmed event plus pinned allowance reread. After exact approval is verified, proceed directly to a new quote/preparation instead of repeating a ready-only probe.
 - Keep all production 30-second quote and 25-second reader bounds. Source fork identity may be at most 120 seconds old while starting the child; fresh executable quotes retain the stricter 30 seconds.
 - Snapshot/revert and terminate the owned process on exit. Tests cover semantic failure cleanup; host run must confirm actual native/EVM behavior.
-- Phase 2 remains incomplete until funded fork qualification and public API submission recheck/receipt consumers are completed. Next come the Base Sepolia wallet controller/recovery, testnet v3 LP and desktop acceptance/release checks. Mobile and main Vezta integration stay deferred.
+- The original funded fork gate is accepted. Final recheck/action contexts and receipt consumers are now implemented in the [next grouped slice](2026-10-02-testnet-recheck-receipt.md); only their updated fork check remains. Next come the Base Sepolia wallet controller/recovery, testnet v3 LP and desktop acceptance/release checks. Mobile and main Vezta integration stay deferred.

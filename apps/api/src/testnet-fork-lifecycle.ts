@@ -5,7 +5,9 @@ import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
 import { forkAssert, guardedForkRequest, reviewTestnetForkReceipt, type TestnetForkReceiptEvidence } from "./testnet-fork";
-import { prepareForkSend } from "./testnet-fork-send";
+import { prepareForkContextSend } from "./testnet-fork-send";
+import { TestnetActionStore, TestnetRechecker } from "./testnet-action";
+import { TestnetReceiptReader } from "./testnet-receipt";
 import { withForkSnapshot } from "./testnet-fork-snapshot";
 import { mineFreshForkBlock } from "./testnet-fork-clock";
 import type { startOwnedTestnetAnvil } from "./testnet-fork-process";
@@ -57,6 +59,9 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
     const quotes = new TestnetSwapQuoteReader(source);
     const approvals = new TestnetApprovalReader(source, quotes.store);
     const preparer = new TestnetSwapPreparer(source, quotes.store);
+    const contexts = new TestnetActionStore();
+    const rechecker = new TestnetRechecker(approvals, preparer, quotes.store, contexts);
+    const tracker = new TestnetReceiptReader(source, contexts);
     const freshMine = async () => {
       const block = await reads.getLatestBlock();
       await mineFreshForkBlock(boundary, origin, block.timestamp, signal);
@@ -91,15 +96,16 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       study: { transaction: TestnetForkReceiptEvidence["transaction"] | null; blockNumber: string; blockHash: string;
         currentAllowance: string; status: string; simulation: { status: "success" } | null;
         inputBalance: string; nativeBalance: string; gas: { totalFeeQualified: true } | null },
-      kind: TestnetForkReceiptEvidence["kind"], direction: string) => {
+      kind: TestnetForkReceiptEvidence["kind"], direction: string, contextId: string) => {
       forkAssert(study.status === "unsigned-prepared" && study.transaction && study.simulation?.status === "success"
         && study.gas?.totalFeeQualified, "FORK_PREPARATION_BLOCKED");
-      const transaction = study.transaction;
-      const original = quotes.store.read(request.quoteId, request.intent);
+      const context = contexts.read(contextId);
+      forkAssert(context.kind === kind && JSON.stringify(context.intent) === JSON.stringify(request.intent), "FORK_CONTEXT_INVALID");
+      const transaction = context.transaction; const original = context.quote;
       // Reuse balances already validated at this immutable study block; only output is missing.
       const before = { input: BigInt(study.inputBalance), native: BigInt(study.nativeBalance),
         output: await reads.getTokenBalance(request.intent.tokenOut, wallet, BigInt(study.blockNumber)) };
-      const beforeWrite = await prepareForkSend(reads, quotes.store, request, { ...study, transaction }, kind, signal);
+      const beforeWrite = await prepareForkContextSend(reads, contexts, contextId, signal);
       const hash = await mutate("eth_sendTransaction", [{ from: transaction.from, to: transaction.to,
         data: transaction.data, value: "0x0", nonce: toHex(BigInt(transaction.nonce)),
         gas: toHex(BigInt(transaction.gas)), gasPrice: toHex(BigInt(transaction.gasPrice)),
@@ -114,8 +120,11 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       const reviewed = reviewTestnetForkReceipt({ kind, tokenIn: request.intent.tokenIn, tokenOut: request.intent.tokenOut,
         amountIn: request.intent.amountIn, minimumAmountOut: original.minimumAmountOut, transaction,
         hash: hash as Hex, afterBlock: BigInt(study.blockNumber), canonical, latestBlock: latest, tx, receipt, before, after });
+      const tracked = await tracker.observe({ contextId, hash });
+      forkAssert(tracked.status === "confirmed" && tracked.execution?.status === "verified"
+        && tracked.execution.allowanceMatchesExpected, "FORK_TRACKING_INVALID");
       report({ stage: kind, direction, localOnly: true, simulationSucceeded: true, snapshotFeeBudgetQualified: true,
-        ...reviewed, confirmations: 2 });
+        ...reviewed, confirmations: 2, contextBound: true, trackingVerified: true });
     };
     for (const reverse of [false, true]) {
       const direction = reverse ? "WETH_TO_USDC" : "USDC_TO_WETH";
@@ -127,10 +136,11 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
         await freshMine();
         const quote = await quotes.read(intent); const request = { intent, quoteId: quote.quoteId };
         report({ stage: "approval-study", direction, localOnly: true });
-        const approval = await approvals.read(request);
+        const checked = await rechecker.read({ ...request, kind: "approval" }); const approval = checked.study;
         if (approval.status === "allowance-ready") { ready = true; break; }
         forkAssert(approval.approvalKind !== "ready", "FORK_APPROVAL_BLOCKED");
-        await execute(request, approval, approval.approvalKind, direction);
+        forkAssert(checked.action, "FORK_CONTEXT_UNAVAILABLE");
+        await execute(request, approval, approval.approvalKind, direction, checked.action.contextId);
         // Receipt already re-read the exact allowance; preparation checks it again at a fresh block.
         if (approval.approvalKind === "approve") { ready = true; break; }
       }
@@ -138,7 +148,9 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       await freshMine();
       const quote = await quotes.read(intent); const request = { intent, quoteId: quote.quoteId };
       report({ stage: "swap-study", direction, localOnly: true });
-      await execute(request, await preparer.read(request), "swap", direction);
+      const checked = await rechecker.read({ ...request, kind: "swap" });
+      forkAssert(checked.action, "FORK_CONTEXT_UNAVAILABLE");
+      await execute(request, checked.study, "swap", direction, checked.action.contextId);
     }
     const last = await reads.getLatestBlock();
     for (const token of [C.USDC.address, C.WETH.address]) {

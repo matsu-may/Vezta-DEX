@@ -54,3 +54,24 @@ it("binds reset and exact approvals to the original policy rather than accepting
     expect(() => s.quotes.store.read(s.q.quoteId, s.intent)).toThrow();
   }
 });
+
+it("checks an already-consumed recheck context against its original broadcast deadline", async () => {
+  const { prepareForkContextSend } = await import("./testnet-fork-send");
+  const { TestnetActionStore, TestnetRechecker } = await import("./testnet-action");
+  const { testnetActionFixture } = await import("./testnet-action.test-helper");
+  for (const stale of [false, true]) {
+    const f = await testnetActionFixture(); const store = new TestnetActionStore(f.clock);
+    const r = new TestnetRechecker(f.approvals, f.preparer, f.quotes.store, store);
+    const result = await r.read({ ...f.request, kind: "swap" });
+    const id = result.action!.contextId;
+    const final = await prepareForkContextSend(f.source, store, id, new AbortController().signal, f.clock);
+    const overlapping = await prepareForkContextSend(f.source, store, id, new AbortController().signal, f.clock);
+    if (stale) { f.setNow(TESTNET_NOW + 30000); expect(() => final()).toThrow(); }
+    else {
+      final(); expect(() => final()).toThrow(); expect(() => overlapping()).toThrow();
+      await expect(prepareForkContextSend(f.source, store, id, new AbortController().signal, f.clock)).rejects.toThrow();
+      expect(store.read(id).originalHash).toBeNull(); // A lost send response still cannot authorize retry.
+    }
+    expect(store.read(id).quoteExpiresAt).toBe("2026-09-30T20:27:10.000Z");
+  }
+});
