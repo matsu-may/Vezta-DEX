@@ -6,7 +6,7 @@ export function testnetAmount(raw: string, token: string) {
   return `${formatUnits(BigInt(raw), usdc ? 6 : 18)} ${usdc ? "USDC" : "WETH"}`;
 }
 const eth = (raw: string) => `${formatUnits(BigInt(raw), 18)} test ETH`;
-export function TestnetWalletReview({ state }: { state: TestnetWalletSnapshot }) {
+export function TestnetWalletReview({ state, compact = false }: { state: TestnetWalletSnapshot; compact?: boolean }) {
   const q = state.quote?.quote; const study = state.review; const a = state.action;
   return <>
     {q && <section className="testnet-review" aria-label="Wallet quote">
@@ -14,9 +14,10 @@ export function TestnetWalletReview({ state }: { state: TestnetWalletSnapshot })
         <div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
         <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div>
         <div><dt>Minimum received</dt><dd>{testnetAmount(q.minimumAmountOut, q.tokenOut)}</dd></div>
-        <div><dt>Slippage</dt><dd>0.5%</dd></div><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
-        <div><dt>Block</dt><dd>{q.blockNumber}</dd></div>
+        <div><dt>Slippage</dt><dd>0.5%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
+        <div><dt>Block</dt><dd>{q.blockNumber}</dd></div></>}
       </dl>
+      {compact && <details className="quote-provenance"><summary>Quote source and block</summary><p>Base Sepolia RPC · block {q.blockNumber}</p><p className="mono">{q.observedAt}</p></details>}
     </section>}
     {study && <section className="testnet-review" aria-label="Transaction review">
       <h3>{a ? `${a.kind === "reset" ? "Reset allowance to zero" : a.kind === "approve" ? "Exact token approval" : "Simulated swap"}` : "Action needs review"}</h3>

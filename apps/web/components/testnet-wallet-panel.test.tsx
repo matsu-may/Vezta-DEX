@@ -7,7 +7,7 @@ afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.res
 async function fixture(enabled: boolean) {
   const f = fixtures["forward-swap"]; vi.spyOn(Date, "now").mockReturnValue(f.now);
   const methods: string[] = [];
-  vi.stubGlobal("ethereum", { async request({ method }: { method: string }) { methods.push(method); return method === "eth_chainId" ? "0x14a34" : [f.intent.wallet]; } });
+  vi.stubGlobal("ethereum", { async request({ method }: { method: string }) { methods.push(method); return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? "0x14a34" : [f.intent.wallet]; } });
   Object.defineProperty(navigator, "locks", { configurable: true, value: { async request(_key: string, _options: unknown, fn: (lock: object) => Promise<void>) { await fn({}); } } });
   const fetcher = vi.fn(async (_url, init) => { const body = JSON.parse(init!.body as string);
     return Response.json(body.kind ? { ...f.checked, study: { ...f.checked.study, executionEnabled: enabled }, action: { ...f.checked.action, executionEnabled: enabled } }
@@ -36,4 +36,18 @@ it("keeps normal preview gated even if API metadata permits execution", async ()
   fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" })); await screen.findByText("Minimum received");
   fireEvent.click(screen.getByRole("button", { name: "Review swap" })); await screen.findByText("Complete snapshot fee budget");
   expect(screen.getByRole("button", { name: "Submit reviewed testnet transaction" }).hasAttribute("disabled")).toBe(true);
+});
+it("clears a rejected network switch notice after explicit successful connection", async () => {
+  await fixture(true); let reject = true;
+  const f = fixtures["forward-swap"];
+  vi.stubGlobal("ethereum", { async request({ method }: { method: string }) {
+    if (method === "wallet_switchEthereumChain" && reject) throw { code: 4001 };
+    return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? "0x14a34" : [f.intent.wallet];
+  } });
+  render(<TestnetWalletPanel executionEnabled />);
+  fireEvent.click(await screen.findByRole("button", { name: "Switch to Base Sepolia" }));
+  await screen.findByText(/Network switch rejected/); reject = false;
+  fireEvent.click(screen.getByRole("button", { name: "Connect Base Sepolia wallet" }));
+  await screen.findByText(/Connected:/);
+  expect(screen.queryByText(/Network switch rejected/)).toBeNull();
 });

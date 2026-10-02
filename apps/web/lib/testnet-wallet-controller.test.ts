@@ -15,6 +15,7 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
       methods.push(method); if (method === "eth_requestAccounts" && grantEvent) for (const fn of listeners.get("accountsChanged") || []) fn([account]);
       if (method === "eth_accounts" || method === "eth_requestAccounts") return [account];
       if (method === "eth_chainId") return chain;
+      if (method === "eth_getCode") return "0x";
       if (method === "eth_sendTransaction") { if (reject) throw { code: 4001 }; if (lose) throw new Error("private provider details");
         if (paused) await new Promise<void>(resolve => { paused = resolve; }); return hash; }
       throw new Error("unexpected wallet method");

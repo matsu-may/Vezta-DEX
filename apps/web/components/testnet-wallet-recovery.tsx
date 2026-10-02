@@ -4,7 +4,7 @@ import { formatUnits } from "viem";
 import type { TestnetWalletController, TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
 import { testnetAmount } from "./testnet-wallet-review";
 export function TestnetWalletRecovery({ state, controller }: { state: TestnetWalletSnapshot; controller: TestnetWalletController }) {
-  const [hash, setHash] = useState(""); const record = state.submission; const o = state.observation;
+  const [hash, setHash] = useState(""); const [acceptedHash, setAcceptedHash] = useState<string | null>(null); const record = state.submission; const o = state.observation;
   if (!record && state.stage !== "recovery-blocked") return null;
   return <section className="testnet-review" aria-label="Original transaction recovery">
     <h3>{record?.hash ? "Original transaction" : "Submission outcome uncertain"}</h3>
@@ -31,6 +31,12 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
       <div><dt>Actual total fee</dt><dd>L1/operator charged fees not yet qualified</dd></div>
     </dl>}
     {o?.execution && !o.execution.allowanceMatchesExpected && <p role="alert">Allowance has changed since the original transaction. A new quote and review will check its current value.</p>}
+    {state.stage === "unverified" && record.hash && record.action.kind !== "swap" && <div className="manual-review-notice">
+      <h4>Approval needs manual review</h4>
+      <p>This app could not verify the original transaction. Archiving preserves its record and blocks this wallet from further demo actions. It does not mark the transaction successful.</p>
+      <label><input type="checkbox" checked={acceptedHash === record.hash} onChange={e => setAcceptedHash(e.target.checked ? record.hash : null)} /> I will keep the original hash and continue only with a different standard account.</label>
+      <button className="button demo-reset" disabled={state.busy || acceptedHash !== record.hash} onClick={() => void controller.archiveUnverifiedApproval()}>Archive approval for manual review</button>
+    </div>}
     {(state.stage === "confirmed" || state.stage === "reverted") && <button className="button" disabled={state.busy} onClick={() => void controller.acknowledge()}>Acknowledge verified result</button>}
     </>}
     {state.stage === "recovery-blocked" && <p role="alert">Recovery record is invalid or conflicting. Preserve wallet activity and ask for review before starting another swap.</p>}

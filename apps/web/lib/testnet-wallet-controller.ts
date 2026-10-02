@@ -3,7 +3,7 @@ import { parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
   type TestnetWalletQuote, type TestnetWalletAction, type TestnetSubmission } from "./testnet-wallet-contracts";
 import { TESTNET_SUBMISSION_KEY, readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission,
-  sameTestnetSubmission, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
+  sameTestnetSubmission, readTestnetManualReview, archiveTestnetApproval, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
 export interface TestnetWallet { request(args: { method: string; params?: unknown[] }): Promise<unknown>;
   on?(event: string, listener: (value: unknown) => void): void; removeListener?(event: string, listener: (value: unknown) => void): void }
 export interface TestnetWalletApi { call(action: "quote" | "recheck" | "receipt", body: unknown): Promise<unknown> }
@@ -19,12 +19,14 @@ type Stage = "disconnected" | "connected" | "quote-review" | "action-review" | "
 type Review = ReturnType<typeof parseTestnetWalletReview>["study"];
 type Observation = ReturnType<typeof parseTestnetWalletObservation>;
 export interface TestnetWalletSnapshot { stage: Stage; busy: boolean; message: string; account: Address | null;
-  review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
+  archived?: TestnetSubmission[]; review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
 const initial = (): TestnetWalletSnapshot => ({ stage: "disconnected", busy: false, message: "", account: null,
   review: null, quote: null, action: null, submission: null, observation: null });
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 class WrongTestnetNetwork extends Error {}
+class UnsupportedDemoWallet extends Error {}
 function connectionMessage(error: unknown) {
+  if (error instanceof UnsupportedDemoWallet) return "Smart accounts or archived wallets are unavailable in this demo. Select a different standard account on Base Sepolia.";
   if (error instanceof WrongTestnetNetwork) return "Wrong wallet network. Select Base Sepolia (chain 84532), then connect again.";
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
   if (code === 4001) return "Wallet connection rejected. Open MetaMask and connect again when ready.";
@@ -53,9 +55,10 @@ export class TestnetWalletController {
   constructor(private readonly wallet: TestnetWallet, private readonly api: TestnetWalletApi, private readonly storage: TestnetSubmissionStorage,
     private readonly now = Date.now, private readonly coordination = testnetWalletCoordination,
     private readonly executionAllowed: () => boolean = () => false) {
+    try { this.state.archived = readTestnetManualReview(storage); } catch { this.state.stage = "recovery-blocked"; }
     const saved = readTestnetSubmission(storage);
     if (saved.kind === "invalid") this.state.stage = "recovery-blocked";
-    if (saved.kind === "record") { this.state.submission = saved.record; this.state.stage = saved.record.hash ? "pending" : "uncertain"; }
+    if (saved.kind === "record" && this.state.stage !== "recovery-blocked") { this.state.submission = saved.record; this.state.stage = saved.record.hash ? "pending" : "uncertain"; }
     wallet.on?.("accountsChanged", this.accountsChanged);
     for (const event of ["chainChanged", "disconnect"]) wallet.on?.(event, this.walletChanged);
   }
@@ -76,8 +79,14 @@ export class TestnetWalletController {
     const chain = await this.wallet.request({ method: "eth_chainId" }); this.generationCheck(g);
     require(same(account(accounts), owner) && typeof chain === "string" && /^0x[0-9a-f]+$/i.test(chain));
     if (BigInt(chain as string) !== BigInt(P.chainId)) throw new WrongTestnetNetwork();
+    if (readTestnetManualReview(this.storage).some(record => same(record.intent.wallet, owner))) throw new UnsupportedDemoWallet();
+    const code = await this.wallet.request({ method: "eth_getCode", params: [owner, "latest"] }); this.generationCheck(g);
+    require(typeof code === "string" && /^0x(?:[0-9a-f]{2})*$/i.test(code));
+    if (code !== "0x") throw new UnsupportedDemoWallet();
   }
   private synchronize() {
+    try { this.publish({ archived: readTestnetManualReview(this.storage) }); }
+    catch { this.publish({ stage: "recovery-blocked" }); throw new Error("Invalid archive"); }
     const saved = readTestnetSubmission(this.storage);
     if (saved.kind === "invalid") { this.publish({ stage: "recovery-blocked", review: null, quote: null, action: null }); throw new Error("Invalid recovery"); }
     const current = saved.kind === "record" ? saved.record : null;
@@ -102,7 +111,7 @@ export class TestnetWalletController {
         ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.stage === "invalidated" ? "invalidated" : "error";
       this.publish({ stage, review: null, quote: null, action: null, message: this.state.submission
         ? "Preserve the original context and hash. Check its receipt; do not send again." : purpose === "connect" ? connectionMessage(error)
-          : error instanceof WrongTestnetNetwork ? connectionMessage(error) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
+          : (error instanceof WrongTestnetNetwork || error instanceof UnsupportedDemoWallet) ? connectionMessage(error) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
     } finally { this.active = false; this.publish({ busy: false }); }
   }
   private free() { require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
@@ -170,6 +179,15 @@ export class TestnetWalletController {
       writeTestnetSubmission(this.storage, candidate, original); this.publish({ submission: candidate });
     }
     this.applyObservation(o);
+  }); }
+  async archiveUnverifiedApproval() { return this.run(async () => {
+    const original = this.tracked(); require(original.hash && original.action.kind !== "swap"
+      && this.state.stage === "unverified" && this.state.observation?.status === "unverified");
+    parseTestnetWalletObservation({ observation: this.state.observation }, original, this.now());
+    const archived = archiveTestnetApproval(this.storage, original);
+    this.generation++; this.publish({ archived, submission: null, observation: null, account: null,
+      review: null, quote: null, action: null, stage: "disconnected",
+      message: "Original approval archived for manual review, not verified. Continue only with a different standard account." });
   }); }
   async acknowledge() { return this.run(async () => {
     const original = this.tracked(); require(original.hash && this.state.observation

@@ -7,7 +7,7 @@ import { TestnetWalletReview } from "./testnet-wallet-review";
 import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
 const amounts = { forward: ["100000", "1000000", "5000000"], reverse: ["10000000000000", "100000000000000", "1000000000000000"] };
 const labels = { forward: ["0.1 USDC", "1 USDC", "5 USDC"], reverse: ["0.00001 WETH", "0.0001 WETH", "0.001 WETH"] };
-export function TestnetWalletPanel({ executionEnabled }: { executionEnabled: boolean }) {
+export function TestnetWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "technical" | "demo" }) {
   const controller = useRef<TestnetWalletController | null>(null);
   const wallet = useRef<TestnetWallet | null>(null);
   const [state, setState] = useState<TestnetWalletSnapshot | null>(null);
@@ -39,7 +39,7 @@ export function TestnetWalletPanel({ executionEnabled }: { executionEnabled: boo
   const canSubmit = executionEnabled && fresh && state?.quote?.executionEnabled && state.action?.executionEnabled;
   async function switchChain() {
     if (busy || !wallet.current) return; setSwitching(true);
-    try { await wallet.current.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] }); }
+    try { await wallet.current.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] }); setStartup(""); }
     catch { setStartup("Network switch rejected or unavailable. Add Base Sepolia in MetaMask using the owner guide."); }
     finally { setSwitching(false); }
   }
@@ -50,7 +50,7 @@ export function TestnetWalletPanel({ executionEnabled }: { executionEnabled: boo
       tokenOut: direction === "forward" ? C.WETH.address : C.USDC.address,
       amountIn: amounts[direction][amount], slippageBps: P.slippageBps }));
   }
-  return <div className="testnet-demo-grid">
+  return <div className={`testnet-demo-grid ${presentation === "demo" ? "recording-grid" : ""}`}>
     <aside className="section-card testnet-explore" aria-label="Demo pool">
       <span className="eyebrow">EXPLORE · BASE SEPOLIA</span><h2>USDC / WETH</h2>
       <p>Uniswap v3 · 0.3% fee pool</p><span className="badge badge-fresh">Test tokens only</span>
@@ -62,13 +62,14 @@ export function TestnetWalletPanel({ executionEnabled }: { executionEnabled: boo
       <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer">Get test USDC ↗</a>
     </aside>
     <section className="section-card testnet-wallet" aria-label="Testnet wallet swap">
-      <span className="eyebrow">SWAP · TESTNET</span><h2>Review a small testnet swap</h2>
+      <span className="eyebrow">SWAP · TESTNET</span><h2>{presentation === "demo" ? "Swap tokens" : "Review a small testnet swap"}</h2>
+      {presentation === "demo" && <ol className="recording-steps" aria-label="Swap steps"><li>01 Connect</li><li>02 Review</li><li>03 Confirm</li></ol>}
       <p className="testnet-mode">{executionEnabled ? "Local testnet acceptance enabled · MetaMask signs every transaction" : "Read-only preview · run pnpm dev:testnet for wallet acceptance"}</p>
       {startup && <p role="status">{startup}</p>}
       {state && <>
         {state.account && <p className="mono testnet-connected">Connected: {state.account}</p>}
         {!recovering && <>
-          <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void controller.current!.connect()}>Connect Base Sepolia wallet</button>
+          <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => { setStartup(""); void controller.current!.connect(); }}>Connect Base Sepolia wallet</button>
             <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to Base Sepolia</button></div>
           <div className="testnet-fields"><div><label className="form-label" htmlFor="testnet-direction">Direction</label>
             <select className="field" id="testnet-direction" disabled={busy} value={direction} onChange={e => { controller.current!.invalidateInput(); setDirection(e.target.value as "forward" | "reverse"); setAmount(1); }}>
@@ -76,15 +77,19 @@ export function TestnetWalletPanel({ executionEnabled }: { executionEnabled: boo
             <div><label className="form-label" htmlFor="testnet-amount">Input amount</label><select className="field" id="testnet-amount" value={amount} disabled={busy} onChange={e => { controller.current!.invalidateInput(); setAmount(Number(e.target.value)); }}>
               {labels[direction].map((label, i) => <option value={i} key={label}>{label}</option>)}</select></div></div>
           <button className="button" disabled={busy || !state.account} onClick={() => void quote()}>Get wallet quote</button>
-          <TestnetWalletReview state={state} />
+          <TestnetWalletReview state={state} compact={presentation === "demo"} />
           {state.quote && <><p className="form-help" role="status">{fresh ? `Quote expires in ${Math.max(0, Math.ceil((expiry - now) / 1000))}s. Review and confirm before expiry.` : "Quote expired. Request a fresh quote before continuing."}</p>
             <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
               <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div></>}
           {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Keep the prepared nonce and gas fields unchanged.</p>
             <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button></>}
         </>}
-        {busy && <p role="status">Checking the current wallet and chain state…</p>}
+        {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
         {state.message && <p role="alert" className="form-error">{state.message}</p>}
+        {!!state.archived?.length && <details className="archived-history"><summary>Original approvals awaiting manual review ({state.archived.length})</summary>
+          <p>Unverified history preserved. These wallets are blocked in this demo.</p>
+          {state.archived.map(record => <p key={record.hash}><a className="mono" href={`https://sepolia.basescan.org/tx/${record.hash}`} target="_blank" rel="noreferrer">{record.hash}</a></p>)}
+        </details>}
         {recoveryController && <TestnetWalletRecovery state={state} controller={recoveryController} />}
       </>}
     </section>

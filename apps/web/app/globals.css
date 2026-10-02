@@ -217,3 +217,35 @@ h2 { margin: 6px 0 0; font-size: 25px; letter-spacing: -.035em; }
 .testnet-demo-grid .demo-reset:hover:not(:disabled) { background: #242424; border-color: #d4ff2b; }
 .testnet-demo-grid .demo-preview { background: #0c0c0c; border-color: #262626; }
 .testnet-demo-grid .demo-preview dt { color: #999; }
+
+/* Recording route 01: launchpad tokens, desktop hierarchy, shared transaction safety. */
+body:has(.recording-page) { background: #000; }
+.recording-page { --bg: #000; --surface: #111; --line: #262626; --muted: #8c8c8c; max-width: 1200px; margin-inline: auto; }
+body:has(.recording-page) .site-header { background: #000; }
+body:has(.recording-page) .main-nav, body:has(.recording-page) .network-pill { display: none; }
+body:has(.recording-page) .site-footer { background: #000; }
+.recording-heading { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 12px 0 32px; }
+.recording-heading h1 { margin: 12px 0; font-size: 40px; letter-spacing: -.04em; font-weight: 600; }
+.recording-heading p { margin: 0; color: var(--muted); font-size: 14px; }
+.recording-network { border: 1px solid #333; border-radius: 3px; padding: 10px 14px; font-size: 12px; white-space: nowrap; }
+.recording-tabs { display: flex; gap: 32px; align-items: center; border-bottom: 1px solid var(--line); margin-bottom: 32px; font-size: 14px; color: var(--muted); }
+.recording-tabs > * { padding: 16px 0; }
+.recording-tabs [aria-current] { color: #d4ff2b; border-bottom: 2px solid #d4ff2b; }
+.recording-tabs > :last-child { margin-left: auto; font-size: 12px; }
+.recording-grid { grid-template-columns: minmax(0, 360px) minmax(0, 1fr); gap: 32px; }
+.recording-grid .section-card { padding: 28px; box-shadow: none; }
+.recording-grid .testnet-explore h2 { font-size: 32px; letter-spacing: -.04em; }
+.recording-grid .badge { border-radius: 3px; }
+.recording-grid .testnet-explore .demo-preview div { grid-template-columns: 85px minmax(0, 1fr); gap: 12px; }
+.recording-grid .testnet-review { border-top: 1px solid #262626; padding-top: 24px; }
+.recording-grid .testnet-review .demo-preview { border: none; padding: 0; background: transparent; }
+.recording-grid [aria-label="Wallet quote"] .demo-preview > div:nth-child(2) dd { font-size: 23px; color: #d4ff2b; letter-spacing: -.04em; }
+.recording-grid .testnet-fields { padding: 20px; background: #080808; border: 1px solid #262626; }
+.recording-grid .field { height: 48px; font-size: 16px; }
+.recording-steps { list-style: none; display: flex; gap: 20px; padding: 0; margin: 20px 0; color: #999; font-size: 11px; font-family: ui-monospace, monospace; }
+.recording-disclaimer { margin: 24px 0; font-size: 11px; color: #8c8c8c; }
+.quote-provenance, .archived-history { margin-top: 20px; font-size: 12px; color: #999; overflow-wrap: anywhere; }
+.quote-provenance summary, .archived-history summary { cursor: pointer; }
+.manual-review-notice { padding: 18px; border: 1px solid #66512c; background: #18130a; margin-top: 24px; }
+.manual-review-notice h4 { margin: 0; }
+.manual-review-notice label { display: flex; gap: 10px; align-items: start; font-size: 13px; }

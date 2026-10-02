@@ -99,3 +99,7 @@ Chỉ cần một báo cáo gọn (không cần chạy lại mọi script):
 | UI/recovery | Reject không gửi tiếp; reload giữ hash gốc; ảnh/lỗi nếu không đúng |
 
 Bạn có thể gửi public hashes và screenshot; không gửi seed phrase/private key/API key/RPC URL có key. Hoàn thành bước này sẽ chốt **mốc demo swap sớm**, chưa chốt toàn bộ DEX/LP. Lộ trình tiếp theo là [Phase 4–6 của kế hoạch đầy đủ](../superpowers/plans/2026-10-01-standalone-testnet-completion.md).
+
+## Nếu approval báo unverified do smart account
+
+Đọc [hướng dẫn Demo01 và ví thường](2026-10-02-demo-01-and-standard-wallet.md). Giữ hash, kiểm tra receipt mới, dùng **Archive approval for manual review** chỉ khi approval hiện unverified. Hồ sơ vẫn được giữ và ví cũ bị chặn; không coi đó là verified. Tiếp tục với **tài khoản thường khác**, faucet vào địa chỉ mới. Mở `/demo/1` để quay video; `/testnet` để kiểm tra kỹ thuật. Không xóa localStorage để bỏ qua recovery. Nếu mất context sau restartAPI hoặc hết24h, dừng và gửi mã lỗi.

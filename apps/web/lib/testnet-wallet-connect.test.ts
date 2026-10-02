@@ -5,7 +5,7 @@ const owner = "0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e";
 const coordination = { async run(action: () => Promise<void>) { await action(); } };
 it("explains wrong network on connection without calling an API or sending a transaction", async () => {
   const api = { call: vi.fn() }; const methods: string[] = []; let chain = "0x2105";
-  const wallet = { async request({ method }: { method: string }) { methods.push(method); return method === "eth_chainId" ? chain : [owner]; } };
+  const wallet = { async request({ method }: { method: string }) { methods.push(method); return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? chain : [owner]; } };
   const c = new TestnetWalletController(wallet, api, memoryStorage(), Date.now, coordination);
   await c.connect(); expect(c.snapshot().account).toBeNull();
   expect(c.snapshot().message).toBe("Wrong wallet network. Select Base Sepolia (chain 84532), then connect again.");

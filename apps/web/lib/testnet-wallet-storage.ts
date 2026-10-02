@@ -25,3 +25,30 @@ export function writeTestnetSubmission(storage: TestnetSubmissionStorage, record
 export function clearTestnetSubmission(storage: TestnetSubmissionStorage, expected: TestnetSubmission) {
   owns(storage, expected); storage.removeItem(TESTNET_SUBMISSION_KEY);
 }
+
+export const TESTNET_MANUAL_REVIEW_KEY = "vezta-dex:base-sepolia-manual-review:v1";
+// Separate unresolved history; archiving does not mark execution as verified.
+export function readTestnetManualReview(storage: Pick<Storage, "getItem">): TestnetSubmission[] {
+  const raw = storage.getItem(TESTNET_MANUAL_REVIEW_KEY);
+  if (raw === null) return [];
+  if (raw.length > 131072) throw new Error("Invalid manual review history");
+  const items: unknown = JSON.parse(raw);
+  if (!Array.isArray(items) || items.length > 16) throw new Error("Invalid manual review history");
+  return items.map(item => {
+    const record = parseTestnetSubmission(item);
+    if (!record.hash || record.action.kind === "swap") throw new Error("Invalid manual review history");
+    return record;
+  });
+}
+export function archiveTestnetApproval(storage: TestnetSubmissionStorage, expected: TestnetSubmission) {
+  owns(storage, expected);
+  if (!expected.hash || expected.action.kind === "swap") throw new Error("Cannot archive this action");
+  const items = readTestnetManualReview(storage);
+  if (!items.some(item => sameTestnetSubmission(item, expected))) items.push(parseTestnetSubmission(expected));
+  if (items.length > 16) throw new Error("Manual review history full");
+  // Save and validate before clearing active recovery. Any write failure leaves it active.
+  storage.setItem(TESTNET_MANUAL_REVIEW_KEY, JSON.stringify(items));
+  if (!readTestnetManualReview(storage).some(item => sameTestnetSubmission(item, expected))) throw new Error("Archive write failed");
+  clearTestnetSubmission(storage, expected);
+  return items;
+}
