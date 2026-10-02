@@ -2,6 +2,8 @@
 
 **Status:** Consolidated roadmap, 2026-10-01, updated 2026-10-02 after funded fork acceptance and final recheck/receipt implementation. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
 
+**Early demo milestone, 2026-10-02:** follow the [short Explore → wallet swap → receipt roadmap](2026-10-02-early-testnet-demo.md) first. It narrows the first demo to one Base Sepolia pool and bidirectional swaps, then resumes this full six-phase roadmap. Map demo evidence onto Phases 1–3; LP and all remaining acceptance requirements stay open until actually verified. This adds an intermediate milestone, not a replacement plan.
+
 **Goal:** Deliver a reproducible standalone Uniswap DEX demo in `vezta-dex`: pool discovery, same-chain swaps in both directions, and the complete v3 LP position lifecycle on Base Sepolia. Real mainnet USDC and main Vezta integration are later milestones.
 
 **Architecture:** Keep `apps/web`, `apps/api`, `packages/core`. Consume existing deployed Uniswap contracts. Server-only RPC/API configuration; wallet-owned signing/submission. Match the token-launchpad desktop design. Mobile visual polish remains a separate final pass after functional completion.
@@ -34,7 +36,6 @@ Earlier rows retain their historical remaining-gate descriptions; later rows and
 | Unsigned approval study (2026-10-02) | Owner unfunded studies passed at 47564799 /47564808 with runtime verified/no transaction; exact/reset/ready and pinned approval simulation implemented | Funded qualification, reset receipts/rereads |
 | Fees and swap preparation (2026-10-02) | Complete pinned snapshot fee policy; original minimum/deadline-bound swap simulation, exact allowance and final state checks; owner oracle/unfunded prepare paths passed at 47566198 /47566220 /47566228 | Funded fork/live qualification, final submission recheck and receipt/recovery |
 | Funded fork harness (2026-10-02) | Single-command owned Anvil lifecycle implemented; strict receipt, send-boundary and cleanup tests; [current evidence/runbook](../../research/2026-10-02-testnet-fork-lifecycle.md) | Owner funded run accepted at block 47573721; public wallet behavior and actual L1/operator charged fees remain open |
-
 | Recheck and receipt consumers (2026-10-02) | Server-issued original action contexts, once-only final fork boundary, canonical event-bound receipt API and route wiring; [group handoff](../../research/2026-10-02-testnet-recheck-receipt.md) | Owner consumer fork accepted at 47574990; browser controller/recovery and public receipts remain open |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
