@@ -1,0 +1,21 @@
+import { expect, it, vi } from "vitest";
+import { createTestnetLpProxy, loadTestnetLpPositions } from "./testnet-lp";
+import { TESTNET_NOW } from "../../api/src/testnet-quote.test-helper";
+import { lpSource, wallet } from "../../api/src/testnet-lp.test-helper";
+import { TestnetLpPositionReader } from "../../api/src/testnet-lp-position";
+const body = { chainId: 84532, owner: wallet, cursor: "0", limit: 1 };
+const req = (patch: Record<string, string> = {}) => new Request("http://127.0.0.1:3020/api/testnet-lp/positions", { method: "POST", headers: { "Content-Type": "application/json", origin: "http://127.0.0.1:3020", ...patch }, body: JSON.stringify(body) });
+it("forwards only fixed-origin LP reads, validates response binding and sanitizes errors", async () => {
+  const page = await new TestnetLpPositionReader(() => lpSource(), () => TESTNET_NOW).read(body);
+  const fetcher = vi.fn(async () => Response.json({ page }));
+  const proxy = createTestnetLpProxy({}, fetcher, () => TESTNET_NOW);
+  expect((await proxy(req({ origin: "https://evil.test" }))).status).toBe(403);
+  expect(fetcher).not.toHaveBeenCalled();
+  expect((await proxy(req())).status).toBe(200);
+  expect(fetcher.mock.calls.length).toBe(1);
+  const bad = createTestnetLpProxy({}, async () => Response.json({ page: { ...page, owner: "0x1111111111111111111111111111111111111111" } }), () => TESTNET_NOW);
+  expect((await bad(req())).status).toBe(503);
+  const error = createTestnetLpProxy({}, async () => Response.json({ code: "PRIVATE_KEY", error: "secret" }, { status: 503 }));
+  expect(await (await error(req())).text()).not.toContain("secret");
+  await expect(loadTestnetLpPositions(body, async () => Response.json({ page: { ...page, chainId: 137 } }), () => TESTNET_NOW)).rejects.toThrow();
+});

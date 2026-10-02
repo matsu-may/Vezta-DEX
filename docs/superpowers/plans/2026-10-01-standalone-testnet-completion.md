@@ -105,14 +105,15 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 ## Phase 4 — Complete testnet v3 LP
 
-**Status:** Polygon fork lifecycle is verified; the Base Sepolia LP adapter remains to be implemented and qualified.
+**Status:** Base Sepolia LP reads, pinned SDK math/internal unsigned plans, disposable fork lifecycle and `/demo/2` read-only recording UI are implemented and locally qualified. Public LP wallet actions, receipt/recovery contexts and owner acceptance remain open. See [LP implementation checkpoint](../../research/2026-10-02-base-sepolia-lp-session.md).
 
-- [ ] Pin compatible LP SDK packages; qualify the testnet position manager and owner-bound NFT reads.
-- [ ] Display principal/current token amounts, range/in-range status, liquidity and uncollected fees from verified pinned reads/math. Keep unsupported economics unavailable.
-- [ ] Implement mint and increase with bounded tick/range/input/minimum/deadline, exact approvals and fresh simulation.
-- [ ] Implement partial/full decrease, collection and close/burn. Distinguish owed principal from accrued fees and check burn prerequisites/residual allowance.
+- [x] Pin compatible LP SDK packages; qualify the testnet position manager and implement owner-bound pinned NFT reads (unit positive-NFT tests, live empty scan, fork ownership checks).
+- [x] Display current principal, range/state, checkpoint fees, mixed stored owed and estimated collectable from pinned reads/math. No inferred APR/TVL.
+- [ ] Wire public-wallet mint/increase with bounded range/caps/minima/deadline, exact approvals, gas budgets and fresh simulation. Internal unsigned planner and disposable-fork simulation are complete.
+- [ ] Wire public-wallet partial/full decrease, collect and close/burn. Internal planner and fork qualify principal/fee separation, burn prerequisites, actual pool payments vs nominal manager rounding and cleared residual allowance.
 - [ ] Add LP-specific rejection, ownership change, pending/replacement/reorg/indexer-lag and original-hash recovery tests.
-- [ ] Run the lifecycle on a disposable fork, then obtain owner-operated public-testnet NFT and lifecycle receipt evidence.
+- [x] Run full Base Sepolia lifecycle on disposable fork (latest block 47587031), reconcile NFT/liquidity/balances, revert snapshot and stop owned child.
+- [ ] Obtain owner-operated public-testnet NFT and lifecycle receipt evidence after the LP wallet controller is qualified.
 
 **Exit:** Create → increase → partial decrease → full decrease → collect → close is reproducible; ownership, liquidity progression, owed/collected amounts, balances and approvals reconcile. Collection is not represented as guaranteed positive fees when no fees accrued.
 

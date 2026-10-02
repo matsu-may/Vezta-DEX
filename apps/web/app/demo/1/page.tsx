@@ -9,7 +9,7 @@ export default function RecordingDemoPage() {
     <header className="recording-heading"><div><span className="eyebrow">VEZTA DEX / DEMO 01</span><h1>Trade on your terms.</h1>
       <p>Swap USDC and WETH with Uniswap. Your wallet stays in control.</p></div>
       <span className="recording-network"><span className="network-dot" /> Base Sepolia · Testnet</span></header>
-    <nav className="recording-tabs" aria-label="Demo navigation"><span aria-current="page">Swap</span><a href="#demo-pool">Pool overview</a><Link href="/testnet">Technical workspace ↗</Link></nav>
+    <nav className="recording-tabs" aria-label="Demo navigation"><span aria-current="page">Swap</span><Link href="/demo/2">Liquidity</Link><Link href="/testnet">Technical workspace ↗</Link></nav>
     <div id="demo-pool"><TestnetWalletPanel executionEnabled={testnetDemoEnabled()} presentation="demo" /></div>
     <p className="recording-disclaimer">Test tokens only · Uniswap v3 · 0.5% slippage · Standard accounts only</p>
   </div>;

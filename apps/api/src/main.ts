@@ -30,6 +30,8 @@ import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
 import { TestnetActionStore, TestnetRechecker } from "./testnet-action";
 import { testnetHttpExecutionEnabled } from "./testnet-execution-gate";
+import { TestnetLpPositionReader } from "./testnet-lp-position";
+import { handleTestnetLpRequest } from "./testnet-lp-routes";
 import { TestnetReceiptReader } from "./testnet-receipt";
 
 const envFile = new URL("../.env", import.meta.url);
@@ -56,6 +58,8 @@ const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient
 const testnetRpcUrl = process.env.BASE_SEPOLIA_RPC_URL?.trim();
 const testnet = testnetRpcUrl ? new TestnetDiscoveryReader(signal =>
   probeBaseSepoliaDepth(createBaseSepoliaPreflightSource(testnetRpcUrl, signal))) : undefined;
+const testnetLpPositions = testnetRpcUrl ? new TestnetLpPositionReader(signal =>
+  createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
 const testnetQuotes = testnetRpcUrl ? new TestnetSwapQuoteReader(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
 const testnetStates = testnetRpcUrl ? new TestnetWalletStateReader(signal =>
@@ -92,7 +96,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
+    const result = await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

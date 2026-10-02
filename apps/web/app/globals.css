@@ -249,3 +249,16 @@ body:has(.recording-page) .site-footer { background: #000; }
 .manual-review-notice { padding: 18px; border: 1px solid #66512c; background: #18130a; margin-top: 24px; }
 .manual-review-notice h4 { margin: 0; }
 .manual-review-notice label { display: flex; gap: 10px; align-items: start; font-size: 13px; }
+
+/* Recording route 02: reuse the launchpad-style desktop surfaces from route 01. */
+.lp-recording-grid .field { width: 100%; margin-top: 10px; }
+.lp-read-boundary { margin-top: 24px; padding-top: 24px; border-top: 1px solid #262626; font-size: 13px; }
+.lp-read-boundary p { color: #8c8c8c; line-height: 1.6; }
+.lp-scan-meta { display: flex; align-items: center; gap: 16px; margin-top: 28px; font-size: 12px; }
+.lp-position-cards { display: grid; gap: 20px; margin-top: 20px; }
+.lp-position-card { padding: 20px; border: 1px solid #262626; background: #080808; }
+.lp-position-card header { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lp-position-card header h3 { margin: 0; }
+.lp-position-card .demo-preview { padding: 0; border: 0; }
+.lp-position-card .demo-preview > div { grid-template-columns: 180px minmax(0, 1fr); }
+.lp-position-card .testnet-actions .button { font-size: 11px; }

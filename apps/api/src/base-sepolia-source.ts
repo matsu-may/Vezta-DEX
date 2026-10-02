@@ -6,6 +6,7 @@ import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
+import type { BaseSepoliaLpSource } from "./testnet-lp-position";
 import type { BaseSepoliaReceiptSource } from "./testnet-receipt";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
 import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
@@ -35,6 +36,17 @@ const quoterAbi = [{ type: "function", name: "quoteExactInputSingle", stateMutab
 
 const configurationAbi = parseAbi(["function factory() view returns (address)",
   "function WETH9() view returns (address)", "function positionManager() view returns (address)"]);
+const positionAbi = parseAbi([
+  "function balanceOf(address owner) view returns (uint256)",
+  "function tokenOfOwnerByIndex(address owner,uint256 index) view returns (uint256)",
+  "function ownerOf(uint256 tokenId) view returns (address)",
+  "function positions(uint256 tokenId) view returns (uint96 nonce,address operator,address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint128 liquidity,uint256 feeGrowthInside0LastX128,uint256 feeGrowthInside1LastX128,uint128 tokensOwed0,uint128 tokensOwed1)",
+]);
+const growthAbi = parseAbi([
+  "function feeGrowthGlobal0X128() view returns (uint256)",
+  "function feeGrowthGlobal1X128() view returns (uint256)",
+  "function ticks(int24 tick) view returns (uint128 liquidityGross,int128 liquidityNet,uint256 feeGrowthOutside0X128,uint256 feeGrowthOutside1X128,int56 tickCumulativeOutside,uint160 secondsPerLiquidityOutsideX128,uint32 secondsOutside,bool initialized)",
+]);
 const spacingAbi = parseAbi(["function tickSpacing() view returns (int24)"]);
 const feeOracleAbi = parseAbi(["function isFjord() view returns (bool)", "function isJovian() view returns (bool)",
   "function getL1FeeUpperBound(uint256 unsignedSize) view returns (uint256)",
@@ -69,7 +81,7 @@ async function readRpcBody(response: Response, signal?: AbortSignal | null) {
   } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -102,6 +114,42 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    async getLpBlock(number) {
+      const block = await client.getBlock({ blockNumber: number });
+      return { number: block.number, timestamp: block.timestamp, hash: block.hash ?? "0x" };
+    },
+    getPositionCount(owner, blockNumber) {
+      return client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "balanceOf", args: [owner], blockNumber });
+    },
+    getPositionId(owner, index, blockNumber) {
+      return client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "tokenOfOwnerByIndex", args: [owner, index], blockNumber });
+    },
+    getPositionOwner(id, blockNumber) {
+      return client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "ownerOf", args: [id], blockNumber });
+    },
+    async getPosition(id, blockNumber) {
+      const p = await client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "positions", args: [id], blockNumber });
+      return { token0: p[2], token1: p[3], fee: p[4], tickLower: p[5], tickUpper: p[6], liquidity: p[7],
+        feeGrowthInside0LastX128: p[8], feeGrowthInside1LastX128: p[9], tokensOwed0: p[10], tokensOwed1: p[11] };
+    },
+    async getLpPoolState(blockNumber) {
+      const address = TESTNET_SWAP_POLICY.pool;
+      const [token0, token1, factory, fee, liquidity, slot0, feeGrowthGlobal0X128, feeGrowthGlobal1X128] = await Promise.all([
+        client.readContract({ address, abi: poolAbi, functionName: "token0", blockNumber }),
+        client.readContract({ address, abi: poolAbi, functionName: "token1", blockNumber }),
+        client.readContract({ address, abi: poolAbi, functionName: "factory", blockNumber }),
+        client.readContract({ address, abi: poolAbi, functionName: "fee", blockNumber }),
+        client.readContract({ address, abi: poolAbi, functionName: "liquidity", blockNumber }),
+        client.readContract({ address, abi: poolAbi, functionName: "slot0", blockNumber }),
+        client.readContract({ address, abi: growthAbi, functionName: "feeGrowthGlobal0X128", blockNumber }),
+        client.readContract({ address, abi: growthAbi, functionName: "feeGrowthGlobal1X128", blockNumber }),
+      ]);
+      return { token0, token1, factory, fee, liquidity, sqrtPriceX96: slot0[0], tick: slot0[1], feeGrowthGlobal0X128, feeGrowthGlobal1X128 };
+    },
+    async getFeeGrowthOutside(tick, blockNumber) {
+      const row = await client.readContract({ address: TESTNET_SWAP_POLICY.pool, abi: growthAbi, functionName: "ticks", args: [tick], blockNumber });
+      return { feeGrowthOutside0X128: row[2], feeGrowthOutside1X128: row[3] };
+    },
     async getTransaction(hash) {
       try { return await client.getTransaction({ hash }); }
       catch (error) { if (error instanceof TransactionNotFoundError) return null; throw error; }

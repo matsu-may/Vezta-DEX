@@ -10,6 +10,12 @@ For live Base Sepolia testnet discovery, configure server-only `BASE_SEPOLIA_RPC
 
 Start with [the roadmap](docs/roadmap.md), [six-phase standalone plan](docs/superpowers/plans/2026-09-30-standalone-dex-next-phases.md), [architecture](docs/architecture.md), [Polygon pool research](docs/research/2026-09-27-polygon-weth-usdc.md), and [Trading API swap spec](docs/specs/2026-09-27-trading-api-swap.md). The current app implements read-only pool discovery, an indicative v3 single-pool comparison, and a wallet-bound Trading API quote preview. `apps/api` reads Polygon RPC and calls Uniswap Trading API; `apps/web` renders `/explore`, `/pools`, pool detail and `/swap`; `packages/core` holds chain-aware IDs, the curated token registry and quote validation.
 
+## Base Sepolia LP recording workspace
+
+Configure server-only `BASE_SEPOLIA_RPC_URL`, run `pnpm dev`, and open [http://127.0.0.1:3020/demo/2](http://127.0.0.1:3020/demo/2). Enter an owner address to read the fixed USDC/WETH 0.3% NFT positions at a pinned block. No wallet connection or faucet funds are required. Empty ownership and RPC failures are distinct; principal, checkpoint fees and mixed stored owed are separate. Estimated collectable is not profit. LP wallet action buttons remain disabled pending their signing/receipt flow.
+
+`pnpm testnet:lp-fork` verifies the real LP lifecycle on a disposable, guarded Base Sepolia fork with local fixture funds. It never submits to public testnet. For the separate swap recording flow use `/demo/1` and `pnpm dev:testnet` when ready to sign. See [LP progress and owner checklist](docs/research/2026-10-02-base-sepolia-lp-session.md).
+
 ## Local setup
 
 Requires Node.js 24 and pnpm 10.33.2. From this directory:

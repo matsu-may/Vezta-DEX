@@ -119,3 +119,4 @@ export { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "
 export { TESTNET_SWAP_POLICY, buildTestnetSwapTransaction, inspectTestnetSwapTransaction,
   planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, type TestnetSwapIntent, type TestnetSwapQuote,
   type TestnetSwapTransaction, type TestnetApprovalPlan } from "./testnet-swap";
+export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";

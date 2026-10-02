@@ -27,7 +27,8 @@
     "testnet:factory-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role factory",
     "testnet:pool-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role pool",
     "testnet:manager-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role manager",
-    "dev:testnet": "node scripts/start-testnet-demo.mjs"
+    "dev:testnet": "node scripts/start-testnet-demo.mjs",
+    "testnet:lp-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-fork-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
