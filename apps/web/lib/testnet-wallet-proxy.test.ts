@@ -44,3 +44,14 @@ it("never passes unrecognized upstream error codes to the browser", async () => 
   const body = await (await proxy(request(f.f.request.intent), "quote")).json();
   expect(body.code).toBe("TESTNET_BROWSER_UNAVAILABLE");
 });
+it("passes only bounded unverified diagnostics through the receipt boundary", async () => {
+  const f = await reviewedFixture(); const hash = `0x${"11".repeat(32)}`;
+  const observation = { contextId: f.checked.action!.contextId, hash, kind: "swap", chainId: 84532,
+    source: "base-sepolia-rpc", observedAt: new Date(f.f.clock()).toISOString(), executionEnabled: false,
+    status: "unverified", confirmations: "0", execution: null, diagnostic: "transaction-mismatch" };
+  const body = { contextId: observation.contextId, hash };
+  const good = createTestnetWalletProxy(env, async () => Response.json({ observation }), f.f.clock);
+  expect(await (await good(request(body), "receipt")).json()).toMatchObject({ observation: { diagnostic: "transaction-mismatch" } });
+  const bad = createTestnetWalletProxy(env, async () => Response.json({ observation: { ...observation, diagnostic: "private RPC key" } }), f.f.clock);
+  const response = await bad(request(body), "receipt"); expect(response.status).toBe(503); expect(await response.text()).not.toContain("private");
+});

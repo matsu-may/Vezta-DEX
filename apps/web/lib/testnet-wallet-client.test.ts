@@ -13,3 +13,10 @@ it("uses fixed same-origin actions, preserves safe context/rate errors and never
   await expect(createTestnetWalletClient(huge).call("quote", {})).rejects.toThrow();
   expect(huge).toHaveBeenCalledTimes(1);
 });
+it("preserves bounded receipt error codes without exposing provider details", async () => {
+  for (const code of ["TESTNET_RECEIPT_BUSY", "TESTNET_RECEIPT_TIMEOUT", "TESTNET_RECEIPT_STALE", "TESTNET_RECEIPT_INVALID"]) {
+    const fetcher = vi.fn(async () => Response.json({ code, error: "private RPC key" }, { status: 503 }));
+    await expect(createTestnetWalletClient(fetcher).call("receipt", {})).rejects.toMatchObject({ code });
+    expect(fetcher).toHaveBeenCalledOnce();
+  }
+});

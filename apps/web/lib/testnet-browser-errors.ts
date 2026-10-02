@@ -35,6 +35,10 @@ const codes = new Set([
   "TESTNET_QUOTE_TIMEOUT",
   "TESTNET_QUOTE_UNAVAILABLE",
   "TESTNET_RECHECK_BUSY",
+  "TESTNET_RECEIPT_BUSY",
+  "TESTNET_RECEIPT_TIMEOUT",
+  "TESTNET_RECEIPT_STALE",
+  "TESTNET_RECEIPT_INVALID",
   "TESTNET_RPC_NOT_CONFIGURED",
   "TESTNET_RPC_UNAVAILABLE",
   "TESTNET_RUNTIME_MISMATCH",
@@ -45,3 +49,26 @@ const codes = new Set([
   "TESTNET_WRONG_CHAIN",
 ]);
 export const safeTestnetCode = (code: unknown) => typeof code === "string" && codes.has(code) ? code : "TESTNET_BROWSER_UNAVAILABLE";
+
+const actionMessages: Record<string, string> = {
+  TESTNET_CONTEXT_UNAVAILABLE: "Original tracking context is unavailable or expired. Keep the hash and recovery record; ask for review before continuing.",
+  TESTNET_CONTEXT_HASH_CHANGED: "This hash differs from the original tracked transaction. Keep the original hash and ask for review.",
+  TESTNET_RECEIPT_TIMEOUT: "Receipt check timed out. Wait a moment, then check the original transaction again.",
+  TESTNET_RECEIPT_BUSY: "Another receipt check is running. Wait for it to finish before checking again.",
+  TESTNET_RECEIPT_STALE: "RPC returned stale block data. Wait a moment, then check the original transaction again.",
+  TESTNET_RECEIPT_INVALID: "RPC receipt data could not be validated. Keep the original hash and ask for review.",
+  TESTNET_BROWSER_BUSY: "The local request budget is busy. Wait a moment before trying an explicit action again.",
+  TESTNET_RPC_UNAVAILABLE: "Base Sepolia RPC is unavailable. Check the API terminal and RPC configuration, then retry explicitly.",
+  TESTNET_RPC_NOT_CONFIGURED: "Base Sepolia RPC is not configured. Check the API configuration before continuing.",
+  TESTNET_BROWSER_ORIGIN: "Open http://127.0.0.1:3020 for this local demo; localhost or another origin is not supported.",
+  TESTNET_EOA_REQUIRED: "This wallet is a smart account. Select a standard account on Base Sepolia for this demo.",
+  TESTNET_QUOTE_STALE: "The quote has expired. Request and review a fresh quote before continuing.",
+  TESTNET_PREPARE_STALE: "The preparation has expired. Request and review a fresh quote before continuing.",
+  TESTNET_NONCE_CHANGED: "The wallet nonce changed. Request and review a fresh quote before continuing.",
+};
+export function testnetActionMessage(code: string, recovering: boolean) {
+  const message = actionMessages[safeTestnetCode(code)] ?? (recovering
+    ? "Original transaction check is unavailable. Keep the context and hash; try an explicit receipt check later."
+    : "Action unavailable. Request and review a fresh Base Sepolia quote.");
+  return recovering ? `${message} Preserve the original transaction; do not send again.` : message;
+}

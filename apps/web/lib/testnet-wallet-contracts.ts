@@ -101,11 +101,13 @@ const executionSchema = z.object({ status: z.enum(["verified", "reverted"]), amo
 export const walletObservationResponseSchema = z.object({ observation: z.object({ contextId: id, hash: walletHash, kind: z.enum(["swap", "approve", "reset"]),
     chainId: z.literal(P.chainId), source: z.literal("base-sepolia-rpc"), observedAt: z.iso.datetime(), executionEnabled: z.boolean(),
     status: z.enum(["unknown-original", "pending", "confirming", "reorged", "unverified", "confirmed", "reverted"]),
+    diagnostic: z.enum(["transaction-unavailable", "unsupported-transaction-type", "transaction-mismatch", "receipt-mismatch", "event-mismatch"]).optional(),
     confirmations: walletUint, blockNumber: walletUint.optional(), blockHash: walletHash.optional(), nonceUsed: z.boolean().optional(), execution: executionSchema.nullable() }) });
 
 export function parseTestnetWalletObservation(value: unknown, record: TestnetSubmission, now: number) {
   const { observation: o } = walletObservationResponseSchema.parse(value);
   bound(record.hash !== null && same(o.hash, record.hash) && o.contextId === record.action.contextId && o.kind === record.action.kind);
+  bound(o.diagnostic === undefined || o.status === "unverified");
   const observed = Date.parse(o.observedAt);
   bound(Number.isSafeInteger(now) && now >= 0 && observed <= now + 10000 && now - observed < 30000);
   if (o.status !== "confirmed" && o.status !== "reverted") { bound(o.execution === null); return o; }

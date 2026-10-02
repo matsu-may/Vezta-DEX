@@ -1,3 +1,5 @@
+import { TestnetBrowserError } from "./testnet-wallet-client";
+import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
 import { parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
@@ -19,7 +21,7 @@ type Stage = "disconnected" | "connected" | "quote-review" | "action-review" | "
 type Review = ReturnType<typeof parseTestnetWalletReview>["study"];
 type Observation = ReturnType<typeof parseTestnetWalletObservation>;
 export interface TestnetWalletSnapshot { stage: Stage; busy: boolean; message: string; account: Address | null;
-  archived?: TestnetSubmission[]; review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
+  contextUnavailable?: boolean; archived?: TestnetSubmission[]; review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
 const initial = (): TestnetWalletSnapshot => ({ stage: "disconnected", busy: false, message: "", account: null,
   review: null, quote: null, action: null, submission: null, observation: null });
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
@@ -109,9 +111,9 @@ export class TestnetWalletController {
     catch (error) {
       const stage = this.state.stage === "recovery-blocked" ? "recovery-blocked" : this.state.submission
         ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.stage === "invalidated" ? "invalidated" : "error";
-      this.publish({ stage, review: null, quote: null, action: null, message: this.state.submission
-        ? "Preserve the original context and hash. Check its receipt; do not send again." : purpose === "connect" ? connectionMessage(error)
-          : (error instanceof WrongTestnetNetwork || error instanceof UnsupportedDemoWallet) ? connectionMessage(error) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
+      this.publish({ stage, contextUnavailable: !!this.state.submission && (this.state.contextUnavailable || (error instanceof TestnetBrowserError && error.status === 410 && error.code === "TESTNET_CONTEXT_UNAVAILABLE")), review: null, quote: null, action: null, message: this.state.submission
+        ? error instanceof TestnetBrowserError ? testnetActionMessage(error.code, true) : "Preserve the original context and hash. Check its receipt; do not send again." : purpose === "connect" ? connectionMessage(error)
+          : (error instanceof WrongTestnetNetwork || error instanceof UnsupportedDemoWallet) ? connectionMessage(error) : error instanceof TestnetBrowserError ? testnetActionMessage(error.code, false) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
     } finally { this.active = false; this.publish({ busy: false }); }
   }
   private free() { require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
@@ -164,8 +166,10 @@ export class TestnetWalletController {
     try { writeTestnetSubmission(this.storage, sent, original); }
     catch { this.publish({ message: "Copy the original hash now. Recovery storage could not be updated." }); }
   }); }
-  private tracked() { const record = this.state.submission; require(record && this.now() < Date.parse(record.action.trackingExpiresAt)); return record!; }
-  private applyObservation(o: Observation) { this.publish({ observation: o, stage: o.status === "unknown-original" ? "uncertain" : o.status }); }
+  private tracked() { const record = this.state.submission; require(record);
+    if (this.now() >= Date.parse(record!.action.trackingExpiresAt)) throw new TestnetBrowserError(410, "TESTNET_CONTEXT_UNAVAILABLE");
+    return record!; }
+  private applyObservation(o: Observation) { this.publish({ observation: o, contextUnavailable: false, stage: o.status === "unknown-original" ? "uncertain" : o.status }); }
   async observe() { return this.run(async () => {
     const original = this.tracked(); require(original.hash);
     const raw = await this.api.call("receipt", { contextId: original.action.contextId, hash: original.hash });
@@ -181,11 +185,13 @@ export class TestnetWalletController {
     this.applyObservation(o);
   }); }
   async archiveUnverifiedApproval() { return this.run(async () => {
-    const original = this.tracked(); require(original.hash && original.action.kind !== "swap"
-      && this.state.stage === "unverified" && this.state.observation?.status === "unverified");
-    parseTestnetWalletObservation({ observation: this.state.observation }, original, this.now());
-    const archived = archiveTestnetApproval(this.storage, original);
-    this.generation++; this.publish({ archived, submission: null, observation: null, account: null,
+    const original = this.state.submission; require(original && original.hash && original.action.kind !== "swap");
+    if (!this.state.contextUnavailable) {
+      require(this.state.stage === "unverified" && this.state.observation?.status === "unverified");
+      parseTestnetWalletObservation({ observation: this.state.observation }, original!, this.now());
+    }
+    const archived = archiveTestnetApproval(this.storage, original!);
+    this.generation++; this.publish({ archived, submission: null, observation: null, contextUnavailable: false, account: null,
       review: null, quote: null, action: null, stage: "disconnected",
       message: "Original approval archived for manual review, not verified. Continue only with a different standard account." });
   }); }

@@ -130,3 +130,11 @@ it("times out, rejects overlap and prevents late work from binding a hash", asyn
   release(); await vi.advanceTimersByTimeAsync(0);
   expect(s.store.read(s.request.contextId).originalHash).toBeNull();
 });
+it("explains unverified envelopes without accepting smart or altered transactions", async () => {
+  const s = await setup("approve"); s.transaction.type = "eip7702";
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "unsupported-transaction-type", execution: null });
+  s.transaction.type = "legacy"; s.transaction.nonce += 1;
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "transaction-mismatch", execution: null });
+  s.transaction.nonce -= 1; s.receipt.logs = [];
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "event-mismatch", execution: null });
+});

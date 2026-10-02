@@ -9,11 +9,11 @@ function setup(kind: "approve" | "swap" = "approve") {
   const f = fixtures[kind === "approve" ? "forward-approve" : "forward-swap"];
   const record = parseTestnetSubmission({ version: 1, intent: f.intent, quote: f.quote.quote, action: f.checked.action, attemptedAt: f.now, hash });
   const storage = memoryStorage(); storage.setItem(TESTNET_SUBMISSION_KEY, JSON.stringify(record));
-  let owner = record.intent.wallet; let code = "0x"; const methods: string[] = [];
+  let lost = false; let owner = record.intent.wallet; let code = "0x"; const methods: string[] = [];
   const wallet = { async request({ method }: { method: string }) { methods.push(method); return method === "eth_chainId" ? "0x14a34" : method === "eth_getCode" ? code : [owner]; } };
-  const api = { async call() { return { observation: { contextId: record.action.contextId, hash, kind, chainId: 84532, source: "base-sepolia-rpc", observedAt: new Date(f.now).toISOString(), executionEnabled: false, status: "unverified", confirmations: "0", execution: null } }; } };
+  const api = { async call() { if (lost) { const { TestnetBrowserError } = await import("./testnet-wallet-client"); throw new TestnetBrowserError(410, "TESTNET_CONTEXT_UNAVAILABLE"); } return { observation: { contextId: record.action.contextId, hash, kind, chainId: 84532, source: "base-sepolia-rpc", observedAt: new Date(f.now).toISOString(), executionEnabled: false, status: "unverified", confirmations: "0", execution: null } }; } };
   const make = () => new TestnetWalletController(wallet, api, storage, () => f.now, { async run(fn) { await fn(); } });
-  return { make, storage, methods, record, changeOwner: () => { owner = "0x1111111111111111111111111111111111111111"; }, delegate: () => { code = "0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b"; } };
+  return { make, storage, methods, record, loseContext: () => { lost = true; }, changeOwner: () => { owner = "0x1111111111111111111111111111111111111111"; }, delegate: () => { code = "0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b"; } };
 }
 it("archives only an explicitly unverified approval, preserves it on reload and blocks that original wallet", async () => {
   const s = setup(); const c = s.make();
@@ -34,4 +34,15 @@ it("rejects a delegated account before a quote or send and fails closed on corru
   const s = setup(); s.storage.removeItem(TESTNET_SUBMISSION_KEY); s.delegate(); const c = s.make();
   await c.connect(); expect(c.snapshot().account).toBeNull(); expect(c.snapshot().message).toContain("Smart accounts");
   s.storage.setItem("vezta-dex:base-sepolia-manual-review:v1", "bad"); expect(s.make().snapshot().stage).toBe("recovery-blocked");
+});
+
+it("quarantines an approval with unavailable context but never permits the same for swaps", async () => {
+  for (const kind of ["approve", "swap"] as const) {
+    const s = setup(kind); s.loseContext(); const c = s.make(); await c.observe();
+    expect(c.snapshot().contextUnavailable).toBe(true);
+    await c.archiveUnverifiedApproval();
+    if (kind === "swap") expect(c.snapshot().submission).not.toBeNull();
+    else { expect(c.snapshot().archived).toEqual([s.record]); await c.connect(); expect(c.snapshot().account).toBeNull(); }
+    expect(s.methods).not.toContain("eth_sendTransaction");
+  }
 });

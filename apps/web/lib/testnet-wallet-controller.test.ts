@@ -154,3 +154,15 @@ it("repairs only a matching original marker after a post-send storage failure, w
   await s.controller.observe(); expect(s.controller.snapshot().stage).toBe("confirmed");
   expect(s.methods.filter(m => m === "eth_sendTransaction")).toHaveLength(1);
 });
+it("explains lost context and receipt timeouts while preserving the original transaction", async () => {
+  const { TestnetBrowserError } = await import("./testnet-wallet-client");
+  for (const [code, expected] of [["TESTNET_CONTEXT_UNAVAILABLE", "tracking context is unavailable"], ["TESTNET_RECEIPT_TIMEOUT", "Receipt check timed out"]]) {
+    const s = await setup("approve"); await s.reviewed(); await s.controller.submit();
+    const raw = s.storage.getItem(TESTNET_SUBMISSION_KEY);
+    s.api.call = async () => { throw new TestnetBrowserError(503, code); };
+    await s.controller.observe(); expect(s.controller.snapshot().message).toContain(expected);
+    expect(s.controller.snapshot().message).toContain("do not send again");
+    expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBe(raw);
+    expect(s.methods.filter(m => m === "eth_sendTransaction")).toHaveLength(1);
+  }
+});

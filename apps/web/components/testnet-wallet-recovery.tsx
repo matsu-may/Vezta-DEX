@@ -2,6 +2,13 @@
 import { useState } from "react";
 import { formatUnits } from "viem";
 import type { TestnetWalletController, TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
+const diagnosticMessages = {
+  "transaction-unavailable": "RPC returned a receipt but no transaction details. Check the original transaction again later.",
+  "unsupported-transaction-type": "The wallet used a transaction type this demo does not support, such as a smart-account or relayed transaction. Keep the original hash for review.",
+  "transaction-mismatch": "The sender, target, calldata, nonce or gas fields differ from the reviewed transaction. Keep the original hash for review.",
+  "receipt-mismatch": "Receipt identity, block or gas fields could not be reconciled with the reviewed transaction.",
+  "event-mismatch": "Token events did not prove the reviewed approval or swap amounts. Keep the original hash for review.",
+};
 import { testnetAmount } from "./testnet-wallet-review";
 export function TestnetWalletRecovery({ state, controller }: { state: TestnetWalletSnapshot; controller: TestnetWalletController }) {
   const [hash, setHash] = useState(""); const [acceptedHash, setAcceptedHash] = useState<string | null>(null); const record = state.submission; const o = state.observation;
@@ -9,6 +16,9 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
   return <section className="testnet-review" aria-label="Original transaction recovery">
     <h3>{record?.hash ? "Original transaction" : "Submission outcome uncertain"}</h3>
     <p>Keep the original context and hash. Do not resend. Do not restart the API while tracking this transaction.</p>
+    {state.stage === "pending" && !state.contextUnavailable && <p role="status">Waiting for the original transaction. Click Check original transaction to read its receipt; this will not send another transaction.</p>}
+    {state.stage === "confirming" && <p role="status">The transaction is included. Wait for two confirmations, then check again.</p>}
+    {state.stage === "unverified" && <p role="status">{o?.diagnostic ? diagnosticMessages[o.diagnostic] : "The original transaction could not be reconciled with the reviewed action. Keep its hash and ask for review."}</p>}
     {record && <><dl className="demo-preview">
       <div><dt>Original wallet</dt><dd className="mono">{record.intent.wallet}</dd></div>
       <div><dt>Original action</dt><dd>{record.action.kind}</dd></div>
@@ -31,7 +41,7 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
       <div><dt>Actual total fee</dt><dd>L1/operator charged fees not yet qualified</dd></div>
     </dl>}
     {o?.execution && !o.execution.allowanceMatchesExpected && <p role="alert">Allowance has changed since the original transaction. A new quote and review will check its current value.</p>}
-    {state.stage === "unverified" && record.hash && record.action.kind !== "swap" && <div className="manual-review-notice">
+    {(state.stage === "unverified" || state.contextUnavailable) && record.hash && record.action.kind !== "swap" && <div className="manual-review-notice">
       <h4>Approval needs manual review</h4>
       <p>This app could not verify the original transaction. Archiving preserves its record and blocks this wallet from further demo actions. It does not mark the transaction successful.</p>
       <label><input type="checkbox" checked={acceptedHash === record.hash} onChange={e => setAcceptedHash(e.target.checked ? record.hash : null)} /> I will keep the original hash and continue only with a different standard account.</label>

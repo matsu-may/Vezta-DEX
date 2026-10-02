@@ -106,19 +106,21 @@ export class TestnetReceiptReader {
     fresh();
     const base = { contextId: c.contextId, hash, kind: c.kind, chainId: P.chainId, source: "base-sepolia-rpc" as const,
       observedAt: new Date(Number(head.timestamp) * 1000).toISOString(), executionEnabled: false as const };
-    const empty = (status: "unknown-original" | "pending" | "confirming" | "reorged" | "unverified", confirmations = "0") =>
-      ({ ...base, status, confirmations, execution: null });
+    type Diagnostic = "transaction-unavailable" | "unsupported-transaction-type" | "transaction-mismatch" | "receipt-mismatch" | "event-mismatch";
+    const empty = (status: "unknown-original" | "pending" | "confirming" | "reorged" | "unverified", confirmations = "0", diagnostic?: Diagnostic) =>
+      ({ ...base, status, confirmations, execution: null, ...(diagnostic ? { diagnostic } : {}) });
     const [tx, receipt] = await Promise.all([source.getTransaction(hash), source.getReceipt(hash)]);
     fresh();
     if (!tx) {
-      if (receipt) return empty("unverified");
+      if (receipt) return empty("unverified", "0", "transaction-unavailable");
       const nonce = await source.getAccountNonce(c.intent.wallet, head.number);
       const stable = await source.getBlockHash(head.number); fresh();
       if (!uint(nonce)) return fail("TESTNET_RECEIPT_INVALID");
       if (!same(stable, head.hash)) return empty("reorged");
       return { ...empty("unknown-original"), nonceUsed: nonce > BigInt(c.transaction.nonce) };
     }
-    if (!matchesOriginal(tx, c, hash)) return empty("unverified");
+    if (tx.type !== "legacy") return empty("unverified", "0", "unsupported-transaction-type");
+    if (!matchesOriginal(tx, c, hash)) return empty("unverified", "0", "transaction-mismatch");
     this.contexts.bindHash(c.contextId, hash);
     if (!receipt) return empty("pending");
     if (!same(receipt.transactionHash, hash) || !same(receipt.from, c.intent.wallet) || !same(receipt.to, c.transaction.to)
@@ -126,15 +128,15 @@ export class TestnetReceiptReader {
       || !uint(receipt.blockNumber) || receipt.blockNumber <= BigInt(c.blockNumber) || receipt.blockNumber > head.number
       || !nonzeroHash(receipt.blockHash) || !uint(receipt.gasUsed) || receipt.gasUsed === 0n
       || receipt.gasUsed > BigInt(c.transaction.gas) || receipt.effectiveGasPrice !== BigInt(c.transaction.gasPrice)
-      || !Array.isArray(receipt.logs) || receipt.logs.length > 128) return empty("unverified");
+      || !Array.isArray(receipt.logs) || receipt.logs.length > 128) return empty("unverified", "0", "receipt-mismatch");
     const canonical = await source.getBlockHash(receipt.blockNumber); fresh();
     if (!same(canonical, receipt.blockHash)) return empty("reorged");
     const confirmations = head.number - receipt.blockNumber + 1n;
     if (confirmations < 2n) return empty("confirming", confirmations.toString());
     let economics: ReturnType<typeof reviewEvents> | null = null;
     if (receipt.status === "success") {
-      try { economics = reviewEvents(c, receipt); } catch { return empty("unverified", confirmations.toString()); }
-    } else if (receipt.status !== "reverted" || receipt.logs.length !== 0) return empty("unverified");
+      try { economics = reviewEvents(c, receipt); } catch { return empty("unverified", confirmations.toString(), "event-mismatch"); }
+    } else if (receipt.status !== "reverted" || receipt.logs.length !== 0) return empty("unverified", "0", "receipt-mismatch");
     const [usdc, weth, eth, allowance] = await Promise.all([
       source.getTokenBalance(C.USDC.address, c.intent.wallet, head.number), source.getTokenBalance(C.WETH.address, c.intent.wallet, head.number),
       source.getNativeBalance(c.intent.wallet, head.number), source.getTokenAllowance(c.intent.tokenIn, c.intent.wallet, P.router, head.number),
