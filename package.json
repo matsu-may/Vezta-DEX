@@ -26,7 +26,8 @@
     "testnet:quoter-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role quoter",
     "testnet:factory-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role factory",
     "testnet:pool-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role pool",
-    "testnet:manager-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role manager"
+    "testnet:manager-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role manager",
+    "dev:testnet": "node scripts/start-testnet-demo.mjs"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

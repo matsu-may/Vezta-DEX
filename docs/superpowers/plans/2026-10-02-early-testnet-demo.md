@@ -1,6 +1,6 @@
 # Lộ trình demo testnet sớm
 
-**Ngày:** 2026-10-02. **Trạng thái:** kế hoạch, chưa phải bản demo đã nghiệm thu.
+**Ngày:** 2026-10-02. **Trạng thái:** bước 1 và kiểm tra local/browser của bước 2 đã hoàn thành; bước 3 chờ bạn nghiệm thu bằng MetaMask. Chưa có giao dịch public-testnet được nghiệm thu.
 
 **Mục tiêu:** có bản desktop để trình diễn luồng **khám phá pool → kết nối MetaMask → swap → xem kết quả**, trước khi hoàn thiện LP. Sau mốc demo sớm, tiếp tục [lộ trình testnet đầy đủ](2026-10-01-standalone-testnet-completion.md); các yêu cầu và gate còn lại vẫn được giữ.
 
@@ -20,7 +20,7 @@
 | **2. Kiểm tra một nhóm** | Mock browser cho hai chiều, hết hạn, đổi account/chain, rejection, pending/reload/uncertain và không gửi lặp; kiểm tra thời gian quote→recheck→ví. Qualify gate gửi testnet cục bộ, compatibility và complete fee budget cho giao dịch thử có giới hạn. | Test/typecheck/lint/build và desktop browser đạt; quote cũ/minimum/deadline không bị nới để vượt lỗi. Chỉ cấu hình opt-in testnet được xét bật; server không ký/gửi thay ví. |
 | **3. Bạn nghiệm thu testnet** | Dùng ETH testnet và USDC testnet từ faucet, ký giao dịch thử nhỏ theo hướng dẫn; xác minh forward swap rồi reverse từ WETH nhận được. Ghi receipt, số tiền, gas/charged fees và allowance. | Hai chiều thành công với original receipt verified; trạng thái lỗi/recovery rõ; phí công khai được đối chiếu hoặc ghi thiếu sót cụ thể. Một checklist setup/start/demo dùng lại được. |
 
-**Thời gian tham khảo:** khoảng 1½–3 ngày làm việc tập trung cho code và kiểm tra của bước 1–2, dựa trên nền tảng hiện có. Đây là ước lượng; RPC, quote latency, tương thích ví và lỗi phát sinh có thể kéo dài. Bước 3 phụ thuộc thời gian bạn có thể kiểm tra và lấy tài sản testnet; không cần USDC mainnet.
+**Ước lượng ban đầu (đã triển khai phần độc lập):** khoảng 1½–3 ngày làm việc tập trung cho code và kiểm tra của bước 1–2, dựa trên nền tảng hiện có. Đây là ước lượng; RPC, quote latency, tương thích ví và lỗi phát sinh có thể kéo dài. Bước 3 phụ thuộc thời gian bạn có thể kiểm tra và lấy tài sản testnet; không cần USDC mainnet.
 
 **Điểm dừng:** nếu thiếu điều kiện gửi, chỉ trình diễn preview/mock có nhãn rõ và ghi gate chưa đạt. Chưa gọi đó là bản swap public-testnet đã nghiệm thu. Không dùng tốc độ demo để bỏ validation hoặc tự gửi qua ví của bạn.
 
@@ -33,6 +33,11 @@
 
 **Tối ưu thực hiện:** tái sử dụng core/backend/controller; không clone AMM/router, rebuild nguồn hoặc chạy lại các probe đã đạt. Làm một nhóm chức năng, một review và một gate cuối; chỉ kiểm tra lại phần có rủi ro cụ thể do thay đổi. Gate runtime/fork được chấp nhận vẫn được kiểm tra lúc chạy theo policy, không được bỏ khỏi adapter.
 
-## Điểm bắt đầu cho phiên code tiếp theo
+## Trạng thái bàn giao hiện tại
 
-Đọc [bàn giao controller](../../research/2026-10-02-testnet-wallet-controller.md), rồi làm bước 1. Đã chấp nhận fork `47573721` và consumer fork `47574990`; controller ở commit `5f1d159` có 746 Vitest +85 Node passed. UI chưa nối controller và product execution vẫn false. Giữ thay đổi riêng của chủ repo trong `apps/web/next-env.d.ts`. Phiên lưu lộ trình này chỉ sửa Markdown.
+- Bước 1: client/proxy bounded same-origin, local opt-in launcher và desktop `/testnet` đã nối controller. Quote/minimum, exact/reset approval, fee review, explicit submit và original receipt/recovery có UI.
+- Bước 2 local: 757 Vitest +85 Node passed (1 native opt-in integration skipped), typecheck/lint/build passed; mock wallet browser15checks và discovery browser8checks passed. Một review độc lập không có Critical/Important; Minor về allowance đã sửa và test.
+- Luồng proxy thật: quote200 trong11095ms, approval recheck200 trong7216ms; ví thiếu input được báo blocked đúng, execution=false trong dev thường. Latency của funded wallet và popup MetaMask vẫn cần quan sát ở bước3; không nới TTL30s/minimum.
+- Chỉ `pnpm dev:testnet` mới bật consumer testnet trên localhost. `pnpm dev` vẫn preview; CLI/source gates vẫn read-only. Không public hosting, mainnet hay server-side signing.
+- Làm [hướng dẫn bước3](../../research/2026-10-02-early-testnet-demo-owner-guide.md), gửi sanitized hashes/results, rồi tiếp tục LP và Phase4–6. Không chạy lại các source rebuild/fork đã đạt nếu code liên quan không thay đổi.
+- [Checkpoint phiên](../../research/2026-10-02-early-demo-browser-session.md) giữ context/decisions/giới hạn để tiếp tục sau compaction. Thay đổi riêng `apps/web/next-env.d.ts` được giữ và không commit.

@@ -1,5 +1,5 @@
 // MOCK ONLY: pool discovery and quote snapshots; no wallet signature or broadcast.
-await (async page => {
+async page => {
   const checks = [];
   let calls = 0;
   let fail = false;
@@ -26,6 +26,7 @@ await (async page => {
   });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("http://127.0.0.1:3020/testnet");
+  await page.getByText("Read-only pool depth diagnostics", { exact: true }).click();
   await page.getByRole("heading", { name: "Explore the testnet." }).waitFor();
   check(calls === 0, "No automatic pool read");
   await page.getByRole("button", { name: "Check Base Sepolia pools" }).click();
@@ -39,11 +40,14 @@ await (async page => {
   await preview.getByText("0.0995 USDC", { exact: true }).waitFor();
   check(true, "Reverse direction uses USDC decimals");
   check(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "Desktop has no horizontal overflow");
-  await page.screenshot({ path: ".playwright-cli/testnet-desktop.png", fullPage: true });
+  await page.screenshot({ path: ".playwright-cli/testnet-depth-desktop.png", fullPage: true });
+  await page.evaluate(() => { const previous = Date.now; Date.now = () => previous() + 120001; });
+  await page.getByText("Snapshot expired. Refresh before previewing a quote.", { exact: true }).waitFor();
+  check(await page.getByText("Estimated received", { exact: true }).count() === 0, "Expired snapshot clears executable-looking preview");
   fail = true;
   await page.getByRole("button", { name: "Check Base Sepolia pools" }).click();
   await page.getByRole("alert").waitFor();
   check(await page.getByText("Estimated received", { exact: true }).count() === 0, "Failed refresh clears the previous quote");
   check((await page.evaluate(() => window.__dexTestnetWalletCalls)).length === 0, "No wallet request, signature or broadcast");
   return { mockOnly: true, checks, apiCalls: calls };
-})(page);
+}

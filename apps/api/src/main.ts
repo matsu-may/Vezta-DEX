@@ -29,6 +29,7 @@ import { TestnetWalletStateReader } from "./testnet-wallet-state";
 import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
 import { TestnetActionStore, TestnetRechecker } from "./testnet-action";
+import { testnetHttpExecutionEnabled } from "./testnet-execution-gate";
 import { TestnetReceiptReader } from "./testnet-receipt";
 
 const envFile = new URL("../.env", import.meta.url);
@@ -91,7 +92,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts)
+    const result = await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

@@ -44,7 +44,8 @@ function inspectAction(action: TestnetWalletAction, intent: TestnetSwapIntent, q
 const gasSchema = z.object({ estimatedGas: walletUint, gasLimit: walletUint, gasPrice: walletUint,
   l2FeeCeiling: walletUint, l1FeeUpperBound: walletUint, operatorFeeUpperBound: walletUint,
   totalFeeBudget: walletUint, totalFeeQualified: z.literal(true), fork: z.literal("jovian") });
-const studySchema = z.object({ status: z.enum(["blocked", "approval-required", "allowance-ready", "unsigned-prepared"]),
+export const walletStudySchema = z.object({ status: z.enum(["blocked", "approval-required", "allowance-ready", "unsigned-prepared"]),
+  reason: z.enum(["TESTNET_INPUT_BALANCE_LOW", "TESTNET_NATIVE_BALANCE_LOW", "TESTNET_L2_BUDGET_LOW", "TESTNET_TOTAL_BUDGET_LOW"]).nullable(),
   chainId: z.literal(P.chainId), quoteId: id, intent: z.unknown(), observedAt: z.iso.datetime(), expiresAt: z.iso.datetime(),
   blockNumber: walletUint, blockHash: walletHash, accountNonce: walletUint, currentAllowance: walletUint,
   inputBalance: walletUint, nativeBalance: walletUint, approvalKind: z.enum(["ready", "approve", "reset"]),
@@ -52,9 +53,10 @@ const studySchema = z.object({ status: z.enum(["blocked", "approval-required", "
   simulation: z.object({ status: z.literal("success"), amountOut: walletUint.optional() }).nullable(),
   gas: gasSchema.nullable(), transaction: txSchema.nullable(), runtimeVerified: z.literal(true), executionEnabled: z.boolean(),
   minimumAmountOut: walletUint.optional(), priceImpactBps: z.number().int().min(0).max(100).nullable().optional() });
+export const walletReviewSchema = z.object({ study: walletStudySchema, action: walletActionSchema.nullable() }).strict();
 export function parseTestnetWalletReview(value: unknown, quoted: TestnetWalletQuote, kind: "approval" | "swap", now: number) {
   const quote = parseTestnetSwapQuote(quoted.quote, now);
-  const response = z.object({ study: studySchema, action: walletActionSchema.nullable() }).strict().parse(value);
+  const response = walletReviewSchema.parse(value);
   const { study, action } = response; const intent = parseTestnetSwapIntent(study.intent); bindIntent(intent, quote);
   const observed = Date.parse(study.observedAt);
   bound(study.quoteId === quoted.quoteId && study.expiresAt === new Date(Date.parse(quote.observedAt) + 30000).toISOString()
@@ -96,11 +98,13 @@ export type TestnetSubmission = ReturnType<typeof parseTestnetSubmission>;
 const executionSchema = z.object({ status: z.enum(["verified", "reverted"]), amountIn: walletUint.optional(), amountOut: walletUint.optional(), approvedAmount: walletUint.optional(),
   l2GasCost: walletUint, actualTotalFeeQualified: z.literal(false), balances: z.object({ USDC: walletUint, WETH: walletUint, ETH: walletUint }),
   tokenAllowance: walletUint, allowanceMatchesExpected: z.boolean(), stateBlockNumber: walletUint, stateBlockHash: walletHash });
-export function parseTestnetWalletObservation(value: unknown, record: TestnetSubmission, now: number) {
-  const { observation: o } = z.object({ observation: z.object({ contextId: id, hash: walletHash, kind: z.enum(["swap", "approve", "reset"]),
+export const walletObservationResponseSchema = z.object({ observation: z.object({ contextId: id, hash: walletHash, kind: z.enum(["swap", "approve", "reset"]),
     chainId: z.literal(P.chainId), source: z.literal("base-sepolia-rpc"), observedAt: z.iso.datetime(), executionEnabled: z.boolean(),
     status: z.enum(["unknown-original", "pending", "confirming", "reorged", "unverified", "confirmed", "reverted"]),
-    confirmations: walletUint, blockNumber: walletUint.optional(), blockHash: walletHash.optional(), nonceUsed: z.boolean().optional(), execution: executionSchema.nullable() }) }).parse(value);
+    confirmations: walletUint, blockNumber: walletUint.optional(), blockHash: walletHash.optional(), nonceUsed: z.boolean().optional(), execution: executionSchema.nullable() }) });
+
+export function parseTestnetWalletObservation(value: unknown, record: TestnetSubmission, now: number) {
+  const { observation: o } = walletObservationResponseSchema.parse(value);
   bound(record.hash !== null && same(o.hash, record.hash) && o.contextId === record.action.contextId && o.kind === record.action.kind);
   const observed = Date.parse(o.observedAt);
   bound(Number.isSafeInteger(now) && now >= 0 && observed <= now + 10000 && now - observed < 30000);

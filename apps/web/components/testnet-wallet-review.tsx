@@ -1,0 +1,42 @@
+import { formatUnits } from "viem";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
+import type { TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
+export function testnetAmount(raw: string, token: string) {
+  const usdc = token.toLowerCase() === C.USDC.address.toLowerCase();
+  return `${formatUnits(BigInt(raw), usdc ? 6 : 18)} ${usdc ? "USDC" : "WETH"}`;
+}
+const eth = (raw: string) => `${formatUnits(BigInt(raw), 18)} test ETH`;
+export function TestnetWalletReview({ state }: { state: TestnetWalletSnapshot }) {
+  const q = state.quote?.quote; const study = state.review; const a = state.action;
+  return <>
+    {q && <section className="testnet-review" aria-label="Wallet quote">
+      <h3>Quote · Base Sepolia</h3><dl className="demo-preview">
+        <div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
+        <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div>
+        <div><dt>Minimum received</dt><dd>{testnetAmount(q.minimumAmountOut, q.tokenOut)}</dd></div>
+        <div><dt>Slippage</dt><dd>0.5%</dd></div><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
+        <div><dt>Block</dt><dd>{q.blockNumber}</dd></div>
+      </dl>
+    </section>}
+    {study && <section className="testnet-review" aria-label="Transaction review">
+      <h3>{a ? `${a.kind === "reset" ? "Reset allowance to zero" : a.kind === "approve" ? "Exact token approval" : "Simulated swap"}` : "Action needs review"}</h3>
+      {study.reason && <p role="status">{study.reason === "TESTNET_INPUT_BALANCE_LOW" ? "Insufficient input tokens. Fund this wallet with testnet tokens." : "Insufficient test ETH for the complete fee budget."}</p>}
+      {study.status === "allowance-ready" && <p>Allowance is ready. Review swap next.</p>}
+      {study.status === "approval-required" && <p>Review approval before reviewing the swap.</p>}
+      <dl className="demo-preview">
+        <div><dt>Input balance</dt><dd>{testnetAmount(study.inputBalance, state.quote!.quote.tokenIn)}</dd></div>
+        <div><dt>Gas balance</dt><dd>{eth(study.nativeBalance)}</dd></div>
+        {a && <><div><dt>Action amount</dt><dd>{testnetAmount(a.kind === "reset" ? "0" : state.quote!.quote.amountIn, state.quote!.quote.tokenIn)}</dd></div>
+          <div><dt>{a.kind === "swap" ? "Router" : "Approval spender"}</dt><dd className="mono">{P.router}</dd></div>
+          <div><dt>Transaction target</dt><dd className="mono">{a.transaction.to}</dd></div>
+          <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div></>}
+        {study.gas && <><div><dt>Gas limit</dt><dd>{study.gas.gasLimit}</dd></div>
+          <div><dt>Gas price</dt><dd>{formatUnits(BigInt(study.gas.gasPrice), 9)} gwei</dd></div>
+          <div><dt>L2 fee ceiling</dt><dd>{eth(study.gas.l2FeeCeiling)}</dd></div>
+          <div><dt>L1 fee upper bound</dt><dd>{eth(study.gas.l1FeeUpperBound)}</dd></div>
+          <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div>
+          <div><dt>Complete snapshot fee budget</dt><dd>{eth(study.gas.totalFeeBudget)}</dd></div></>}
+      </dl><p className="form-help">Fee budget includes a buffer for L1 and operator fees. It is an estimate, not the final charged fee.</p>
+    </section>}
+  </>;
+}

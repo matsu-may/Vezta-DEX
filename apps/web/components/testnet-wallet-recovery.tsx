@@ -1,0 +1,38 @@
+"use client";
+import { useState } from "react";
+import { formatUnits } from "viem";
+import type { TestnetWalletController, TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
+import { testnetAmount } from "./testnet-wallet-review";
+export function TestnetWalletRecovery({ state, controller }: { state: TestnetWalletSnapshot; controller: TestnetWalletController }) {
+  const [hash, setHash] = useState(""); const record = state.submission; const o = state.observation;
+  if (!record && state.stage !== "recovery-blocked") return null;
+  return <section className="testnet-review" aria-label="Original transaction recovery">
+    <h3>{record?.hash ? "Original transaction" : "Submission outcome uncertain"}</h3>
+    <p>Keep the original context and hash. Do not resend. Do not restart the API while tracking this transaction.</p>
+    {record && <><dl className="demo-preview">
+      <div><dt>Original wallet</dt><dd className="mono">{record.intent.wallet}</dd></div>
+      <div><dt>Original action</dt><dd>{record.action.kind}</dd></div>
+      <div><dt>Original input</dt><dd>{testnetAmount(record.intent.amountIn, record.intent.tokenIn)}</dd></div>
+      <div><dt>Network</dt><dd>Base Sepolia · 84532</dd></div>
+      <div><dt>Status</dt><dd>{state.stage}</dd></div>
+    </dl>
+    {record.hash ? <><a href={`https://sepolia.basescan.org/tx/${record.hash}`} target="_blank" rel="noreferrer">View original Base Sepolia transaction</a>
+      <p className="mono">{record.hash}</p><button className="button" disabled={state.busy} onClick={() => void controller.observe()}>Check original transaction</button></>
+      : <><label className="form-label" htmlFor="original-testnet-hash">Original transaction hash</label>
+        <input id="original-testnet-hash" className="field mono" value={hash} onChange={e => setHash(e.target.value)} autoComplete="off" />
+        <button className="button" disabled={state.busy || !/^0x[0-9a-fA-F]{64}$/.test(hash)} onClick={() => void controller.recoverHash(hash)}>Recover original hash</button></>}
+    {o?.execution && <dl className="demo-preview">
+      {o.status === "confirmed" && record.action.kind === "swap" && <div><dt>Verified executed output</dt><dd>{testnetAmount(o.execution.amountOut!, record.intent.tokenOut)}</dd></div>}
+      {o.execution.approvedAmount !== undefined && <div><dt>Original approval event amount</dt><dd>{testnetAmount(o.execution.approvedAmount, record.intent.tokenIn)}</dd></div>}
+      <div><dt>Current allowance</dt><dd>{testnetAmount(o.execution.tokenAllowance, record.intent.tokenIn)}</dd></div>
+      <div><dt>State block</dt><dd>{o.execution.stateBlockNumber}</dd></div>
+      <div><dt>Confirmations</dt><dd>{o.confirmations}</dd></div>
+      <div><dt>Verified L2 gas cost</dt><dd>{formatUnits(BigInt(o.execution.l2GasCost), 18)} test ETH</dd></div>
+      <div><dt>Actual total fee</dt><dd>L1/operator charged fees not yet qualified</dd></div>
+    </dl>}
+    {o?.execution && !o.execution.allowanceMatchesExpected && <p role="alert">Allowance has changed since the original transaction. A new quote and review will check its current value.</p>}
+    {(state.stage === "confirmed" || state.stage === "reverted") && <button className="button" disabled={state.busy} onClick={() => void controller.acknowledge()}>Acknowledge verified result</button>}
+    </>}
+    {state.stage === "recovery-blocked" && <p role="alert">Recovery record is invalid or conflicting. Preserve wallet activity and ask for review before starting another swap.</p>}
+  </section>;
+}

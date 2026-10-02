@@ -42,12 +42,12 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 ## Phase 1 — Close read-only discovery acceptance
 
-**Status:** Foundation and owner live preview evidence exist; final browser acceptance remains open.
+**Status:** Foundation, owner live preview and final desktop discovery mock acceptance are qualified (8 browser checks, 2026-10-02). Public wallet acceptance remains in Phase3.
 
 - [x] Keep the standalone workspace and distinct Polygon/Base Sepolia identities.
 - [x] Verify canonical test tokens/pools and record six bounded quotes per candidate at one stable block.
 - [x] Expose read-only Base Sepolia discovery and confirm forward/reverse preview and minimum through the owner's host.
-- [ ] Complete desktop expiry/refresh/error/no-wallet-prompt checks and the existing mocked browser smoke run.
+- [x] Complete desktop expiry/refresh/error/no-wallet-prompt checks and the existing mocked browser smoke run (updated for the embedded diagnostics panel).
 
 **Exit:** Fresh source/block labels, correct decimals/minimum in both directions, old results cleared on refresh/error, expired previews disabled. No claim that discovery enables execution.
 
@@ -84,18 +84,19 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 **Independent work:** Artifacts, pure/API tests and fork harnesses can progress without owner funding; live RPC/source results still require a reachable provider. **Dependency:** Verified identities from Phase 1. **Likely paths:** core policy, new testnet API quote/state/preparation adapters, scripts and evidence docs; split these into focused implementation plans.
 
-Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
+Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; the default API/CLI consumers remain read-only. An explicit localhost-only wallet acceptance consumer is now available through `pnpm dev:testnet`; public receipts remain unobserved.
 
-Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [funded fork group/current host check](../../research/2026-10-02-testnet-fork-lifecycle.md). Earlier no-funds oracle/preparation and funded fork handoffs are accepted. [Current recheck/receipt handoff](../../research/2026-10-02-testnet-recheck-receipt.md) records the accepted updated consumer run at block 47574990. Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
+Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [funded fork group/current host check](../../research/2026-10-02-testnet-fork-lifecycle.md). Earlier no-funds oracle/preparation and funded fork handoffs are accepted. [Current recheck/receipt handoff](../../research/2026-10-02-testnet-recheck-receipt.md) records the accepted updated consumer run at block 47574990. Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled by default; the explicit localhost demo consumer is opt-in and still requires owner wallet signatures.
 
 ## Phase 3 — Complete testnet wallet swaps
 
-**Status:** Headless controller/recovery is implemented and locally verified (746 Vitest +85 Node, typecheck/lint/build); current `/testnet` has no execution consumer. [Current group](../../research/2026-10-02-testnet-wallet-controller.md).
+**Status:** Desktop client/proxy/controller/review/recovery are implemented and locally verified (757 Vitest +85 Node, typecheck/lint/build, 15 wallet browser checks). Local `dev:testnet` enables capped owner-operated acceptance; public funded latency, wallet compatibility, receipts and charged fees remain open. [Current group](../../research/2026-10-02-early-demo-browser-session.md) and [owner guide](../../research/2026-10-02-early-testnet-demo-owner-guide.md).
 
-- [ ] Wire the explicit local testnet wallet controller into the desktop browser flow: connect/switch chain → fresh quote → exact approval/reset → receipt/reread → simulate/review → submit → verify receipt.
-- [ ] Implement USDC→WETH and WETH→USDC as separate reviewed intents, including token decimals, expiry, signature rejection and input/account/chain changes.
+- [x] Wire the explicit local testnet wallet controller into the desktop browser flow: connect/switch chain → fresh quote → exact approval/reset → receipt/reread → simulate/review → submit → verify receipt.
+- [x] Implement USDC→WETH and WETH→USDC as separate reviewed intents, including token decimals, expiry, signature rejection and input/account/chain changes.
 - [x] Implement original-context storage and explicit headless receipt/hash recovery without automatic rebroadcast. Deterministic tests cover pending/uncertain/reload and reject unverified reorg candidates. Replacement/cancellation identification and API-restart recovery remain unsupported and cannot be claimed from an advanced nonce.
-- [ ] Qualify deterministic browser and disposable-fork scenarios before enabling owner-operated testnet execution; reconcile successful receipt events, actual spend/output, gas and remaining allowance.
+- [x] Qualify deterministic desktop browser and accepted disposable-fork scenarios before enabling localhost opt-in owner-operated execution; mock receipts/recovery and event/current-allowance presentation passed.
+- [ ] Reconcile public receipt events, actual spend/output, wallet compatibility, funded quote/recheck latency and actual charged L1/operator fees from the owner run.
 - [ ] Obtain owner-operated capped public-testnet evidence for both directions using faucet test ETH/USDC and resulting WETH.
 
 **Exit:** Both directions complete with original intent-bound receipts, balance deltas and recovery; cancellation/rejection never appears as success. Mock and fork success are recorded separately from public-testnet success.

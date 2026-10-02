@@ -16,17 +16,18 @@ export const testnetWalletCoordination: TestnetWalletCoordination = { async run(
 } };
 type Stage = "disconnected" | "connected" | "quote-review" | "action-review" | "blocked" | "invalidated" | "error"
   | "uncertain" | "pending" | "confirming" | "reorged" | "unverified" | "confirmed" | "reverted" | "recovery-blocked";
+type Review = ReturnType<typeof parseTestnetWalletReview>["study"];
 type Observation = ReturnType<typeof parseTestnetWalletObservation>;
 export interface TestnetWalletSnapshot { stage: Stage; busy: boolean; message: string; account: Address | null;
-  quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
+  review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
 const initial = (): TestnetWalletSnapshot => ({ stage: "disconnected", busy: false, message: "", account: null,
-  quote: null, action: null, submission: null, observation: null });
+  review: null, quote: null, action: null, submission: null, observation: null });
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const require = (condition: unknown) => { if (!condition) throw new Error("Testnet review unavailable"); };
 function account(value: unknown): Address {
   require(Array.isArray(value) && typeof value[0] === "string"); return getAddress((value as string[])[0]);
 }
-/** Headless, explicit actions only. No product execution consumer/gate is enabled in this slice. */
+/** Explicit wallet actions; read-only unless both server and local consumer gates permit execution. */
 export class TestnetWalletController {
   private state = initial(); private generation = 0; private disposed = false; private active = false;
   private readonly listeners = new Set<() => void>();
@@ -55,8 +56,10 @@ export class TestnetWalletController {
   private publish(patch: Partial<TestnetWalletSnapshot>) {
     this.state = { ...this.state, ...patch }; for (const listener of this.listeners) { try { listener(); } catch { /* Observers cannot interrupt a send/recovery boundary. */ } }
   }
-  invalidate() { this.generation++; this.publish({ account: null, quote: null, action: null,
+  invalidate() { this.generation++; this.publish({ account: null, review: null, quote: null, action: null,
     stage: this.state.submission ? (this.state.submission.hash ? "pending" : "uncertain") : "invalidated" }); }
+  invalidateInput() { this.generation++; this.publish({ review: null, quote: null, action: null, message: "",
+    stage: this.state.submission ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.account ? "connected" : "disconnected" }); }
   dispose() { this.disposed = true; this.invalidate(); this.wallet.removeListener?.("accountsChanged", this.accountsChanged);
     for (const event of ["chainChanged", "disconnect"]) this.wallet.removeListener?.(event, this.walletChanged); this.listeners.clear(); }
   private generationCheck(g: number) { require(!this.disposed && g === this.generation); }
@@ -67,7 +70,7 @@ export class TestnetWalletController {
   }
   private synchronize() {
     const saved = readTestnetSubmission(this.storage);
-    if (saved.kind === "invalid") { this.publish({ stage: "recovery-blocked", quote: null, action: null }); throw new Error("Invalid recovery"); }
+    if (saved.kind === "invalid") { this.publish({ stage: "recovery-blocked", review: null, quote: null, action: null }); throw new Error("Invalid recovery"); }
     const current = saved.kind === "record" ? saved.record : null;
     if (sameTestnetSubmission(current, this.state.submission)) return;
     if (current?.hash === null && this.state.submission?.hash
@@ -78,8 +81,8 @@ export class TestnetWalletController {
       this.publish({ stage: "pending", observation: null }); return;
     }
     this.generation++;
-    if (this.state.submission) { this.publish({ stage: "recovery-blocked", quote: null, action: null }); throw new Error("Recovery conflict"); }
-    this.publish({ submission: current, quote: null, action: null, observation: null, stage: current?.hash ? "pending" : "uncertain" });
+    if (this.state.submission) { this.publish({ stage: "recovery-blocked", review: null, quote: null, action: null }); throw new Error("Recovery conflict"); }
+    this.publish({ submission: current, review: null, quote: null, action: null, observation: null, stage: current?.hash ? "pending" : "uncertain" });
   }
   private async run(action: () => Promise<void>) {
     if (this.active || this.disposed) return;
@@ -88,7 +91,7 @@ export class TestnetWalletController {
     catch {
       const stage = this.state.stage === "recovery-blocked" ? "recovery-blocked" : this.state.submission
         ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.stage === "invalidated" ? "invalidated" : "error";
-      this.publish({ stage, quote: null, action: null, message: this.state.submission
+      this.publish({ stage, review: null, quote: null, action: null, message: this.state.submission
         ? "Preserve the original context and hash. Check its receipt; do not send again." : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
     } finally { this.active = false; this.publish({ busy: false }); }
   }
@@ -105,7 +108,7 @@ export class TestnetWalletController {
   }); }
   async quote(value: TestnetSwapIntent) { return this.run(async () => {
     this.free(); const intent = parseTestnetSwapIntent(value); require(this.state.account && same(this.state.account, intent.wallet));
-    const g = ++this.generation; this.publish({ quote: null, action: null, observation: null });
+    const g = ++this.generation; this.publish({ review: null, quote: null, action: null, observation: null });
     await this.walletCheck(intent.wallet, g); const raw = await this.api.call("quote", intent); this.generationCheck(g);
     const quoted = parseTestnetWalletQuote(raw, intent, this.now()); this.publish({ quote: quoted, stage: "quote-review" });
   }); }
@@ -113,10 +116,10 @@ export class TestnetWalletController {
     this.free(); require(kind === "approval" || kind === "swap"); const q = this.current(); const g = this.generation;
     const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
       tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
-    this.publish({ action: null }); await this.walletCheck(intent.wallet, g);
+    this.publish({ action: null, review: null }); await this.walletCheck(intent.wallet, g);
     const raw = await this.api.call("recheck", { kind, intent, quoteId: q.quoteId }); this.generationCheck(g);
     const checked = parseTestnetWalletReview(raw, q, kind, this.now());
-    this.publish({ action: checked.action, stage: checked.action ? "action-review" : "blocked" });
+    this.publish({ review: checked.study, action: checked.action, stage: checked.action ? "action-review" : "blocked" });
   }); }
   async submit() { return this.run(async () => {
     this.free(); const q = this.current(); const action = this.state.action; const g = this.generation;
@@ -125,7 +128,7 @@ export class TestnetWalletController {
     const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
       tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
     const original = parseTestnetSubmission({ version: 1, intent, quote: q.quote, action, attemptedAt: this.now(), hash: null });
-    writeTestnetSubmission(this.storage, original); this.publish({ submission: original, quote: null, action: null, stage: "uncertain" });
+    writeTestnetSubmission(this.storage, original); this.publish({ submission: original, review: null, quote: null, action: null, stage: "uncertain" });
     let raw: unknown;
     try {
       this.generationCheck(g); parseTestnetSwapQuote(original.quote, this.now()); require(this.executionAllowed());
@@ -163,7 +166,7 @@ export class TestnetWalletController {
       && (this.state.stage === "confirmed" || this.state.stage === "reverted")
       && (this.state.observation.status === "confirmed" || this.state.observation.status === "reverted"));
     parseTestnetWalletObservation({ observation: this.state.observation }, original, this.now());
-    clearTestnetSubmission(this.storage, original); this.publish({ submission: null, observation: null, quote: null, action: null,
+    clearTestnetSubmission(this.storage, original); this.publish({ submission: null, observation: null, review: null, quote: null, action: null,
       stage: this.state.account ? "connected" : "disconnected" });
   }); }
 }

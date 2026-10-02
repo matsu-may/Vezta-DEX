@@ -30,7 +30,7 @@ async function readJson(request: Request): Promise<unknown> {
 export async function handleTestnetRequest(request: Request, discovery?: TestnetDiscoveryReader,
   quotes?: TestnetSwapQuoteReader, states?: TestnetWalletStateReader,
   approvals?: TestnetApprovalReader, preparer?: TestnetSwapPreparer,
-  rechecker?: TestnetRechecker, receipts?: TestnetReceiptReader): Promise<Response | undefined> {
+  rechecker?: TestnetRechecker, receipts?: TestnetReceiptReader, executionEnabled = false): Promise<Response | undefined> {
   const url = new URL(request.url);
   if (url.pathname === "/api/v1/testnet/base-sepolia/depth") return handleTestnetDiscovery(request, discovery);
   const stateRequest = url.pathname === "/api/v1/testnet/base-sepolia/state";
@@ -60,9 +60,15 @@ export async function handleTestnetRequest(request: Request, discovery?: Testnet
   }
   try {
     if (receiptRequest) return json({ observation: await receipts!.observe(intent) });
-    if (recheckRequest) return json(await rechecker!.read(intent));
-    return prepareRequest ? json({ preparation: await preparer!.read(intent) }) : approvalRequest ? json({ approval: await approvals!.read(intent) })
-      : stateRequest ? json({ state: await states!.read(intent) }) : json(await quotes!.read(intent));
+    if (recheckRequest) {
+      const result = await rechecker!.read(intent);
+      return json({ study: { ...result.study, executionEnabled }, action: result.action ? { ...result.action, executionEnabled } : null });
+    }
+    if (prepareRequest) return json({ preparation: await preparer!.read(intent) });
+    if (approvalRequest) return json({ approval: await approvals!.read(intent) });
+    if (stateRequest) return json({ state: await states!.read(intent) });
+    const result = await quotes!.read(intent);
+    return json({ ...result, qualification: { ...result.qualification, executionEnabled } });
   }
   catch (error) {
     const code = error instanceof TestnetQuoteError || error instanceof TestnetWalletStateError
