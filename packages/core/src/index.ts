@@ -120,3 +120,5 @@ export { TESTNET_SWAP_POLICY, buildTestnetSwapTransaction, inspectTestnetSwapTra
   planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, type TestnetSwapIntent, type TestnetSwapQuote,
   type TestnetSwapTransaction, type TestnetApprovalPlan } from "./testnet-swap";
 export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";
+
+export * from "./testnet-lp-wallet";

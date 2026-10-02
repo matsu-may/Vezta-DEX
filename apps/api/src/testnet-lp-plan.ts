@@ -30,15 +30,15 @@ export interface LpPlan {
 }
 // Internal unsigned planning only. Caller must qualify pinned runtime/state/ownership before invoking.
 // This function is deliberately not a public HTTP execution endpoint.
-export function planTestnetLp(value: unknown, state: { pool: LpPoolState; position?: LpNftState; actualOwner?: Address }, nowSeconds: number): LpPlan {
-  const i = schema.parse(value); lpAssert(Number.isSafeInteger(nowSeconds) && nowSeconds > 0);
+export function planTestnetLp(value: unknown, state: { pool: LpPoolState; position?: LpNftState; actualOwner?: Address }, nowSeconds: number, ttlSeconds = 30): LpPlan {
+  const i = schema.parse(value); lpAssert(Number.isSafeInteger(nowSeconds) && nowSeconds > 0 && (ttlSeconds === 30 || ttlSeconds === 120));
   const pool = lpSdkPool(state.pool);
   let original: Position | undefined;
   if (i.kind !== "mint") {
     lpAssert(state.position && state.actualOwner?.toLowerCase() === i.wallet.toLowerCase(), "TESTNET_LP_OWNER_CHANGED");
     original = lpSdkPosition(state.position, state.pool);
   }
-  if ("deadline" in i) lpAssert(BigInt(i.deadline) > BigInt(nowSeconds) && BigInt(i.deadline) <= BigInt(nowSeconds + 30), "TESTNET_LP_DEADLINE_INVALID");
+  if ("deadline" in i) lpAssert(BigInt(i.deadline) > BigInt(nowSeconds) && BigInt(i.deadline) <= BigInt(nowSeconds + ttlSeconds), "TESTNET_LP_DEADLINE_INVALID");
   const tolerance = new Percent(50, 10000);
   const collectOptions = { recipient: i.wallet,
     expectedCurrencyOwed0: CurrencyAmount.fromRawAmount(pool.token0, state.position?.tokensOwed0.toString() ?? "0"),

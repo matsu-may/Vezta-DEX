@@ -28,3 +28,14 @@ it("distinguishes a qualified empty scan from RPC unavailable", async () => {
   await screen.findByRole("alert"); expect(screen.queryByText("No positions owned")).toBeNull();
   expect(screen.queryByText("secret")).toBeNull();
 });
+it("marks a position scan historical after a confirmed manager mutation until an explicit fresh read", async () => {
+  vi.spyOn(Date,"now").mockReturnValue(Date.parse(lpBrowserPage.snapshot.observedAt)+2000);
+  const fetcher=vi.fn(async()=>Response.json({page:lpBrowserPage}));vi.stubGlobal("fetch",fetcher);
+  const onSelectAction=vi.fn();const view=render(<TestnetLpPanel connectedWallet={lpBrowserPage.owner} onSelectAction={onSelectAction}/>);
+  fireEvent.change(screen.getByLabelText("Position owner address"),{target:{value:lpBrowserPage.owner}});fireEvent.click(screen.getByRole("button",{name:"Read LP positions"}));await screen.findByText("Verified pinned read");
+  expect(screen.getByRole("button",{name:"Collect tokens"}).hasAttribute("disabled")).toBe(false);
+  view.rerender(<TestnetLpPanel connectedWallet={lpBrowserPage.owner} onSelectAction={onSelectAction} mutationKey="confirmed-burn-original-hash"/>);
+  await screen.findByText("Historical scan · refresh");expect(screen.queryByText("Verified pinned read")).toBeNull();expect(screen.getByRole("button",{name:"Collect tokens"}).hasAttribute("disabled")).toBe(true);
+  expect((screen.getByLabelText("Position owner address") as HTMLInputElement).value).toBe(lpBrowserPage.owner);expect(fetcher).toHaveBeenCalledTimes(1);
+  fireEvent.click(screen.getByRole("button",{name:"Read LP positions"}));await screen.findByText("Verified pinned read");expect(fetcher).toHaveBeenCalledTimes(2);
+});

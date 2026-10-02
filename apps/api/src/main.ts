@@ -33,6 +33,11 @@ import { testnetHttpExecutionEnabled } from "./testnet-execution-gate";
 import { TestnetLpPositionReader } from "./testnet-lp-position";
 import { handleTestnetLpRequest } from "./testnet-lp-routes";
 import { TestnetReceiptReader } from "./testnet-receipt";
+import { TestnetLpWallet } from "./testnet-lp-wallet";
+import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
+import { TestnetLpWalletReceiptReader } from "./testnet-lp-wallet-receipt";
+import { handleTestnetLpWalletRequest } from "./testnet-lp-wallet-routes";
+import { fileURLToPath } from "node:url";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -73,6 +78,19 @@ const testnetRechecker = testnetQuotes && testnetApprovals && testnetPreparer
   ? new TestnetRechecker(testnetApprovals, testnetPreparer, testnetQuotes.store, testnetContexts) : undefined;
 const testnetReceipts = testnetRpcUrl ? new TestnetReceiptReader(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetContexts) : undefined;
+let testnetLpWallet: TestnetLpWallet | undefined;
+let testnetLpWalletReceipts: TestnetLpWalletReceiptReader | undefined;
+let testnetLpWalletUnavailable = "TESTNET_LP_RPC_NOT_CONFIGURED";
+if (testnetRpcUrl) {
+  try {
+    const lpStore = new TestnetLpWalletStore(fileURLToPath(new URL("../../../.local-evidence/testnet-lp-wallet-contexts", import.meta.url)));
+    testnetLpWallet = new TestnetLpWallet(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), lpStore);
+    testnetLpWalletReceipts = new TestnetLpWalletReceiptReader(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), lpStore);
+  } catch {
+    testnetLpWalletUnavailable = "TESTNET_LP_STORAGE_UNAVAILABLE";
+    process.stderr.write("TESTNET_LP_STORAGE_UNAVAILABLE\n");
+  }
+}
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -96,7 +114,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
+    const result = await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, testnetHttpExecutionEnabled(process.env, host, port), testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

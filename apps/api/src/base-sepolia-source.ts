@@ -1,4 +1,4 @@
-import { createPublicClient, erc20Abi, http, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
+import { BaseError, ContractFunctionRevertedError, createPublicClient, erc20Abi, http, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
   type Address, type Transport } from "viem";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
@@ -6,6 +6,8 @@ import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
+import type { BaseSepoliaLpReceiptSource } from "./testnet-lp-wallet-receipt";
+import type { BaseSepoliaLpWalletSource } from "./testnet-lp-wallet";
 import type { BaseSepoliaLpSource } from "./testnet-lp-position";
 import type { BaseSepoliaReceiptSource } from "./testnet-receipt";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
@@ -81,7 +83,7 @@ async function readRpcBody(response: Response, signal?: AbortSignal | null) {
   } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource & BaseSepoliaLpWalletSource & BaseSepoliaLpReceiptSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -124,6 +126,14 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
     getPositionId(owner, index, blockNumber) {
       return client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "tokenOfOwnerByIndex", args: [owner, index], blockNumber });
     },
+    async getPositionOwnerOrNull(id, blockNumber) {
+      try { return await client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "ownerOf", args: [id], blockNumber }); }
+      catch (error) {
+        const reverted = error instanceof BaseError ? error.walk(e => e instanceof ContractFunctionRevertedError) : undefined;
+        if (reverted instanceof ContractFunctionRevertedError && reverted.reason === "ERC721: owner query for nonexistent token") return null;
+        throw error;
+      }
+    },
     getPositionOwner(id, blockNumber) {
       return client.readContract({ address: C.v3PositionManager, abi: positionAbi, functionName: "ownerOf", args: [id], blockNumber });
     },
@@ -157,6 +167,11 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
     async getReceipt(hash) {
       try { return await client.getTransactionReceipt({ hash }); }
       catch (error) { if (error instanceof TransactionReceiptNotFoundError) return null; throw error; }
+    },
+    async simulateTestnetLp(transaction, blockNumber) {
+      const result = await client.call({ account: transaction.from, to: transaction.to, data: transaction.data as `0x${string}`,
+        value: 0n, gas: BigInt(transaction.gas), gasPrice: BigInt(transaction.gasPrice), blockNumber });
+      return result.data ?? "0x";
     },
     async simulateTestnetSwap(transaction, blockNumber) {
       const result = await client.call({ account: transaction.from, to: transaction.to,

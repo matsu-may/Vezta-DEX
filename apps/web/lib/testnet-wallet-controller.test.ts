@@ -166,3 +166,24 @@ it("explains lost context and receipt timeouts while preserving the original tra
     expect(s.methods.filter(m => m === "eth_sendTransaction")).toHaveLength(1);
   }
 });
+
+it("blocks swap review and send when LP recovery is active or corrupt, preserving both original records", async () => {
+  const lpKey = "vezta-dex:base-sepolia-lp-submission:v1";
+  for (const raw of ["corrupt", JSON.stringify({ hash, contextId: "11".repeat(24) })]) {
+    const s = await setup(); await s.reviewed(); s.storage.setItem(lpKey, raw);
+    await s.controller.submit();
+    expect(s.methods).not.toContain("eth_sendTransaction");
+    expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBeNull();
+    expect(s.storage.getItem(lpKey)).toBe(raw);
+    expect(s.controller.snapshot().message).toContain("liquidity");
+    await s.controller.quote(s.f.request.intent);
+    expect(s.controller.snapshot().quote).toBeNull();
+  }
+});
+
+it("LP recovery cannot prevent checking an already submitted original swap", async () => {
+  const s = await setup(); await s.reviewed(); await s.controller.submit();
+  s.storage.setItem("vezta-dex:base-sepolia-lp-submission:v1", "corrupt");
+  await s.controller.observe(); expect(s.controller.snapshot().stage).toBe("confirmed");
+  expect(s.methods.filter(m => m === "eth_sendTransaction")).toHaveLength(1);
+});

@@ -7,7 +7,7 @@
     "testnet:fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-fork-cli.ts",
     "testnet:prepare": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-prepare-cli.ts",
     "dev": "pnpm -r --parallel dev",
-    "test": "vitest run && node --test scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs scripts/diagnose-rehearsal-reads.test.mjs scripts/diagnose-polygon-rpc.test.mjs scripts/diagnose-polygon-rpc-qualified.test.mjs scripts/smoke-lp-pool-info.test.mjs scripts/smoke-lp-onchain.test.mjs scripts/smoke-lp-allowances.test.mjs scripts/smoke-lp-wallet-state.test.mjs scripts/smoke-lp-fork-preflight.test.mjs scripts/lp-fork-mint-plan.test.mjs scripts/lp-fork-outcome.test.mjs scripts/smoke-lp-fork-mint.test.mjs scripts/lp-fork-lifecycle-outcome.test.mjs scripts/lp-calldata-review.test.mjs scripts/lp-exact-approval-plan.test.mjs scripts/smoke-lp-unsigned.test.mjs scripts/diagnose-testnet-discovery.test.mjs",
+    "test": "vitest run && node --test --test-concurrency=1 scripts/approval-summary.test.mjs scripts/permit-summary.test.mjs scripts/router-provenance.test.mjs scripts/router-deployment.test.mjs scripts/router-rebuild.test.mjs scripts/diagnose-rehearsal-reads.test.mjs scripts/diagnose-polygon-rpc.test.mjs scripts/diagnose-polygon-rpc-qualified.test.mjs scripts/smoke-lp-pool-info.test.mjs scripts/smoke-lp-onchain.test.mjs scripts/smoke-lp-allowances.test.mjs scripts/smoke-lp-wallet-state.test.mjs scripts/smoke-lp-fork-preflight.test.mjs scripts/lp-fork-mint-plan.test.mjs scripts/lp-fork-outcome.test.mjs scripts/smoke-lp-fork-mint.test.mjs scripts/lp-fork-lifecycle-outcome.test.mjs scripts/lp-calldata-review.test.mjs scripts/lp-exact-approval-plan.test.mjs scripts/smoke-lp-unsigned.test.mjs scripts/diagnose-testnet-discovery.test.mjs",
     "typecheck": "pnpm -r --if-present typecheck",
     "lint": "eslint apps packages",
     "build": "pnpm -r --if-present build",
@@ -28,7 +28,8 @@
     "testnet:pool-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role pool",
     "testnet:manager-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-router-rebuild-cli.ts --role manager",
     "dev:testnet": "node scripts/start-testnet-demo.mjs",
-    "testnet:lp-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-fork-cli.ts"
+    "testnet:lp-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-fork-cli.ts",
+    "testnet:lp-wallet-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-wallet-fork-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

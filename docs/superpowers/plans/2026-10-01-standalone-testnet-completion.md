@@ -12,8 +12,8 @@
 
 - Base Sepolia 84532; canonical test USDC/WETH; bounded v3 0.3% candidate pool. Reverify its live identity/depth before execution.
 - viem + correctly versioned official artifacts for the narrow SwapRouter02 swap. Prefer `sdk-core`/`v3-sdk` for LP math and position calldata.
-- EOA first; exact token approvals. Reset any nonzero differing allowance, confirm receipt and reread before the next exact approval.
-- Keep the 120-second discovery preview separate from authentic 30-second execution quotes. Changes of wallet/chain/intent invalidate preparation.
+- EOA first; swap approvals equal the reviewed input, LP approvals equal the selected input caps with SDK deposits bounded by them. Reset any nonzero differing allowance, confirm receipt and reread before the next approval. Disclose residual LP authorization.
+- Keep the 120-second discovery preview separate from 30-second swap quotes and 120-second LP action reviews. Changes of wallet/chain/intent invalidate preparation; fresh immutable rechecks still gate submission.
 - No automatic adapter fallback. Universal Router/SDK and hosted API expansion are reviewed after the demo; source clone/submodule and Smart Order Router are added only when justified.
 - No Vezta AMM/router/LP-token deployment is needed for this scope. Cross-chain transfers are separate future work.
 
@@ -105,14 +105,14 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 ## Phase 4 — Complete testnet v3 LP
 
-**Status:** Base Sepolia LP reads, pinned SDK math/internal unsigned plans, disposable fork lifecycle and `/demo/2` read-only recording UI are implemented and locally qualified. Public LP wallet actions, receipt/recovery contexts and owner acceptance remain open. See [LP implementation checkpoint](../../research/2026-10-02-base-sepolia-lp-session.md).
+**Status:** LP foundation remains qualified. Public-wallet studies/controllers, receipt/recovery and desktop controls are implemented, scoped-reviewed and qualified through the actual consumer APIs on disposable fork block 47594852. Public owner acceptance remains open. See [current wallet session](../../research/2026-10-02-testnet-lp-wallet-session.md). See [LP implementation checkpoint](../../research/2026-10-02-base-sepolia-lp-session.md).
 
 - [x] Pin compatible LP SDK packages; qualify the testnet position manager and implement owner-bound pinned NFT reads (unit positive-NFT tests, live empty scan, fork ownership checks).
 - [x] Display current principal, range/state, checkpoint fees, mixed stored owed and estimated collectable from pinned reads/math. No inferred APR/TVL.
-- [ ] Wire public-wallet mint/increase with bounded range/caps/minima/deadline, exact approvals, gas budgets and fresh simulation. Internal unsigned planner and disposable-fork simulation are complete.
-- [ ] Wire public-wallet partial/full decrease, collect and close/burn. Internal planner and fork qualify principal/fee separation, burn prerequisites, actual pool payments vs nominal manager rounding and cleared residual allowance.
-- [ ] Add LP-specific rejection, ownership change, pending/replacement/reorg/indexer-lag and original-hash recovery tests.
-- [x] Run full Base Sepolia lifecycle on disposable fork (latest block 47587031), reconcile NFT/liquidity/balances, revert snapshot and stop owned child.
+- [x] Wire public-wallet mint/increase with bounded range/caps/minima/deadline, exact approvals, gas budgets and fresh simulation. Internal unsigned planner and disposable-fork simulation are complete.
+- [x] Wire public-wallet partial/full decrease, collect and close/burn. Internal planner and fork qualify principal/fee separation, burn prerequisites, actual pool payments vs nominal manager rounding and cleared residual allowance.
+- [x] Add LP rejection, ownership/nonce change, pending, reorg/unverified and original-hash recovery tests. Replacement candidates remain unresolved rather than inferred as success; position reads use the pinned chain directly, without an indexer.
+- [x] Run full Base Sepolia lifecycle on disposable fork: foundation block 47587031 and new wallet study/recheck/receipt consumers at 47594852. Reconcile NFT/liquidity/payments, verify restart recovery and cleared allowances, revert snapshot and stop owned child.
 - [ ] Obtain owner-operated public-testnet NFT and lifecycle receipt evidence after the LP wallet controller is qualified.
 
 **Exit:** Create → increase → partial decrease → full decrease → collect → close is reproducible; ownership, liquidity progression, owed/collected amounts, balances and approvals reconcile. Collection is not represented as guaranteed positive fees when no fees accrued.
@@ -121,13 +121,13 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 ## Phase 5 — Assemble the standalone desktop product
 
-**Status:** Routes, UI foundation and some operational controls exist; end-to-end testnet integration is incomplete.
+**Status:** Desktop recording routes `/demo/1`–`/demo/4`, navigation, Explore/detail and LP controls are locally qualified. Final Vitest 857 pass/one skip, Node 85 pass, full typecheck/lint/build, 30 LP wallet +12 Explore/detail production mocked browser checks, and new wallet fork passed. Public wallet acceptance and remote CI are separate.
 
-- [ ] Connect pool discovery/detail, swap and positions/LP into one clearly labeled testnet experience. Keep the Polygon read-only context distinct; do not imply all displayed chains have executable adapters.
-- [ ] Match token-launchpad desktop branding and verify normal/loading/empty/error/rejected/pending/confirmed states with useful source/freshness and transaction summaries.
-- [ ] Keep token/pool/router/manager, quote/replay, wallet and receipt identity keyed by chain/adapter. Test cross-chain contamination; this prepares scalability but does not qualify a second executable chain.
-- [ ] Finish the local-demo access boundary: loopback/same-origin checks, request budgets/rate limits, bounded timeouts, sanitized logs and Base Sepolia dependency readiness. Test single-process restart/lost quote/recovery behavior; shared state is required before replicas.
-- [ ] Verify local test/typecheck/lint/build and desktop browser flows. Observe remote CI only through an authorized push/PR; document any unobserved external gate.
+- [x] Connect pool discovery/detail, swap and positions/LP into one clearly labeled testnet experience. Keep the Polygon read-only context distinct; do not imply all displayed chains have executable adapters.
+- [x] Match token-launchpad desktop branding and verify normal/loading/empty/error/rejected/pending/confirmed states with useful source/freshness and transaction summaries.
+- [x] Keep token/pool/router/manager, quote/replay, wallet and receipt identity keyed by chain/adapter. Test cross-chain contamination; this prepares scalability but does not qualify a second executable chain.
+- [x] Finish the local-demo access boundary: loopback/same-origin checks, request budgets/rate limits, bounded timeouts, sanitized logs and Base Sepolia dependency readiness. Test single-process restart/lost quote/recovery behavior; shared state is required before replicas.
+- [x] Verify local test/typecheck/lint/build and desktop browser flows. Observe remote CI only through an authorized push/PR; document any unobserved external gate.
 
 **Exit:** A reviewer can navigate the complete desktop testnet flow, understand all states and reproduce local checks. Credentials/signatures/raw upstream payloads stay out of logs and frontend bundles. Local readiness is not production approval.
 
@@ -135,12 +135,12 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 ## Phase 6 — Acceptance and demo handoff
 
-**Status:** Pending integrated testnet flows.
+**Status:** Unified [desktop owner guide](../../research/2026-10-02-testnet-desktop-owner-guide.md) and implementation/evidence checkpoint are written. Independent integrated qualification is complete. Owner public-testnet/desktop acceptance remains pending.
 
-- [ ] Provide one setup/faucet/command checklist and one acceptance matrix for pool reads, both swaps, LP lifecycle and failure/recovery cases.
-- [ ] Record actual host/live/fork/browser/CI evidence, versions, supported input ranges and known limitations. Review material findings and rerun relevant gates after fixes.
+- [x] Provide one setup/faucet/command checklist and one acceptance matrix for pool reads, both swaps, LP lifecycle and failure/recovery cases.
+- [x] Record actual host/live/fork/browser/CI evidence, versions, supported input ranges and known limitations. Review material findings and rerun relevant gates after fixes.
 - [ ] Confirm owner desktop acceptance and all public-testnet transaction gates. Document remaining mobile polish as the agreed separate pass.
-- [ ] Preserve standalone boundaries and hand over reproducible local start/reset instructions. Public hosting/production deployment needs its own approval and operational plan.
+- [x] Preserve standalone boundaries and hand over reproducible local start/reset instructions. Public hosting/production deployment needs its own approval and operational plan.
 
 **Exit:** The accepted demo performs real Uniswap testnet swap and LP operations with verified receipts and clear failure/recovery states. `/demo` can remain as a wallet-free teaching mode. No mainnet or production claim follows automatically.
 

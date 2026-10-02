@@ -33,7 +33,7 @@ async page => {
   await read(); await page.getByRole("heading", { name: "Position #42" }).waitFor();
   check(await page.getByText("Current principal", { exact: true }).count() === 1, "Principal is labelled separately");
   check(await page.getByText("Stored owed · mixed", { exact: true }).count() === 1, "Stored fees and withdrawn principal are not labelled profit");
-  check(await page.getByRole("button", { name: "Create position" }).isDisabled(), "Public LP writes are disabled");
+  check(await page.getByRole("button", { name: "Study LP action", exact: true }).isDisabled(), "Position reads do not grant wallet execution");
   await page.screenshot({ path: ".playwright-cli/demo-02-desktop.png", fullPage: true });
   mode = "empty"; await read(); await page.getByText("No positions owned", { exact: true }).waitFor();
   check(true, "Verified empty scan is distinct from failure");

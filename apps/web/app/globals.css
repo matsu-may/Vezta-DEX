@@ -262,3 +262,55 @@ body:has(.recording-page) .site-footer { background: #000; }
 .lp-position-card .demo-preview { padding: 0; border: 0; }
 .lp-position-card .demo-preview > div { grid-template-columns: 180px minmax(0, 1fr); }
 .lp-position-card .testnet-actions .button { font-size: 11px; }
+
+/* Assembled desktop routes 03/04: curated pool discovery and provenance. */
+.discovery-stack { display: grid; gap: 24px; }
+.discovery-card { padding: 32px; }
+.discovery-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 32px; }
+.discovery-toolbar h2 { margin: 12px 0; font-size: 28px; }
+.discovery-toolbar p { margin: 0; max-width: 650px; color: var(--muted); font-size: 14px; }
+.discovery-toolbar .button { flex: none; border: 0; }
+.discovery-pair-row { display: flex; gap: 24px; align-items: center; padding: 28px 0; margin-top: 28px; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.discovery-pair { display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.discovery-pair strong { font-size: 20px; letter-spacing: -.03em; }
+.discovery-pair div { margin-left: 12px; }
+.discovery-pair div span { display: block; color: var(--muted); font-size: 12px; margin-top: 4px; }
+.discovery-token { display: inline-grid; place-items: center; height: 40px; width: 40px; background: #153047; color: #b3dbff; border: 1px solid #224461; border-radius: 50%; font-size: 24px; }
+.discovery-token-eth { background: #232638; color: #c8ceef; border-color: #353c50; margin-left: -16px; }
+.discovery-detail-link { color: var(--accent); font-size: 13px; white-space: nowrap; }
+.discovery-help { margin: 20px 0 0; color: var(--muted); font-size: 13px; }
+.discovery-actions { display: flex; gap: 12px; margin-top: 24px; }
+.discovery-provenance { padding-top: 24px; margin-top: 28px; border-top: 1px solid var(--line); }
+.discovery-provenance h3 { font-size: 13px; font-weight: 600; margin: 0 0 16px; }
+.discovery-provenance dl { display: grid; grid-template-columns: 1fr 1.5fr 1fr; gap: 24px; margin: 0; }
+.discovery-provenance dt { font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+.discovery-provenance dd { font-size: 12px; margin: 0; overflow-wrap: anywhere; }
+.discovery-provenance details { color: var(--muted); font-size: 12px; margin-top: 16px; }
+.discovery-provenance summary, .discovery-diagnostics summary { cursor: pointer; }
+.discovery-provenance code { display: block; margin-top: 12px; overflow-wrap: anywhere; }
+.discovery-note { padding: 24px 0; max-width: 650px; }
+.discovery-note p { margin: 12px 0; font-size: 14px; color: var(--muted); }
+.discovery-note a { color: var(--accent); font-size: 13px; }
+.discovery-identity h2 { margin: 12px 0 24px; }
+.discovery-identity .identity-list { font-size: 13px; }
+.discovery-address { font-size: 12px; color: var(--accent); }
+.discovery-diagnostics { margin-top: 28px; border-top: 1px solid var(--line); padding-top: 24px; font-size: 13px; }
+.discovery-diagnostics > p { margin-top: 16px; max-width: 800px; color: var(--muted); }
+.discovery-samples { min-width: 660px; margin-top: 24px; }
+.discovery-samples td { font-size: 12px; }
+@media (max-width: 860px) {
+  .recording-heading { align-items: start; flex-direction: column; }
+  .recording-tabs { gap: 24px; overflow-x: auto; white-space: nowrap; }
+  .discovery-toolbar { flex-direction: column; align-items: start; gap: 20px; }
+  .discovery-pair-row { flex-wrap: wrap; }
+  .discovery-pair { flex-basis: 100%; }
+  .discovery-provenance dl { grid-template-columns: 1fr; gap: 16px; }
+}
+@media (max-width: 600px) {
+  .recording-heading h1 { font-size: 32px; }
+  .recording-tabs { gap: 20px; font-size: 13px; }
+  .discovery-card { padding: 24px; }
+  .discovery-actions { flex-direction: column; align-items: stretch; }
+  .discovery-actions .button { justify-content: center; }
+  .discovery-identity .identity-list div { grid-template-columns: 1fr; }
+}

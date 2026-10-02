@@ -12,19 +12,19 @@ export class TestnetFeeError extends Error {
 }
 const uint = (value: bigint) => typeof value === "bigint" && value >= 0n && value < 2n ** 256n;
 
-export function planTestnetGas(estimate: bigint, price: bigint, kind: "approval" | "swap") {
-  if (!uint(estimate) || estimate < 21000n || estimate > (kind === "approval" ? 200000n : 500000n)
+export function planTestnetGas(estimate: bigint, price: bigint, kind: "approval" | "swap" | "lp") {
+  if (!uint(estimate) || estimate < 21000n || estimate > (kind === "approval" ? 200000n : kind === "lp" ? 833333n : 500000n)
     || !uint(price) || price === 0n || price > 1000000000000n) throw new TestnetFeeError();
   const gasLimit = (estimate * 120n + 99n) / 100n;
-  if (gasLimit > (kind === "approval" ? 250000n : 650000n)) throw new TestnetFeeError();
+  if (gasLimit > (kind === "approval" ? 250000n : kind === "lp" ? 1000000n : 650000n)) throw new TestnetFeeError();
   return { estimatedGas: estimate, gasLimit, gasPrice: price * 2n };
 }
 
 export function serializeTestnetFeeEnvelope(transaction: TestnetSwapTransaction, nonce: bigint, gas: bigint, price: bigint): Hex {
   if (transaction.chainId !== P.chainId || transaction.value !== "0" || !isAddress(transaction.from)
-    || ![C.USDC.address, C.WETH.address, P.router].some(a => a.toLowerCase() === transaction.to.toLowerCase())
+    || ![C.USDC.address, C.WETH.address, P.router, C.v3PositionManager].some(a => a.toLowerCase() === transaction.to.toLowerCase())
     || !/^0x(?:[0-9a-fA-F]{2})+$/.test(transaction.data) || transaction.data.length > 4096
-    || !uint(nonce) || nonce > BigInt(Number.MAX_SAFE_INTEGER) || !uint(gas) || gas < 21000n || gas > 650000n
+    || !uint(nonce) || nonce > BigInt(Number.MAX_SAFE_INTEGER) || !uint(gas) || gas < 21000n || gas > (transaction.to.toLowerCase() === C.v3PositionManager.toLowerCase() ? 1000000n : 650000n)
     || !uint(price) || price === 0n || price > 2000000000000n) throw new TestnetFeeError();
   return serializeTransaction({ type: "legacy", chainId: P.chainId, nonce: Number(nonce),
     to: transaction.to, data: transaction.data, value: 0n, gas, gasPrice: price });

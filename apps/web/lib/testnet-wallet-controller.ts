@@ -1,3 +1,4 @@
+import { OtherTestnetSubmissionError, requireNoOtherTestnetSubmission } from "./testnet-cross-flow";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
@@ -112,11 +113,11 @@ export class TestnetWalletController {
       const stage = this.state.stage === "recovery-blocked" ? "recovery-blocked" : this.state.submission
         ? (this.state.submission.hash ? "pending" : "uncertain") : this.state.stage === "invalidated" ? "invalidated" : "error";
       this.publish({ stage, contextUnavailable: !!this.state.submission && (this.state.contextUnavailable || (error instanceof TestnetBrowserError && error.status === 410 && error.code === "TESTNET_CONTEXT_UNAVAILABLE")), review: null, quote: null, action: null, message: this.state.submission
-        ? error instanceof TestnetBrowserError ? testnetActionMessage(error.code, true) : "Preserve the original context and hash. Check its receipt; do not send again." : purpose === "connect" ? connectionMessage(error)
+        ? error instanceof TestnetBrowserError ? testnetActionMessage(error.code, true) : "Preserve the original context and hash. Check its receipt; do not send again." : error instanceof OtherTestnetSubmissionError ? error.message : purpose === "connect" ? connectionMessage(error)
           : (error instanceof WrongTestnetNetwork || error instanceof UnsupportedDemoWallet) ? connectionMessage(error) : error instanceof TestnetBrowserError ? testnetActionMessage(error.code, false) : "Action unavailable or rejected. Request a fresh Base Sepolia quote." });
     } finally { this.active = false; this.publish({ busy: false }); }
   }
-  private free() { require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
+  private free() { requireNoOtherTestnetSubmission(this.storage, "swap"); require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
   private current() { require(this.state.quote && this.state.account); const q = this.state.quote!;
     parseTestnetSwapQuote(q.quote, this.now()); require(same(this.state.account!, q.quote.wallet)); return q; }
   async connect() { return this.run(async () => {
@@ -149,6 +150,7 @@ export class TestnetWalletController {
     const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
       tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
     const original = parseTestnetSubmission({ version: 1, intent, quote: q.quote, action, attemptedAt: this.now(), hash: null });
+    requireNoOtherTestnetSubmission(this.storage, "swap");
     writeTestnetSubmission(this.storage, original); this.publish({ submission: original, review: null, quote: null, action: null, stage: "uncertain" });
     let raw: unknown;
     try {
