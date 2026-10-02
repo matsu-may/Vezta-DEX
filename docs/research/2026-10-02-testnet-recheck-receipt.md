@@ -29,7 +29,7 @@ Use TDD on each behavior, one fresh review of the group and one final full test/
 - [x] Receipt reader/source RED→GREEN: strict original identity, pending/unknown/reorg/revert, event economics, canonical rereads, changed state and error sanitization.
 - [x] Route/main wiring and adapt the same disposable fork command to exercise receipt consumers.
 - [x] Fresh group review, final gates, accepted evidence/roadmap update and one grouped host handoff.
-- [ ] Owner EVM acceptance of the updated context/receipt consumers (distinct from the accepted original funded fork run).
+- [x] Owner EVM acceptance of the updated context/receipt consumers at block **47574990**: reset, both exact approvals and both swaps have contextBound/trackingVerified/verified true; snapshot reverted and owned Anvil stopped; no owner funds.
 
 ## Verification and review
 
@@ -37,7 +37,7 @@ Use TDD on each behavior, one fresh review of the group and one final full test/
 
 One fresh group review found an Important duplicate-submission defect: each prepared callback previously kept its own attempt flag. A RED test reproduced two callbacks for one context passing before a hash was returned. The shared-store attempt reservation fixes it; the test also rejects a third preparation after a lost response. Other identity/canonical/economic/privacy boundaries were reviewed without further Critical/Important findings. The reviewer checked positive viem wire-format compatibility without broadcasting. No additional review or old qualification probes were repeated.
 
-## One updated host check
+## Updated host check — accepted at block 47574990
 
 From `vezta-dex`, using the existing Base Sepolia RPC configuration and Anvil installation:
 
@@ -47,13 +47,13 @@ pnpm testnet:fork
 
 No dev server, owner wallet, real USDC or public test funding is needed. The same disposable command now routes preparations through final recheck/context issuance and verifies each original receipt with the new reader. Every reset/approve/swap action row must include **`contextBound:true`, `trackingVerified:true`, `verified:true`**. The final summary must include **`verified:true`, `snapshotReverted:true`, `ownerFundsUsed:false`, `executionEnabled:false`**, followed by `owned-anvil-stopped`.
 
-`actualTotalFeeQualified:false` remains expected. Send the JSON output only; keep provider credentials private. If a stage fails, retain its error and do not rerun old compiler/source/oracle/quote probes. This environment cannot execute the native funded integration, so this updated host result is unobserved.
+`actualTotalFeeQualified:false` remains expected. Send the JSON output only; keep provider credentials private. If a stage fails, retain its error and do not rerun old compiler/source/oracle/quote probes. The owner supplied the successful updated host result above. Do not repeat this check absent a concrete regression.
 
 ## Resume without repeating work
 
 - Accepted: five runtime rebuilds/pins, oracle/unfunded studies, original funded fork at 47573721. Preserve their evidence.
 - Implemented and locally verified: final recheck, immutable contexts, shared once-only fork send boundary, original canonical receipt tracking and bounded routes. Public execution remains disabled.
-- Pending: the single updated consumer fork check above. Then continue Phase 3 wallet controller, original-context recovery and deterministic desktop browser checks; public wallet acceptance remains owner-operated. LP, assembled desktop acceptance and final demo handoff follow. Mobile and main Vezta integration remain deferred.
+- Next: Phase 3 wallet controller, original-context recovery and deterministic desktop browser checks; public wallet acceptance remains owner-operated. LP, assembled desktop acceptance and final demo handoff follow. Mobile and main Vezta integration remain deferred.
 - Practical next gate: measure quote→review→recheck→wallet latency under the original 30-second deadline. Optimize repeated RPC/UX only with concrete evidence; do not silently extend minimum/deadline or remove checks.
 - Context storage is single-process and lost on restart; tracking lasts 24 hours, broadcast freshness only 30 seconds. Only the reviewed legacy gas/nonce/calldata envelope can be verified in this slice. Actual public L1/operator fees remain unqualified.
 - Work in functional groups: focused RED→GREEN, one group review, one final full gate and one consolidated handoff. Preserve the owner's unrelated `apps/web/next-env.d.ts` modification; no push, merge or deployment has been performed.

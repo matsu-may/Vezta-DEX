@@ -35,7 +35,7 @@ Earlier rows retain their historical remaining-gate descriptions; later rows and
 | Fees and swap preparation (2026-10-02) | Complete pinned snapshot fee policy; original minimum/deadline-bound swap simulation, exact allowance and final state checks; owner oracle/unfunded prepare paths passed at 47566198 /47566220 /47566228 | Funded fork/live qualification, final submission recheck and receipt/recovery |
 | Funded fork harness (2026-10-02) | Single-command owned Anvil lifecycle implemented; strict receipt, send-boundary and cleanup tests; [current evidence/runbook](../../research/2026-10-02-testnet-fork-lifecycle.md) | Owner funded run accepted at block 47573721; public wallet behavior and actual L1/operator charged fees remain open |
 
-| Recheck and receipt consumers (2026-10-02) | Server-issued original action contexts, once-only final fork boundary, canonical event-bound receipt API and route wiring; [group handoff](../../research/2026-10-02-testnet-recheck-receipt.md) | Updated consumer fork evidence, browser controller/recovery and public receipts |
+| Recheck and receipt consumers (2026-10-02) | Server-issued original action contexts, once-only final fork boundary, canonical event-bound receipt API and route wiring; [group handoff](../../research/2026-10-02-testnet-recheck-receipt.md) | Owner consumer fork accepted at 47574990; browser controller/recovery and public receipts remain open |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -54,13 +54,13 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 ## Phase 2 — Qualify executable preparation
 
-**Status:** Runtime proof, owner unfunded approval/preparation acceptance, oracle model access, full snapshot fee policy and unsigned approval/swap APIs are implemented. The owner qualified the disposable funded fork at block 47573721. Final recheck and receipt consumers are implemented; their updated EVM integration check remains open. Public wallet/controller acceptance is separate.
+**Status:** Runtime proof, owner unfunded approval/preparation acceptance, oracle model access, full snapshot fee policy and unsigned approval/swap APIs are implemented. The owner qualified the disposable funded fork at block 47573721. Final recheck and receipt consumers are implemented; the owner accepted their updated EVM integration at block 47574990. Public wallet/controller acceptance is separate.
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
-- [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
+- [x] Resolve and pin official contract artifacts/source matching the scoped swap deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
   - [x] Install exact official packages and fingerprint five artifacts; verify SwapRouter02/Quoter ABI and both swap encodings offline.
   - [x] Obtain the historical stable-block snapshot and independently rebuild all five source/compiler/immutable-bound runtimes (block 47551649).
-  - [ ] Requalify fresh stable-block code/configuration, pool identity/depth and execution-gate consumption. [Current host check](../../research/2026-10-02-testnet-runtime-quote-gate.md) is read-only; historical rebuild success does not enable execution. Creation-bytecode and descriptor proxy implementation/state remain separately recorded gaps.
+  - [x] Requalify fresh stable-block code/configuration, scoped swap pool identity/depth and execution-gate consumption. [Current host check](../../research/2026-10-02-testnet-runtime-quote-gate.md) is read-only; historical rebuild success does not enable execution. Creation-bytecode and descriptor proxy implementation/state remain separately recorded gaps.
     - [x] Owner fresh preflight/code inventory passed; enforce five runtime pins in each quote with final freshness/canonical-block checks.
     - [x] Owner runtime-guarded quote path passed in both directions at 47556679 /47556684.
     - [x] Implement bounded complete fee budgets and original-quote unsigned swap preparation.
@@ -74,10 +74,10 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
   - [x] Implement unsigned exact/reset/ready studies with quote/state binding, real runtime guard, pinned approval simulation and complete buffered snapshot fees; owner funded fork evidence accepted at block 47573721.
   - [x] Accept owner unfunded approval studies at 47564799 /47564808.
   - [x] Qualify sufficient gas estimates and executable approvals with receipt/reset/reread behavior on the disposable fork (47573721); public-testnet acceptance remains separate.
-- [ ] Simulate/recheck the reviewed swap and expose bounded local API contracts with sanitized errors, deadlines and provenance.
+- [x] Simulate/recheck the reviewed swap and expose bounded local API contracts with sanitized errors, deadlines and provenance.
   - [x] Implement original minimum/deadline-bound pinned simulation and unsigned preparation API/CLI with complete fees.
   - [x] Qualify funded simulation/snapshot fees on the disposable fork and implement final one-time recheck/receipt consumers.
-  - [ ] Accept the updated fork command with `contextBound:true` and `trackingVerified:true` for every action; retain the earlier funded evidence.
+  - [x] Accept the updated fork command at block 47574990 with `contextBound:true` and `trackingVerified:true` for every action; retain the earlier funded evidence.
 
 **Exit:** Wrong chain/token/recipient/spender, altered amount/minimum, stale quote, changed allowance/nonce, insufficient balance/gas and failed simulation all block preparation. The API holds no private key and sends no transaction.
 
@@ -85,15 +85,15 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
 
-Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [funded fork group/current host check](../../research/2026-10-02-testnet-fork-lifecycle.md). Earlier no-funds oracle/preparation and funded fork handoffs are accepted. [Current recheck/receipt handoff](../../research/2026-10-02-testnet-recheck-receipt.md) requires only the updated consumer run. Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
+Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [funded fork group/current host check](../../research/2026-10-02-testnet-fork-lifecycle.md). Earlier no-funds oracle/preparation and funded fork handoffs are accepted. [Current recheck/receipt handoff](../../research/2026-10-02-testnet-recheck-receipt.md) records the accepted updated consumer run at block 47574990. Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
 
 ## Phase 3 — Complete testnet wallet swaps
 
-**Status:** Not complete; current `/testnet` has no execution consumer.
+**Status:** Headless controller/recovery is implemented and locally verified (746 Vitest +85 Node, typecheck/lint/build); current `/testnet` has no execution consumer. [Current group](../../research/2026-10-02-testnet-wallet-controller.md).
 
-- [ ] Build an explicit local testnet wallet controller: connect/switch chain → fresh quote → exact approval/reset → receipt/reread → simulate/review → submit → verify receipt.
+- [ ] Wire the explicit local testnet wallet controller into the desktop browser flow: connect/switch chain → fresh quote → exact approval/reset → receipt/reread → simulate/review → submit → verify receipt.
 - [ ] Implement USDC→WETH and WETH→USDC as separate reviewed intents, including token decimals, expiry, signature rejection and input/account/chain changes.
-- [ ] Persist original submission context; handle pending, uncertain submission, reload, replacement and reorg without automatic rebroadcast.
+- [x] Implement original-context storage and explicit headless receipt/hash recovery without automatic rebroadcast. Deterministic tests cover pending/uncertain/reload and reject unverified reorg candidates. Replacement/cancellation identification and API-restart recovery remain unsupported and cannot be claimed from an advanced nonce.
 - [ ] Qualify deterministic browser and disposable-fork scenarios before enabling owner-operated testnet execution; reconcile successful receipt events, actual spend/output, gas and remaining allowance.
 - [ ] Obtain owner-operated capped public-testnet evidence for both directions using faucet test ETH/USDC and resulting WETH.
 
