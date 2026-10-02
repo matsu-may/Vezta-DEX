@@ -1,5 +1,7 @@
 # Base Sepolia unsigned approval progress
 
+**Follow-up accepted:** the owner subsequently passed both unfunded approval studies at 47564799 /47564808. The old host handoff below is complete. Full snapshot fees and unsigned swap preparation follow in the [latest progress/checks](2026-10-02-testnet-fees-swap-preparation-progress.md); the L2-only limitations below describe this historical slice, not the updated funded implementation.
+
 ## Owner runtime acceptance
 
 Both owner host quote directions passed the fresh runtime guard on chain 84532 /v3 fee 3000:

@@ -15,6 +15,33 @@ const request = (body: unknown = testnetIntent(), suffix = "", contentType = "ap
 const reader = () => new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => TESTNET_NOW);
 
 describe("testnet read routing", () => {
+  it("validates prepare bodies before RPC and returns only a no-store unfunded study", async () => {
+    const { TestnetSwapPreparer } = await import("./testnet-swap-preparation");
+    const quotes = reader(); const quoted = await quotes.read(testnetIntent());
+    const source = { ...testnetQuoteSource(), async getTokenBalance() { return 0n; }, async getNativeBalance() { return 0n; },
+      async getTokenAllowance() { return 0n; }, async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
+      async simulateTestnetSwap() { throw new Error("must not simulate"); }, async estimateTestnetSwapGas() { throw new Error("must not estimate"); },
+      async getGasPrice() { return 1n; }, async getAdditionalFees() { throw new Error("must not read fees"); } };
+    const create = vi.fn(() => source); const preparer = new TestnetSwapPreparer(create, quotes.store, () => TESTNET_NOW);
+    const body = { intent: testnetIntent(), quoteId: quoted.quoteId };
+    const req = (value: unknown = body, suffix = "", contentType = "application/json") => new Request(`http://local/api/v1/testnet/base-sepolia/prepare${suffix}`, {
+      method: "POST", headers: { "content-type": contentType }, body: JSON.stringify(value),
+    });
+    for (const [r, status] of [[req({ ...body, secret: "private" }), 400], [req(body, "?x=private"), 400],
+      [req({ padding: "x".repeat(5000) }), 413], [req(body, "", "text/plain"), 415],
+      [new Request("http://local/api/v1/testnet/base-sepolia/prepare"), 405]] as const) {
+      expect((await handleTestnetRequest(r, undefined, quotes, undefined, undefined, preparer))?.status).toBe(status);
+    }
+    expect(create).not.toHaveBeenCalled();
+    expect((await handleTestnetRequest(req()))?.status).toBe(503);
+    const response = await handleTestnetRequest(req(), undefined, quotes, undefined, undefined, preparer);
+    expect(response?.status).toBe(200); expect(response?.headers.get("cache-control")).toBe("no-store");
+    expect(await response?.json()).toMatchObject({ preparation: { status: "blocked", reason: "TESTNET_INPUT_BALANCE_LOW",
+      transaction: null, gas: null, runtimeVerified: true, executionEnabled: false } });
+    source.getTokenBalance = async () => { throw new Error("private-rpc-key"); };
+    const bad = await handleTestnetRequest(req(), undefined, quotes, undefined, undefined, preparer);
+    expect(await bad?.json()).toEqual({ error: "Testnet preparation unavailable", code: "TESTNET_RPC_UNAVAILABLE" });
+  });
   it("validates approval request bodies and exposes only a bound blocked study for an unfunded wallet", async () => {
     const { TestnetApprovalReader } = await import("./testnet-approval");
     const quoteReader = reader(); const quote = await quoteReader.read(testnetIntent());

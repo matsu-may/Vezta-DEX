@@ -1,11 +1,30 @@
 import { afterEach, expect, it, vi } from "vitest";
 import { decodeAbiParameters, encodeAbiParameters, toFunctionSelector } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction } from "@vezta-dex/core";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
 import { TestnetDiscoveryReader } from "./testnet-discovery";
 import { classifyTestnetRpcFailure } from "./testnet-rpc-diagnostics";
+import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
+import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
+
+it("simulates and estimates the actual reviewed swap at the pinned block without sending", async () => {
+  const quoted = await new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => TESTNET_NOW).read(testnetIntent());
+  const tx = buildTestnetSwapTransaction(quoted.quote, TESTNET_NOW);
+  const output = encodeAbiParameters([{ type: "bytes[]" }], [[encodeAbiParameters([{ type: "uint256" }], [398600600000000n])]]);
+  const calls: Array<{ method: string; params: [{ from: string; to: string; data: string; value: string }, string] }> = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: body.method === "eth_call" ? output : "0x249f1" });
+  });
+  const source = createBaseSepoliaPreflightSource("https://swap-wire.example.invalid");
+  expect(await source.simulateTestnetSwap(tx, 123n)).toBe(output);
+  expect(await source.estimateTestnetSwapGas(tx, 123n)).toBe(150001n);
+  expect(calls.map(c => [c.method, c.params[1]])).toEqual([["eth_call", "0x7b"], ["eth_estimateGas", "0x7b"]]);
+  for (const call of calls) expect(call.params[0]).toMatchObject({ from: tx.from,
+    to: P.router, data: tx.data, value: "0x0" });
+});
 
 it.each(["no-length", "understated-length", "large-declared"])("rejects and cancels oversized RPC response streams (%s)", async mode => {
   const limit = 1048576; let emitted = 0; let cancelled = false;

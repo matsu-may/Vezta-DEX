@@ -4,6 +4,7 @@ import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
+import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
 import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
@@ -66,7 +67,7 @@ async function readRpcBody(response: Response, signal?: AbortSignal | null) {
   } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
 }
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
@@ -99,6 +100,15 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       initializedTicksCrossed: result[2], gasEstimate: result[3] };
   };
   return {
+    async simulateTestnetSwap(transaction, blockNumber) {
+      const result = await client.call({ account: transaction.from, to: transaction.to,
+        data: transaction.data, value: 0n, blockNumber });
+      return result.data ?? "0x";
+    },
+    estimateTestnetSwapGas(transaction, blockNumber) {
+      return client.estimateGas({ account: transaction.from, to: transaction.to,
+        data: transaction.data, value: 0n, blockNumber });
+    },
     async getAdditionalFees(transaction, nonce, gas, gasPrice, blockNumber) {
       const serialized = serializeTestnetFeeEnvelope(transaction, nonce, gas, gasPrice);
       const [code, fjord, jovian] = await Promise.all([

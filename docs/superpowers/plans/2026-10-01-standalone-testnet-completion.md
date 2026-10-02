@@ -1,6 +1,6 @@
 # Standalone Testnet DEX Completion Roadmap
 
-**Status:** Consolidated roadmap, 2026-10-01, updated after the wallet quote/state slice. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
+**Status:** Consolidated roadmap, 2026-10-01, updated 2026-10-02 after unsigned approval acceptance and fee/swap preparation implementation. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
 
 **Goal:** Deliver a reproducible standalone Uniswap DEX demo in `vezta-dex`: pool discovery, same-chain swaps in both directions, and the complete v3 LP position lifecycle on Base Sepolia. Real mainnet USDC and main Vezta integration are later milestones.
 
@@ -29,7 +29,8 @@
 | Factory rebuild (2026-10-02) | 33 hash-checked sources, optimizer 800 and one self-address immutable independently reproduce all 24,535 historical runtime bytes | Pool/manager rebuilds, creation-bytecode proof, fresh live qualification and execution |
 | Pool/manager rebuilds (2026-10-02) | Both owner imports and full independent rebuilds passed: 22,142 /24,384 runtime bytes, 7 /5 typed immutables across 27 /17 references. All five historical proofs pass | Fresh live code/configuration/depth, creation-bytecode/proxy gaps, gas/simulation and executable API/web flows |
 | Runtime quote gate (2026-10-02) | Owner fresh inventory passed; guarded quotes also passed both directions at 47556679 /47556684 with runtimeVerified:true /executionEnabled:false | Current depth by intent, gas/simulation and executable API/web flows |
-| Unsigned approval study (2026-10-02) | Quote-bound fresh state/runtime checks, exact/reset/ready, funding blocks and pinned approval simulation/advisory L2 gas are implemented and locally tested | Host new-path acceptance, funded qualification, total Base fee budget, reset receipts/rereads and swap preparation |
+| Unsigned approval study (2026-10-02) | Owner unfunded studies passed at 47564799 /47564808 with runtime verified/no transaction; exact/reset/ready and pinned approval simulation implemented | Funded qualification, reset receipts/rereads |
+| Fees and swap preparation (2026-10-02) | Complete pinned snapshot fee policy; original minimum/deadline-bound swap simulation, exact allowance and final state checks; local API/CLI implemented | Host oracle/new-path acceptance, funded fork/live qualification, final submission recheck and receipt/recovery |
 
 These are separate evidence classes. A fork NFT is not a public-testnet NFT, and a successful mock is not an installed-wallet receipt.
 
@@ -48,7 +49,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 ## Phase 2 — Qualify executable preparation
 
-**Status:** Pure core policy and read-only wallet-bound quote/state APIs are implemented; live qualification and executable preparation remain incomplete.
+**Status:** Runtime proof, owner unfunded approval acceptance, full snapshot fee policy and unsigned approval/swap APIs are implemented; host new-path and funded qualification plus final submission/receipt consumers remain incomplete.
 
 - [x] Construct/inspect a single deadline-wrapped swap and one-step exact/reset approval plans.
 - [ ] Resolve and pin official contract artifacts/source matching deployments. Verify ABI/selectors, router code/configuration, factory/pool, token order/decimals and manager separately.
@@ -57,14 +58,19 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
   - [ ] Requalify fresh stable-block code/configuration, pool identity/depth and execution-gate consumption. [Current host check](../../research/2026-10-02-testnet-runtime-quote-gate.md) is read-only; historical rebuild success does not enable execution. Creation-bytecode and descriptor proxy implementation/state remain separately recorded gaps.
     - [x] Owner fresh preflight/code inventory passed; enforce five runtime pins in each quote with final freshness/canonical-block checks.
     - [x] Owner runtime-guarded quote path passed in both directions at 47556679 /47556684.
-    - [ ] Complete gas/simulation and preparation consumers; the [current unsigned approval host check](../../research/2026-10-02-testnet-unsigned-approval-progress.md) needs no funded wallet.
+    - [x] Implement bounded complete fee budgets and original-quote unsigned swap preparation.
+    - [x] Accept owner unfunded approval studies in both directions.
+    - [ ] Qualify new host oracle/preparation paths and funded gas/simulation; [two no-funds checks](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md).
 - [x] Add fresh wallet-bound RPC quotes, opaque stored quote IDs and bounded consumption/replay policy. Recheck impact and full-input-consumption assumptions. Reverse diagnostics confirmed HTTP 429 during dependency reads; origin-shared pacing and bounded response-body reads were added. Owner post-fix host quotes passed in both directions at blocks 47547007 and 47547012.
 - [ ] Read EOA, balance, gas, pending/mined nonce and allowances at stable blocks; implement reset confirmation/reread and unsigned exact approval preparation.
   - [x] Read EOA, both token/native balances, router allowance and stable mined/pending nonce; return exact/reset/ready kind and distinguish valid unfunded state.
   - [x] Qualify host EOA state evidence (block 47543051); insufficient input balance, no native ETH, and zero allowance reported without a read failure.
-  - [x] Implement unsigned exact/reset/ready studies with quote/state binding, real runtime guard, pinned approval simulation and bounded advisory L2 gas; local test evidence only for funded paths.
+  - [x] Implement unsigned exact/reset/ready studies with quote/state binding, real runtime guard, pinned approval simulation and complete buffered snapshot fees; local test evidence only for funded paths.
+  - [x] Accept owner unfunded approval studies at 47564799 /47564808.
   - [ ] Qualify sufficient gas estimates and executable approvals with receipt/reset/reread behavior.
 - [ ] Simulate/recheck the reviewed swap and expose bounded local API contracts with sanitized errors, deadlines and provenance.
+  - [x] Implement original minimum/deadline-bound pinned simulation and unsigned preparation API/CLI with complete fees.
+  - [ ] Qualify funded simulation/fees on a disposable fork/live provider and add final one-time submission recheck/receipt consumers.
 
 **Exit:** Wrong chain/token/recipient/spender, altered amount/minimum, stale quote, changed allowance/nonce, insufficient balance/gas and failed simulation all block preparation. The API holds no private key and sends no transaction.
 
@@ -72,7 +78,7 @@ These are separate evidence classes. A fork NFT is not a public-testnet NFT, and
 
 Latest slice: [wallet quote/state spec](../specs/2026-10-01-testnet-wallet-quote.md), [historical owner reads](../../research/2026-10-01-testnet-wallet-read-progress.md) and [runtime gate update](../../research/2026-10-02-testnet-runtime-quote-gate.md). Successful guarded quotes expose `configurationVerified:true`, `runtimeVerified:true`, `executionEnabled:false`; no public-testnet execution consumer has been enabled.
 
-Follow-through: [unsigned approval spec](../specs/2026-10-02-testnet-unsigned-approval.md) and [current approval progress/host check](../../research/2026-10-02-testnet-unsigned-approval-progress.md). Funded local studies expose only advisory L2 gas, never total-fee or execution readiness.
+Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-preparation.md) and [current progress/two host checks](../../research/2026-10-02-testnet-fees-swap-preparation-progress.md). Qualified fees are buffered snapshot estimates, not future fee caps or execution permission. Execution stays disabled.
 
 ## Phase 3 — Complete testnet wallet swaps
 

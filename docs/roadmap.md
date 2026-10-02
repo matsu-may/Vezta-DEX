@@ -2,11 +2,11 @@
 
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 
-**Latest follow-up, 2026-10-02:** owner runtime-guarded quotes passed both directions at 47556679 /47556684. Quote-bound unsigned approval studies now distinguish exact/reset/ready, valid funding blocks and pinned simulation/advisory L2 gas; execution and total-fee qualification stay disabled. [Current evidence, remaining phase-2 work and one host command](research/2026-10-02-testnet-unsigned-approval-progress.md). Standing authorization covers independent work after phase 2; owner wallet signatures/receipts remain separate gates.
+**Latest follow-up, 2026-10-02:** owner runtime-guarded quotes and unfunded approval studies passed both directions. Complete pinned snapshot fee budgets and original-quote unsigned swap preparation are implemented; execution stays disabled. [Current evidence, remaining phase-2 work and two no-funds host checks](research/2026-10-02-testnet-fees-swap-preparation-progress.md). Standing authorization covers independent work after phase 2; owner wallet signatures/receipts remain separate gates.
 
 **Phase-2 runtime evidence:** all five runtimes were independently rebuilt at block 47551649; owner fresh inventory and both guarded quotes passed with identical code hashes. Wallet quotes enforce those hashes at each fresh canonical block. See the [accepted runtime gate](research/2026-10-02-testnet-runtime-quote-gate.md); its earlier host handoff is complete.
 
-**Current open gates:** the agent's new approval probe fails at transport/chain read; host approval acceptance, total fees, funded simulation, reset receipts/rereads and swap preparation remain open. Phase 2 is incomplete and execution disabled. Independent later coding remains authorized, but signing and public-testnet receipt qualification require the owner.
+**Current open gates:** agent probes still fail at transport/chain read. Host new oracle/preparation checks, funded fee/simulation qualification, final submission recheck, reset receipts/rereads and public-testnet receipt/recovery remain open. Owner unfunded approval acceptance is complete. Phase 2 is incomplete and execution disabled. Independent later coding remains authorized; public-testnet signing/receipt qualification requires the owner.
 
 ## Goal and boundaries
 
