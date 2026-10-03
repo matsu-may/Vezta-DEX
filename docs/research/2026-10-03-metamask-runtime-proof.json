@@ -1,0 +1,333 @@
+{
+  "schemaVersion": 1,
+  "network": "Base Sepolia",
+  "chainId": 84532,
+  "snapshot": {
+    "blockNumber": "47629077",
+    "blockHash": "0x0bda65398a275d6a2531a64409331210944b10522b83f4b64c08d28ea1dc2174"
+  },
+  "compiler": {
+    "version": "0.8.23+commit.f704f362.Emscripten.clang",
+    "expected": "0.8.23+commit.f704f362",
+    "soljsonSha256": "0x9745559c347ccd7f9334b5e0aa00e884c23913952d943abdc0c6af85220a6b8e"
+  },
+  "method": "Metadata-listed sources hash-checked, original settings compiled with exact solc, AST-identified immutables reconstructed from source/deployment context, complete runtime and CBOR compared byte for byte.",
+  "independentMatch": true,
+  "noMaskedBytes": true,
+  "localRebuildScriptSha256": "0xf69e428ad14b0b9169c0f7c586fc16caf46de0f7933590ee2dc3c95650088b42",
+  "contracts": [
+    {
+      "name": "DelegationManager",
+      "address": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+      "sourceChainId": 84532,
+      "source": {
+        "provider": "Sourcify",
+        "contractUrl": "https://sourcify.dev/server/v2/contract/84532/0xdb9b1e94b5b69df7e401ddbede43491141047db3?fields=stdJsonInput,metadata,runtimeBytecode",
+        "fullyQualifiedName": "src/DelegationManager.sol:DelegationManager",
+        "matchId": "42582469",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-07-18T14:34:25Z"
+      },
+      "sourceMetadataSha256": "0x8130883e6dbd3af333ade89b15b8e57e323fc4e519f4044f0c9e07e4dd341a48",
+      "compilerInputSha256": "0xea323e606015cec038571951cb0fa81ba3ef01f075d9c7642a602e25b6fb9380",
+      "compilerSettingsSha256": "0xa84b716b2b61ea0f0e718790752b558f4b7587e2d8578352e5d6544c9fe33fc0",
+      "sources": {
+        "count": 27,
+        "totalBytes": 147883,
+        "allKeccak256Match": true,
+        "manifestSha256": "0x9c7278abd43ba7f6139167120ea955569151fd9f1753fb1c7407e14b81fec151"
+      },
+      "runtime": {
+        "compiledBytes": 11503,
+        "rebuiltBytes": 11503,
+        "snapshotBytes": 11503,
+        "keccak256": "0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a",
+        "rebuiltKeccak256": "0xa6f025f7bb23ddc0e2546eec56400672c3dfac88c12963bfeb2b5e1121aeee4a",
+        "metadataCborBytes": 53,
+        "fullMetadataCborMatch": true
+      },
+      "compiledMetadataMatchesSourceMetadata": true,
+      "sourcifyRuntimeMatchesBaseSepoliaSnapshot": true,
+      "immutableBindings": [
+        {
+          "astId": 1823,
+          "name": "_cachedDomainSeparator",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "_buildDomainSeparator()",
+          "word": "0xe71b8491d8c286677a45fed98624307811de12477341393c8399d0e58648242f",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor _buildDomainSeparator from verified NAME/DOMAIN_VERSION, deployment chainId and address"
+        },
+        {
+          "astId": 1825,
+          "name": "_cachedChainId",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "block.chainid",
+          "word": "0x0000000000000000000000000000000000000000000000000000000000014a34",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor block.chainid; Sourcify deployment chain matches snapshot"
+        },
+        {
+          "astId": 1827,
+          "name": "_cachedThis",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "address(this)",
+          "word": "0x000000000000000000000000db9b1e94b5b69df7e401ddbede43491141047db3",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor address(this); exact Sourcify deployment address"
+        },
+        {
+          "astId": 1829,
+          "name": "_hashedName",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "keccak256(bytes(name))",
+          "word": "0x604240e1ed005b9ba256cb7011059bf4ae645812b834bbcb5b22c93e2d1185cc",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor keccak256(bytes(name)); NAME source constant"
+        },
+        {
+          "astId": 1831,
+          "name": "_hashedVersion",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "keccak256(bytes(version))",
+          "word": "0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor keccak256(bytes(version)); DOMAIN_VERSION source constant"
+        },
+        {
+          "astId": 1834,
+          "name": "_name",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "name.toShortStringWithFallback(_nameFallback)",
+          "word": "0x44656c65676174696f6e4d616e61676572000000000000000000000000000011",
+          "referenceCount": 1,
+          "reason": "NAME source constant encoded by verified ShortStrings.toShortString"
+        },
+        {
+          "astId": 1837,
+          "name": "_version",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "version.toShortStringWithFallback(_versionFallback)",
+          "word": "0x3100000000000000000000000000000000000000000000000000000000000001",
+          "referenceCount": 1,
+          "reason": "DOMAIN_VERSION source constant encoded by verified ShortStrings.toShortString"
+        }
+      ],
+      "independentMatch": true
+    },
+    {
+      "name": "EIP7702StatelessDeleGator",
+      "address": "0x63c0c19a282a1b52b07dd5a65b58948a07dae32b",
+      "sourceChainId": 84532,
+      "source": {
+        "provider": "Sourcify",
+        "contractUrl": "https://sourcify.dev/server/v2/contract/84532/0x63c0c19a282a1b52b07dd5a65b58948a07dae32b?fields=stdJsonInput,metadata,runtimeBytecode",
+        "fullyQualifiedName": "src/EIP7702/EIP7702StatelessDeleGator.sol:EIP7702StatelessDeleGator",
+        "matchId": "41510060",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-07-13T03:50:51Z"
+      },
+      "sourceMetadataSha256": "0x2bb9c4923cc1aab7d6e056cd7eef939c5d1b95a6775a14ce5b7ef672e0dd78c9",
+      "compilerInputSha256": "0x3fcae8b3d32906a04a2f75997beca0c1cda0f65349e1d37a54bfc4669f0fb9e3",
+      "compilerSettingsSha256": "0xa84b716b2b61ea0f0e718790752b558f4b7587e2d8578352e5d6544c9fe33fc0",
+      "sources": {
+        "count": 32,
+        "totalBytes": 170014,
+        "allKeccak256Match": true,
+        "manifestSha256": "0xfd99b053eae08ee61edaa0781285db05732bcacddd66501ff1f35d858d0f2268"
+      },
+      "runtime": {
+        "compiledBytes": 11185,
+        "rebuiltBytes": 11185,
+        "snapshotBytes": 11185,
+        "keccak256": "0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2",
+        "rebuiltKeccak256": "0x83805f9ac7395294043b10c3b7c1839b7e4582a3e693028c36df84978b09d4e2",
+        "metadataCborBytes": 53,
+        "fullMetadataCborMatch": true
+      },
+      "compiledMetadataMatchesSourceMetadata": true,
+      "sourcifyRuntimeMatchesBaseSepoliaSnapshot": true,
+      "immutableBindings": [
+        {
+          "astId": 2138,
+          "name": "_cachedDomainSeparator",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "_buildDomainSeparator()",
+          "word": "0xb5794b2f9553b774bd4e1bdcb2991b6d35f44e04112957355f377ba4617fcb80",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor _buildDomainSeparator from verified NAME/DOMAIN_VERSION, deployment chainId and address"
+        },
+        {
+          "astId": 2140,
+          "name": "_cachedChainId",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "block.chainid",
+          "word": "0x0000000000000000000000000000000000000000000000000000000000014a34",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor block.chainid; Sourcify deployment chain matches snapshot"
+        },
+        {
+          "astId": 2142,
+          "name": "_cachedThis",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "address(this)",
+          "word": "0x00000000000000000000000063c0c19a282a1b52b07dd5a65b58948a07dae32b",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor address(this); exact Sourcify deployment address"
+        },
+        {
+          "astId": 2144,
+          "name": "_hashedName",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "keccak256(bytes(name))",
+          "word": "0x87e2b3436f0f6d8494dfcb826d860322ea231814dba9eb086540f62b8561c57b",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor keccak256(bytes(name)); NAME source constant"
+        },
+        {
+          "astId": 2146,
+          "name": "_hashedVersion",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "keccak256(bytes(version))",
+          "word": "0xc89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6",
+          "referenceCount": 1,
+          "reason": "EIP712 constructor keccak256(bytes(version)); DOMAIN_VERSION source constant"
+        },
+        {
+          "astId": 2149,
+          "name": "_name",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "name.toShortStringWithFallback(_nameFallback)",
+          "word": "0x4549503737303253746174656c65737344656c654761746f7200000000000019",
+          "referenceCount": 1,
+          "reason": "NAME source constant encoded by verified ShortStrings.toShortString"
+        },
+        {
+          "astId": 2152,
+          "name": "_version",
+          "source": "lib/openzeppelin-contracts/contracts/utils/cryptography/EIP712.sol",
+          "initializer": "version.toShortStringWithFallback(_versionFallback)",
+          "word": "0x3100000000000000000000000000000000000000000000000000000000000001",
+          "referenceCount": 1,
+          "reason": "DOMAIN_VERSION source constant encoded by verified ShortStrings.toShortString"
+        },
+        {
+          "astId": 5935,
+          "name": "__self",
+          "source": "src/EIP7702/EIP7702DeleGatorCore.sol",
+          "initializer": "address(this)",
+          "word": "0x00000000000000000000000063c0c19a282a1b52b07dd5a65b58948a07dae32b",
+          "referenceCount": 7,
+          "reason": "Immutable initializer address(this); exact Sourcify deployment address"
+        },
+        {
+          "astId": 5939,
+          "name": "delegationManager",
+          "source": "src/EIP7702/EIP7702DeleGatorCore.sol",
+          "initializer": "_delegationManager",
+          "word": "0x000000000000000000000000db9b1e94b5b69df7e401ddbede43491141047db3",
+          "referenceCount": 6,
+          "reason": "Exact Sourcify creation constructorArguments word 0, independently matched full compiled creation bytecode"
+        },
+        {
+          "astId": 5943,
+          "name": "entryPoint",
+          "source": "src/EIP7702/EIP7702DeleGatorCore.sol",
+          "initializer": "_entryPoint",
+          "word": "0x0000000000000000000000000000000071727de22e5e9d8baf0edac6f37da032",
+          "referenceCount": 14,
+          "reason": "Exact Sourcify creation constructorArguments word 1, independently matched full compiled creation bytecode"
+        }
+      ],
+      "independentMatch": true,
+      "creationProof": {
+        "sourceUrl": "https://sourcify.dev/server/v2/contract/84532/0x63c0c19a282a1b52b07dd5a65b58948a07dae32b?fields=creationBytecode,deployment",
+        "fullCompiledCreationPlusArgsMatches": true,
+        "deployment": {
+          "transactionHash": "0x18ef9c5b0f5540ebf263f3627ca5da07706a9f2488f171fb591935aed35cfb71",
+          "blockNumber": "23680810",
+          "transactionIndex": "17",
+          "deployer": "0xB0403B32f54d0Bd752113f4009e8B534C6669f44"
+        },
+        "constructorValues": {
+          "delegationManager": "0xdb9b1e94b5b69df7e401ddbede43491141047db3",
+          "entryPoint": "0x0000000071727de22e5e9d8baf0edac6f37da032"
+        }
+      }
+    },
+    {
+      "name": "LimitedCallsEnforcer",
+      "address": "0x04658b29f6b82ed55274221a06fc97d318e25416",
+      "sourceChainId": 8453,
+      "source": {
+        "provider": "Sourcify",
+        "contractUrl": "https://sourcify.dev/server/v2/contract/8453/0x04658b29f6b82ed55274221a06fc97d318e25416?fields=stdJsonInput,metadata,runtimeBytecode",
+        "fullyQualifiedName": "src/enforcers/LimitedCallsEnforcer.sol:LimitedCallsEnforcer",
+        "matchId": "32808148",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-06-20T04:30:25Z"
+      },
+      "sourceMetadataSha256": "0x7ba7279160e1e6db4511e2817aad1468d80f726fe3470a5928c67f19148e771d",
+      "compilerInputSha256": "0x132377e625f385b23950de770c3ad61a48a40583409bc445d19483b77422cc2f",
+      "compilerSettingsSha256": "0xa84b716b2b61ea0f0e718790752b558f4b7587e2d8578352e5d6544c9fe33fc0",
+      "sources": {
+        "count": 8,
+        "totalBytes": 23822,
+        "allKeccak256Match": true,
+        "manifestSha256": "0x1ce204c4344ffeaf226e950a61476328843b29d48239b33dda82a2256104417f"
+      },
+      "runtime": {
+        "compiledBytes": 1257,
+        "rebuiltBytes": 1257,
+        "snapshotBytes": 1257,
+        "keccak256": "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468",
+        "rebuiltKeccak256": "0x3a07a1b31d8f8f29cde4260f88fc5011e003e4bdbd519c8274fc7092d2356468",
+        "metadataCborBytes": 53,
+        "fullMetadataCborMatch": true
+      },
+      "compiledMetadataMatchesSourceMetadata": true,
+      "sourcifyRuntimeMatchesBaseSepoliaSnapshot": true,
+      "immutableBindings": [],
+      "independentMatch": true
+    },
+    {
+      "name": "ExactExecutionEnforcer",
+      "address": "0x146713078d39ecc1f5338309c28405ccf85abfbb",
+      "sourceChainId": 8453,
+      "source": {
+        "provider": "Sourcify",
+        "contractUrl": "https://sourcify.dev/server/v2/contract/8453/0x146713078d39ecc1f5338309c28405ccf85abfbb?fields=stdJsonInput,metadata,runtimeBytecode",
+        "fullyQualifiedName": "src/enforcers/ExactExecutionEnforcer.sol:ExactExecutionEnforcer",
+        "matchId": "39213865",
+        "creationMatch": "exact_match",
+        "runtimeMatch": "exact_match",
+        "verifiedAt": "2026-06-30T07:21:37Z"
+      },
+      "sourceMetadataSha256": "0xdc28e6be6e74ae385e40ae33ae580aec68fb6161e9a718558a414d35bb353fa3",
+      "compilerInputSha256": "0x07334f7a1d2e8f8b2f094a776a751ff2e663eda381ff16d7723382d16bff00d9",
+      "compilerSettingsSha256": "0xa84b716b2b61ea0f0e718790752b558f4b7587e2d8578352e5d6544c9fe33fc0",
+      "sources": {
+        "count": 9,
+        "totalBytes": 27337,
+        "allKeccak256Match": true,
+        "manifestSha256": "0x20fa3e9b681500fc7dfd6a6c21103855fb69a9601e36fd4085744d2dc6f568c4"
+      },
+      "runtime": {
+        "compiledBytes": 1583,
+        "rebuiltBytes": 1583,
+        "snapshotBytes": 1583,
+        "keccak256": "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e",
+        "rebuiltKeccak256": "0xd695eefffb5a4da6d7db7dbae12d3a85dff43d9b274b1217ad1498d73539dc5e",
+        "metadataCborBytes": 53,
+        "fullMetadataCborMatch": true
+      },
+      "compiledMetadataMatchesSourceMetadata": true,
+      "sourcifyRuntimeMatchesBaseSepoliaSnapshot": true,
+      "immutableBindings": [],
+      "independentMatch": true
+    }
+  ]
+}

@@ -7,7 +7,7 @@ export class TestnetBrowserError extends Error {
 export function createTestnetWalletClient(fetcher: typeof fetch = fetch): TestnetWalletApi {
   return { async call(action, body) {
     try {
-      if (!["quote", "recheck", "receipt"].includes(action)) throw new TestnetBrowserError(400);
+      if (!["quote", "recheck", "receipt", "historical-approval"].includes(action)) throw new TestnetBrowserError(400);
       const response = await fetcher(`/api/testnet-wallet/${action}`, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify(body), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(32000) });
       const result = await boundedJson(response, response.ok ? 65536 : 4096);

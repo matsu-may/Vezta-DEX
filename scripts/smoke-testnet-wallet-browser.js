@@ -45,14 +45,15 @@ async page => {
           ...(kind !== "swap" ? { approvedAmount: kind === "reset" ? "0" : selected.intent.amountIn } : {}),
           l2GasCost: "123", actualTotalFeeQualified: false, balances: { USDC: "0", WETH: "0", ETH: "100" }, tokenAllowance: kind === "approve" ? selected.intent.amountIn : "0", allowanceMatchesExpected: true, stateBlockNumber: "125", stateBlockHash: "0x" + "ef".repeat(32) } } };
       if (unverified) response.observation = { ...response.observation, status: "unverified", diagnostic: "unsupported-transaction-type", execution: null };
-    } else throw new Error("Unexpected browser endpoint");
+    } else if (action === "historical-approval") response = {reconciliation:{wallet:selected.intent.wallet,hash,chainId:84532,kind:selected.checked.action.kind,token:selected.intent.tokenIn,spender:"0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",approvedAmount:selected.intent.amountIn,receiptBlockNumber:"124",receiptBlockHash:"0x"+"cd".repeat(32),observedAt:new Date(selected.now).toISOString(),confirmations:"2",currentAllowance:selected.intent.amountIn,originalReviewAvailable:false,status:"verified-historical-approval",executionModel:"metamask-delegation",gasPayer:"0x1111111111111111111111111111111111111111",actualTotalFeeQualified:false,executionEnabled:false}};
+    else throw new Error("Unexpected browser endpoint");
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(response) });
   });
   const check = (v, name) => { if (!v) throw new Error(name); checks.push(name); };
   async function fresh(key = "forward-swap") {
     selected = fixtures[key]; failed = false; unverified = false; lostContext = false;
     await page.goto(origin + "/demo/1");
-    await page.evaluate(() => { localStorage.removeItem("vezta-dex:base-sepolia-submission:v1"); localStorage.removeItem("vezta-dex:base-sepolia-manual-review:v1"); });
+    await page.evaluate(() => { localStorage.removeItem("vezta-dex:base-sepolia-submission:v1"); localStorage.removeItem("vezta-dex:base-sepolia-manual-review:v1"); localStorage.removeItem("vezta-dex:base-sepolia-historical-approval-ack:v1"); });
     await page.reload(); await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).waitFor();
     if (key.startsWith("reverse")) { await page.getByLabel("Direction", { exact: true }).selectOption("reverse"); await page.getByLabel("Input amount", { exact: true }).selectOption("2"); }
   }
@@ -108,15 +109,15 @@ async page => {
   await page.getByText(/Original approval archived for manual review/).waitFor();
   check(await page.evaluate(() => JSON.parse(localStorage.getItem("vezta-dex:base-sepolia-manual-review:v1")).length === 1), "Original unresolved approval remains archived");
   await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click();
-  await page.getByText(/Select a different standard account/).waitFor();
+  await page.getByText(/unresolved archived approval/).waitFor();
   check(await page.getByRole("button", { name: "Get wallet quote" }).isDisabled(), "Archived original wallet cannot continue");
   await page.evaluate(() => { window.__testnetMock.change(); });
   await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click();
   await page.getByText("Connected: 0x1111111111111111111111111111111111111111", { exact: true }).waitFor();
   check(!(await page.getByRole("button", { name: "Get wallet quote" }).isDisabled()), "Different standard account can connect after archival");
-  await fresh(); await page.evaluate(() => { window.__testnetMock.code = "0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b"; });
-  await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click(); await page.getByText(/Smart accounts or archived wallets/).waitFor();
-  check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Delegated account blocked before send");
+  await fresh(); await page.evaluate(() => { window.__testnetMock.code = "0xef01001111111111111111111111111111111111111111"; });
+  await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click(); await page.getByText(/unsupported contract/).waitFor();
+  check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Unknown delegate blocked before send");
   await fresh("forward-approve"); await reviewed();
   await page.getByRole("button", { name: "Submit reviewed testnet transaction" }).click(); lostContext = true;
   await page.getByRole("button", { name: "Check original transaction" }).click();
@@ -125,5 +126,21 @@ async page => {
   await page.getByRole("checkbox").check(); await page.getByRole("button", { name: "Archive approval for manual review" }).click();
   await page.getByText(/Original approval archived for manual review/).waitFor();
   check(await page.evaluate(() => JSON.parse(localStorage.getItem("vezta-dex:base-sepolia-manual-review:v1"))[0].hash === "0x" + "11".repeat(32)), "Lost-context approval archived with original hash intact");
+  await fresh(); await page.evaluate(() => { window.__testnetMock.code = "0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b"; });
+  await reviewed();
+  check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Pinned MetaMask delegation reviews without automatic send");
+  await fresh("forward-approve"); await reviewed();
+  await page.getByRole("button",{name:"Submit reviewed testnet transaction"}).click(); lostContext=true;
+  await page.getByRole("button",{name:"Check original transaction"}).click();
+  await page.getByRole("button",{name:"Verify historical approval",exact:true}).click();
+  await page.getByRole("heading",{name:"Verified historical approval",exact:true}).waitFor();
+  check(await page.getByRole("button",{name:"Acknowledge verified result"}).count()===0,"Historical result never pretends original review exists");
+  await page.screenshot({path:".playwright-cli/demo-01-metamask-historical-desktop.png",fullPage:true});
+  await page.getByRole("button",{name:"Acknowledge historical approval"}).click();
+  await page.getByText(/Historical approval acknowledged. Original hash retained/).waitFor();
+  check(await page.evaluate(()=>localStorage.getItem("vezta-dex:base-sepolia-submission:v1")===null&&JSON.parse(localStorage.getItem("vezta-dex:base-sepolia-manual-review:v1")).length===1),"Explicit historical acknowledgment retains original hash");
+  await page.reload(); await page.getByRole("button",{name:"Connect Base Sepolia wallet"}).click();
+  await page.getByText("Connected: " + selected.intent.wallet,{exact:true}).waitFor();
+  check(await page.getByRole("button",{name:"Get wallet quote"}).isEnabled(),"Reconciled original wallet reconnects after reload");
   return { mockOnly: true, checks, apiCalls: apiCalls.length };
 }

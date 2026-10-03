@@ -4,6 +4,15 @@ import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, inspectTestnetSw
 import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TESTNET_HASH, TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
+import { delegatedWalletCodeReader } from "./testnet-metamask-wallet.test-helper";
+
+it("prepares the reviewed swap for the proven delegate and rejects changed MetaMask runtime", async () => {
+  const { preparer, source, request } = await setup();
+  source.getCode = delegatedWalletCodeReader(source.getCode, request.intent.wallet);
+  expect(await preparer.read(request)).toMatchObject({ status: "unsigned-prepared", runtimeVerified: true });
+  source.getCode = delegatedWalletCodeReader(source.getCode, request.intent.wallet, true);
+  await expect(preparer.read(request)).rejects.toMatchObject({ code: "TESTNET_METAMASK_RUNTIME_MISMATCH" });
+});
 
 const resultData = (output: bigint) => encodeAbiParameters([{ type: "bytes[]" }], [
   [encodeAbiParameters([{ type: "uint256" }], [output])],

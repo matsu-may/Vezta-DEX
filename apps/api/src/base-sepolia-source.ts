@@ -164,6 +164,11 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       try { return await client.getTransaction({ hash }); }
       catch (error) { if (error instanceof TransactionNotFoundError) return null; throw error; }
     },
+    async getBlockTransactions(blockNumber) {
+      const block = await client.getBlock({ blockNumber, includeTransactions: true });
+      if (block.number !== blockNumber || block.transactions.length > 4096) throw new Error("Invalid canonical transaction block");
+      return block.transactions;
+    },
     async getReceipt(hash) {
       try { return await client.getTransactionReceipt({ hash }); }
       catch (error) { if (error instanceof TransactionReceiptNotFoundError) return null; throw error; }

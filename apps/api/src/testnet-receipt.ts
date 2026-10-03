@@ -1,7 +1,8 @@
 import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
+import { verifyMetaMaskExecution } from "./testnet-metamask-execution";
 import { z } from "zod";
 import { decodeEventLog, erc20Abi, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_METAMASK as M } from "@vezta-dex/core";
 import { TestnetActionError, type TestnetActionContext, type TestnetActionStore } from "./testnet-action";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 
@@ -20,6 +21,7 @@ export interface BaseSepoliaReceiptSource extends BaseSepoliaWalletSource {
   getTransaction(hash: Hex): Promise<TestnetObservedTransaction | null>;
   getReceipt(hash: Hex): Promise<TestnetObservedReceipt | null>;
   getBlockBaseFee?(block: bigint): Promise<bigint>;
+  getBlockTransactions?(block: bigint): Promise<TestnetObservedTransaction[]>;
 }
 type ReceiptCode = "TESTNET_RECEIPT_INVALID" | "TESTNET_RECEIPT_BUSY" | "TESTNET_RECEIPT_TIMEOUT"
   | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN" | "TESTNET_RECEIPT_STALE" | "TESTNET_INTENT_INVALID";
@@ -122,19 +124,31 @@ export class TestnetReceiptReader {
       if (!same(stable, head.hash)) return empty("reorged");
       return { ...empty("unknown-original"), nonceUsed: nonce > BigInt(c.transaction.nonce) };
     }
-    if (tx.type !== "legacy" && tx.type !== "eip1559") return empty("unverified", "0", "unsupported-transaction-type");
-    if (!matchesOriginal(tx, c, hash)) return empty("unverified", "0", "transaction-mismatch");
-    this.contexts.bindHash(c.contextId, hash);
-    if (!receipt) return empty("pending");
-    const receiptBaseFee = c.transaction.feeModel === "eip1559" ? await source.getBlockBaseFee?.(receipt.blockNumber) : undefined; fresh();
-    if (!same(receipt.transactionHash, hash) || !same(receipt.from, c.intent.wallet) || !same(receipt.to, c.transaction.to)
+    let relay: { executionModel: "metamask-delegation"; gasPayer: string } | undefined;
+    if (same(tx.to, M.manager) && same(tx.hash, hash)) {
+      // A manager destination alone cannot prove the owner or reviewed inner call.
+      // Keep recovery candidates unbound until canonical inclusion proves execution.
+      if (!receipt) return empty("unverified");
+      try { relay = await verifyMetaMaskExecution(source, tx, receipt, c.transaction); }
+      catch { return empty("unverified", "0", "transaction-mismatch"); }
+      fresh();
+    } else {
+      if (tx.type !== "legacy" && tx.type !== "eip1559") return empty("unverified", "0", "unsupported-transaction-type");
+      if (!matchesOriginal(tx, c, hash)) return empty("unverified", "0", "transaction-mismatch");
+    }
+    if (receipt && !same(await source.getBlockHash(receipt.blockNumber), receipt.blockHash)) return empty("reorged");
+    fresh();
+    if (!receipt) { this.contexts.bindHash(c.contextId, hash); return empty("pending"); }
+    const receiptBaseFee = !relay && c.transaction.feeModel === "eip1559" ? await source.getBlockBaseFee?.(receipt.blockNumber) : undefined; fresh();
+    if (!same(receipt.transactionHash, hash) || !same(receipt.from, relay ? tx.from : c.intent.wallet) || !same(receipt.to, relay ? M.manager : c.transaction.to)
       || !same(tx.blockHash, receipt.blockHash) || tx.blockNumber !== receipt.blockNumber
       || !uint(receipt.blockNumber) || receipt.blockNumber <= BigInt(c.blockNumber) || receipt.blockNumber > head.number
       || !nonzeroHash(receipt.blockHash) || !uint(receipt.gasUsed) || receipt.gasUsed === 0n
-      || receipt.gasUsed > BigInt(c.transaction.gas) || !matchesTestnetReceiptGasPrice(receipt.effectiveGasPrice, c.transaction, receiptBaseFee)
+      || (!relay && (receipt.gasUsed > BigInt(c.transaction.gas) || !matchesTestnetReceiptGasPrice(receipt.effectiveGasPrice, c.transaction, receiptBaseFee)))
       || !Array.isArray(receipt.logs) || receipt.logs.length > 128) return empty("unverified", "0", "receipt-mismatch");
     const canonical = await source.getBlockHash(receipt.blockNumber); fresh();
     if (!same(canonical, receipt.blockHash)) return empty("reorged");
+    this.contexts.bindHash(c.contextId, hash);
     const confirmations = head.number - receipt.blockNumber + 1n;
     if (confirmations < 2n) return empty("confirming", confirmations.toString());
     let economics: ReturnType<typeof reviewEvents> | null = null;
@@ -149,7 +163,7 @@ export class TestnetReceiptReader {
     fresh();
     if (!same(headHash, head.hash) || !same(receiptHash, receipt.blockHash)) return empty("reorged");
     if (![usdc, weth, eth, allowance].every(uint)) return fail("TESTNET_RECEIPT_INVALID");
-    return { ...base, status: receipt.status === "success" ? "confirmed" as const : "reverted" as const,
+    return { ...base, ...(relay ? { executionModel: relay.executionModel, gasPayer: relay.gasPayer } : {}), status: receipt.status === "success" ? "confirmed" as const : "reverted" as const,
       confirmations: confirmations.toString(), blockNumber: receipt.blockNumber.toString(), blockHash: receipt.blockHash,
       execution: { status: receipt.status === "success" ? "verified" as const : "reverted" as const, ...economics,
         l2GasCost: (receipt.gasUsed * receipt.effectiveGasPrice).toString(), actualTotalFeeQualified: false as const,

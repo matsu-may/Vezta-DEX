@@ -34,3 +34,13 @@ it("does not claim an authorization after a reverted approval receipt", async ()
   fireEvent.click(screen.getByRole("button",{name:"Submit reviewed LP transaction"}));fireEvent.click(await screen.findByRole("button",{name:"Check original LP transaction"}));await screen.findByText("Original transaction reverted. The result is verified.");
   expect(screen.queryByText("Verified authorization")).toBeNull();expect(screen.getByRole("button",{name:"Acknowledge verified LP result"})).toBeTruthy();
 });
+
+it("shows delegated LP gas payer and observed L2 cost without claiming total fees", async () => {
+  const {lpWalletFixture,LP_NOW,LP_HASH}=await import("../lib/testnet-lp-wallet.test-helper");const f=lpWalletFixture("approve");vi.spyOn(Date,"now").mockReturnValue(LP_NOW);
+  Object.defineProperty(window,"ethereum",{configurable:true,value:{async request({method}:{method:string}){if(method==="eth_accounts"||method==="eth_requestAccounts")return[f.intent.wallet];if(method==="eth_chainId")return"0x14a34";if(method==="eth_getCode")return"0x";if(method==="eth_sendTransaction")return LP_HASH;throw Error("unexpected");}}});
+  vi.stubGlobal("navigator",{locks:{request:async(_key:unknown,_options:unknown,fn:(lock:unknown)=>Promise<void>)=>fn({})}});
+  vi.stubGlobal("fetch",async(url:string)=>Response.json(url.endsWith("receipt")?{observation:{...f.observation,executionModel:"metamask-delegation",gasPayer:"0x2222222222222222222222222222222222222222",l2GasCost:"123456789",status:"confirmed"}}:{study:f.study}));render(<TestnetLpWalletPanel executionEnabled={true}/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Connect Base Sepolia wallet"}));await screen.findByText(`Connected: ${f.intent.wallet}`);fireEvent.click(screen.getByRole("button",{name:"Study LP action"}));await screen.findByRole("heading",{name:"Review approve USDC"});
+  fireEvent.click(screen.getByRole("button",{name:"Submit reviewed LP transaction"}));fireEvent.click(await screen.findByRole("button",{name:"Check original LP transaction"}));await screen.findByText("Original action verified with two confirmations.");
+  expect(screen.getByText("Gas payer")).toBeTruthy();expect(screen.getByText("Observed outer L2 cost")).toBeTruthy();expect(screen.getByText("L1/operator charged fees not yet qualified")).toBeTruthy();expect(screen.getByRole("button",{name:"Acknowledge verified LP result"})).toBeTruthy();
+});

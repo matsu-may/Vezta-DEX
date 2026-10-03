@@ -1,11 +1,12 @@
 import { decodeAbiParameters, encodeAbiParameters, encodeFunctionData, erc20Abi, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, inspectTestnetLpTransaction,
-  parseTestnetLpStudy, testnetLpStudyRequestSchema, testnetLpRecheckRequestSchema,
+  parseTestnetLpStudy, testnetLpStudyRequestSchema, testnetLpRecheckRequestSchema, classifyTestnetWalletCode,
   type TestnetLpIntent, type TestnetLpPlan, type TestnetLpStudy, type TestnetLpTransaction } from "@vezta-dex/core";
 import { TestnetLpError, lpAssert, lpSdkPool, lpSdkPosition, type BaseSepoliaLpSource, type LpNftState } from "./testnet-lp-position";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
 import { planTestnetLp } from "./testnet-lp-plan";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
+import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { completeTestnetFeeBudget, planTestnetSourceGas, testnetGasFeeFields, TestnetFeeError } from "./testnet-fees";
 import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 export interface BaseSepoliaLpWalletSource extends BaseSepoliaLpSource, BaseSepoliaPreparationSource {
@@ -56,7 +57,13 @@ export class TestnetLpWallet {
       Promise.all([s.getTokenBalance(C.USDC.address,i.wallet,b.number),s.getTokenBalance(C.WETH.address,i.wallet,b.number),s.getNativeBalance(i.wallet,b.number)]),
       Promise.all([C.USDC.address,C.WETH.address].map(a=>s.getTokenAllowance(a,i.wallet,C.v3PositionManager,b.number))),s.getAccountNonce(i.wallet,b.number),s.getPendingNonce(i.wallet),
     ]);fresh();
-    lpAssert(walletCode==="0x","TESTNET_LP_EOA_REQUIRED");
+    let accountKind: ReturnType<typeof classifyTestnetWalletCode>;
+    try { accountKind=classifyTestnetWalletCode(walletCode); } catch { throw new TestnetLpError("TESTNET_LP_EOA_REQUIRED"); }
+    if(accountKind==="metamask-delegated") {
+      try { await verifyTestnetMetaMaskRuntime(s,b.number); }
+      catch { throw new TestnetLpError("TESTNET_METAMASK_RUNTIME_MISMATCH"); }
+      fresh();
+    }
     try { verifyTestnetRuntimeCodes(84532,addresses.map((address,index)=>({address,code:codes[index]}))); }
     catch { throw new TestnetLpError("TESTNET_LP_RUNTIME_MISMATCH"); }
     lpAssert(tokenCodes.every(code=>/^0x(?:[a-fA-F0-9]{2})+$/.test(code)) && decimals[0]===6 && decimals[1]===18
@@ -71,7 +78,7 @@ export class TestnetLpWallet {
     const stable=async()=>{ const [blockHash,endNonce]=await Promise.all([s.getBlockHash(b.number),s.getPendingNonce(i.wallet)]);fresh();
       lpAssert(same(blockHash,b.hash),"TESTNET_LP_BLOCK_CHANGED");lpAssert(endNonce===nonce,"TESTNET_LP_NONCE_CHANGED"); };
     await stable();
-    return {b,pool,position,nonce,balances:{USDC:balances[0].toString(),WETH:balances[1].toString(),ETH:balances[2].toString()},
+    return {b,pool,position,nonce,walletCode,balances:{USDC:balances[0].toString(),WETH:balances[1].toString(),ETH:balances[2].toString()},
       allowances:{USDC:allowances[0].toString(),WETH:allowances[1].toString()},fresh,stable};
   }
   async study(value:unknown):Promise<TestnetLpStudy> {
@@ -115,7 +122,7 @@ export class TestnetLpWallet {
       const study={...base,status:"prepared" as const,reason:null,contextId:"00".repeat(24),gas,transaction:{...tx,nonce:nonce.toString(),gas:gas.gasLimit,...testnetGasFeeFields(gasPlan)}};
       inspectTestnetLpTransaction(study,this.now());inspectLpSimulation(study,await s.simulateTestnetLp(study.transaction,b.number));
       await snapshot.stable();
-      return this.store.issue(study,lpStateFingerprint({pool,position,allowances,nonce}));
+      return this.store.issue(study,JSON.stringify({walletCode:snapshot.walletCode.toLowerCase(),state:lpStateFingerprint({pool,position,allowances,nonce})}));
     });
   }
   async recheck(value:unknown):Promise<TestnetLpStudy> {
@@ -125,7 +132,7 @@ export class TestnetLpWallet {
     return this.run(async(s,signal)=>{
       const original=context.study;const snapshot=await this.snapshot(s,original.intent,signal),{b,pool,position,balances,allowances,nonce}=snapshot;
       lpAssert(b.number>=BigInt(original.blockNumber) && same(await s.getBlockHash(BigInt(original.blockNumber)),original.blockHash),"TESTNET_LP_BLOCK_CHANGED");
-      lpAssert(lpStateFingerprint({pool,position,allowances,nonce})===context.state,"TESTNET_LP_STATE_CHANGED");
+      lpAssert(JSON.stringify({walletCode:snapshot.walletCode.toLowerCase(),state:lpStateFingerprint({pool,position,allowances,nonce})})===context.state,"TESTNET_LP_STATE_CHANGED");
       const tx=original.transaction!;
       const [estimate,price]=await Promise.all([s.estimateTestnetSwapGas({ ...tx,data:tx.data as Hex },b.number),tx.feeModel==="eip1559"?s.getBlockBaseFee?.(b.number):s.getGasPrice()]);
       lpAssert(typeof estimate === "bigint" && estimate >= 21000n && estimate <= BigInt(tx.gas) && typeof price === "bigint" && price >= 0n && (tx.feeModel==="eip1559"?price+BigInt(tx.maxPriorityFeePerGas!)<=BigInt(tx.maxFeePerGas!):price>0n && price<=BigInt(tx.gasPrice)),"TESTNET_LP_FEES_CHANGED");

@@ -111,3 +111,8 @@ describe("wallet-bound pinned testnet quotes", () => {
     expect((await reader.read(testnetIntent())).quoteId).toHaveLength(48);
   });
 });
+it("quotes the proven MetaMask delegated wallet in both directions and rejects altered delegate runtime",async()=>{
+ const {delegatedWalletCodeReader}=await import("./testnet-metamask-wallet.test-helper");
+ for(const reverse of [false,true]){const f=setup(),intent=testnetIntent(reverse);f.source.getCode=delegatedWalletCodeReader(f.source.getCode,intent.wallet);expect((await f.reader.read(intent)).qualification.runtimeVerified).toBe(true);}
+ const f=setup(),intent=testnetIntent();f.source.getCode=delegatedWalletCodeReader(f.source.getCode,intent.wallet,true);await expect(f.reader.read(intent)).rejects.toMatchObject({code:"TESTNET_RUNTIME_MISMATCH"});
+});

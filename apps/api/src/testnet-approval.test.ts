@@ -4,6 +4,16 @@ import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-de
 import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
+import { delegatedWalletCodeReader } from "./testnet-metamask-wallet.test-helper";
+
+it("prepares exact approval for the proven MetaMask delegate and rejects a changed runtime", async () => {
+  const { reader, source, request } = await setup();
+  source.getCode = delegatedWalletCodeReader(source.getCode, request.intent.wallet);
+  expect(await reader.read(request)).toMatchObject({ status: "unsigned-prepared", approvalKind: "approve",
+    transaction: { from: "0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e", value: "0" } });
+  source.getCode = delegatedWalletCodeReader(source.getCode, request.intent.wallet, true);
+  await expect(reader.read(request)).rejects.toMatchObject({ code: "TESTNET_METAMASK_RUNTIME_MISMATCH" });
+});
 
 const TRUE = `0x${"0".repeat(63)}1` as Hex;
 const abi = parseAbi(["function approve(address spender,uint256 value) returns (bool)"]);

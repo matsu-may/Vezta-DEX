@@ -44,3 +44,9 @@ it("does not describe an unavailable tracking context as a still-pending transac
   expect(screen.queryByText(/Waiting for the original transaction/)).toBeNull();
   expect(screen.getByRole("button", { name: "Archive approval for manual review" })).toBeTruthy();
 });
+it("offers read-only historical reconciliation for an unresolved original approval",()=>{
+ const f=fixtures["forward-approve"],submission=parseTestnetSubmission({version:1,intent:f.intent,quote:f.quote.quote,action:f.checked.action,attemptedAt:f.now,hash:`0x${"11".repeat(32)}`});
+ const state:TestnetWalletSnapshot={stage:"unverified",busy:false,message:"",account:null,quote:null,action:null,review:null,submission,observation:null};
+ render(<TestnetWalletRecovery state={state} controller={{} as TestnetWalletController}/>);
+ expect(screen.getByRole("button",{name:"Verify historical approval"})).toBeTruthy();
+});

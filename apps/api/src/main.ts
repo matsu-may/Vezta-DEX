@@ -33,6 +33,8 @@ import { testnetHttpExecutionEnabled } from "./testnet-execution-gate";
 import { TestnetLpPositionReader } from "./testnet-lp-position";
 import { handleTestnetLpRequest } from "./testnet-lp-routes";
 import { TestnetReceiptReader } from "./testnet-receipt";
+import { TestnetHistoricalApprovalReader } from "./testnet-historical-approval";
+import { handleTestnetHistoricalApprovalRequest } from "./testnet-historical-approval-routes";
 import { TestnetLpWallet } from "./testnet-lp-wallet";
 import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 import { TestnetLpWalletReceiptReader } from "./testnet-lp-wallet-receipt";
@@ -61,6 +63,8 @@ const trading = tradingClient ? new TradingApiQuoteReader(tradingClient, Date.no
 const permits = trading ? new PermitReader(source, quoteStore) : undefined;
 const swaps = tradingClient ? new SwapPreparer(source, quoteStore, tradingClient) : undefined;
 const testnetRpcUrl = process.env.BASE_SEPOLIA_RPC_URL?.trim();
+const testnetHistoricalApprovals = testnetRpcUrl ? new TestnetHistoricalApprovalReader(signal =>
+  createBaseSepoliaPreflightSource(testnetRpcUrl, signal)) : undefined;
 const testnet = testnetRpcUrl ? new TestnetDiscoveryReader(signal =>
   probeBaseSepoliaDepth(createBaseSepoliaPreflightSource(testnetRpcUrl, signal))) : undefined;
 const testnetLpPositions = testnetRpcUrl ? new TestnetLpPositionReader(signal =>
@@ -73,11 +77,20 @@ const testnetApprovals = testnetRpcUrl && testnetQuotes ? new TestnetApprovalRea
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetQuotes.store) : undefined;
 const testnetPreparer = testnetRpcUrl && testnetQuotes ? new TestnetSwapPreparer(signal =>
   createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetQuotes.store) : undefined;
-const testnetContexts = new TestnetActionStore();
-const testnetRechecker = testnetQuotes && testnetApprovals && testnetPreparer
-  ? new TestnetRechecker(testnetApprovals, testnetPreparer, testnetQuotes.store, testnetContexts) : undefined;
-const testnetReceipts = testnetRpcUrl ? new TestnetReceiptReader(signal =>
-  createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetContexts) : undefined;
+let testnetContexts: TestnetActionStore | undefined;
+let testnetRechecker: TestnetRechecker | undefined;
+let testnetReceipts: TestnetReceiptReader | undefined;
+if (testnetRpcUrl && testnetQuotes && testnetApprovals && testnetPreparer) {
+  try {
+    testnetContexts = new TestnetActionStore(Date.now, 128,
+      fileURLToPath(new URL("../../../.local-evidence/testnet-wallet-contexts", import.meta.url)));
+    testnetRechecker = new TestnetRechecker(testnetApprovals, testnetPreparer, testnetQuotes.store, testnetContexts);
+    testnetReceipts = new TestnetReceiptReader(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetContexts);
+  } catch {
+    testnetContexts = undefined; testnetRechecker = undefined; testnetReceipts = undefined;
+    process.stderr.write("TESTNET_CONTEXT_STORAGE_UNAVAILABLE\n");
+  }
+}
 let testnetLpWallet: TestnetLpWallet | undefined;
 let testnetLpWalletReceipts: TestnetLpWalletReceiptReader | undefined;
 let testnetLpWalletUnavailable = "TESTNET_LP_RPC_NOT_CONFIGURED";
@@ -114,7 +127,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, testnetHttpExecutionEnabled(process.env, host, port), testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
+    const result = await handleTestnetHistoricalApprovalRequest(apiRequest, testnetHistoricalApprovals) ?? await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, testnetHttpExecutionEnabled(process.env, host, port), testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

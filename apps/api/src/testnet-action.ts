@@ -1,13 +1,16 @@
 import { randomBytes } from "node:crypto";
+import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { z } from "zod";
 import { inspectTestnetSwapTransaction, parseTestnetSwapIntent, parseTestnetSwapQuote, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY as P, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
+  TESTNET_SWAP_POLICY as P, testnetFeeFieldsSchema, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
 import type { TestnetQuoteStore } from "./testnet-quote-store";
 import type { TestnetApprovalReader } from "./testnet-approval";
 import type { TestnetSwapPreparer } from "./testnet-swap-preparation";
 
 type ActionCode = "TESTNET_CONTEXT_INVALID" | "TESTNET_CONTEXT_CAPACITY" | "TESTNET_CONTEXT_UNAVAILABLE"
-  | "TESTNET_CONTEXT_HASH_CHANGED" | "TESTNET_CONTEXT_ATTEMPTED" | "TESTNET_RECHECK_BUSY" | "TESTNET_INTENT_INVALID";
+  | "TESTNET_CONTEXT_HASH_CHANGED" | "TESTNET_CONTEXT_ATTEMPTED" | "TESTNET_RECHECK_BUSY" | "TESTNET_INTENT_INVALID"
+  | "TESTNET_CONTEXT_STORAGE_UNAVAILABLE";
 export class TestnetActionError extends Error {
   constructor(readonly code: ActionCode) { super(code); }
 }
@@ -26,6 +29,13 @@ export interface TestnetActionContext extends TestnetActionInput {
   contextId: string; issuedAt: number; trackingExpiresAt: number;
   quoteExpiresAt: string; originalHash: string | null; submissionAttempted: boolean;
 }
+const contextSchema = z.object({ kind: z.enum(["swap", "approve", "reset"]), intent: z.unknown(), quote: z.unknown(),
+  transaction: testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(P.chainId), from: z.string().max(42), to: z.string().max(42),
+    data: z.string().max(4096), value: z.literal("0"), nonce: z.string().max(78), gas: z.string().max(78) }).strict(),
+  blockNumber: z.string().max(78), blockHash: z.string().max(66), currentAllowance: z.string().max(78),
+  contextId: z.string().regex(/^[a-f0-9]{48}$/), issuedAt: z.number().int().nonnegative(),
+  trackingExpiresAt: z.number().int().nonnegative(), quoteExpiresAt: z.iso.datetime(),
+  originalHash: z.string().regex(/^0x[0-9a-f]{64}$/).refine(v => BigInt(v) > 0n).nullable(), submissionAttempted: z.boolean() }).strict();
 const quoteIntent = (q: TestnetSwapQuote) => parseTestnetSwapIntent({ chainId: q.chainId, wallet: q.wallet,
   tokenIn: q.tokenIn, tokenOut: q.tokenOut, amountIn: q.amountIn, slippageBps: q.slippageBps });
 
@@ -56,13 +66,66 @@ function validateInput(value: TestnetActionInput, now: number): TestnetActionInp
 // Internal trusted issuance; no HTTP endpoint accepts client-authored expected economics.
 export class TestnetActionStore {
   private readonly entries = new Map<string, TestnetActionContext>();
-  constructor(private readonly now = Date.now, private readonly capacity = 128) {
+  constructor(private readonly now = Date.now, private readonly capacity = 128, private readonly directory?: string) {
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 128) throw new Error("Invalid context capacity");
+    if (directory === undefined) return;
+    try {
+      mkdirSync(directory, { recursive: true, mode: 0o700 }); this.checkDirectory(true);
+      const now = this.clock();
+      for (const name of readdirSync(directory)) {
+        const file = join(directory, name), stat = lstatSync(file);
+        if (!stat.isFile() || stat.isSymbolicLink() || (stat.mode & 0o777) !== 0o600 || stat.size > 32768)
+          return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+        // A crash before rename can leave a partial private write. It was never
+        // committed or returned to a caller; preserve the last JSON state only.
+        if (name.endsWith(".tmp")) { unlinkSync(file); continue; }
+        const saved = contextSchema.parse(JSON.parse(readFileSync(file, "utf8")));
+        const { contextId, issuedAt, trackingExpiresAt, quoteExpiresAt, originalHash, submissionAttempted, ...value } = saved;
+        // Validate original reviewed economics at issuance, so expired quotes remain usable for receipt recovery.
+        const input = validateInput(value as TestnetActionInput, issuedAt);
+        if (contextId !== name.slice(0, 48) || !Number.isSafeInteger(issuedAt) || issuedAt > now + 10000
+          || trackingExpiresAt !== issuedAt + 86400000 || trackingExpiresAt > 8640000000000000
+          || quoteExpiresAt !== new Date(Date.parse(input.quote.observedAt) + 30000).toISOString())
+          return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+        if (trackingExpiresAt <= now) unlinkSync(file);
+        else this.entries.set(contextId, { ...input, contextId, issuedAt, trackingExpiresAt, quoteExpiresAt, originalHash, submissionAttempted });
+      }
+      if (this.entries.size > capacity) return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+    } catch { return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE"); }
   }
-  private prune() {
+  private clock() {
     const now = this.now();
     if (!Number.isSafeInteger(now) || now < 0 || now > 8640000000000000 - 86400000) return fail("TESTNET_CONTEXT_INVALID");
-    for (const [id, entry] of this.entries) if (entry.trackingExpiresAt <= now) this.entries.delete(id);
+    return now;
+  }
+  private checkDirectory(allowOrphanTemps = false) {
+    const stat = lstatSync(this.directory!); const names = readdirSync(this.directory!);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || (stat.mode & 0o077) !== 0 || names.length > 256
+      || names.some(name => !/^[a-f0-9]{48}\.json$/.test(name)
+        && !(allowOrphanTemps && /^[a-f0-9]{48}\.[a-f0-9]{16}\.tmp$/.test(name)))) return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+  }
+  private prune() {
+    const now = this.clock();
+    for (const [id, entry] of this.entries) if (entry.trackingExpiresAt <= now) {
+      try { if (this.directory !== undefined) unlinkSync(join(this.directory, `${id}.json`)); }
+      catch { return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE"); }
+      this.entries.delete(id);
+    }
+  }
+  // One server process owns the directory. Never store signer material.
+  private save(context: TestnetActionContext) {
+    if (this.directory === undefined) { this.entries.set(context.contextId, structuredClone(context)); return; }
+    const temp = join(this.directory, `${context.contextId}.${randomBytes(8).toString("hex")}.tmp`);
+    let fd: number | undefined;
+    try {
+      this.checkDirectory(); const serialized = JSON.stringify(contextSchema.parse(context));
+      if (Buffer.byteLength(serialized) > 32768) return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+      fd = openSync(temp, "wx", 0o600); writeFileSync(fd, serialized); fsyncSync(fd); closeSync(fd); fd = undefined;
+      renameSync(temp, join(this.directory, `${context.contextId}.json`));
+      fd = openSync(this.directory, "r"); fsyncSync(fd); closeSync(fd); fd = undefined;
+      this.entries.set(context.contextId, structuredClone(context));
+    } catch { return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE"); }
+    finally { if (fd !== undefined) closeSync(fd); if (existsSync(temp)) unlinkSync(temp); }
   }
   get size() { this.prune(); return this.entries.size; }
   issue(value: TestnetActionInput, consume: () => unknown) {
@@ -72,8 +135,8 @@ export class TestnetActionStore {
     const quoteExpiresAt = new Date(Date.parse(input.quote.observedAt) + 30000).toISOString();
     const context = { ...input, contextId, issuedAt: now, trackingExpiresAt: now + 86400000,
       quoteExpiresAt, originalHash: null, submissionAttempted: false };
-    // All fallible construction/capacity checks precede synchronous quote consumption.
-    consume(); this.entries.set(contextId, context);
+    // Construction/capacity checks precede consumption; persist before returning a reviewable context.
+    consume(); this.save(context);
     return { contextId, kind: input.kind, chainId: P.chainId, transaction: structuredClone(input.transaction),
       quoteExpiresAt, trackingExpiresAt: new Date(context.trackingExpiresAt).toISOString(), executionEnabled: false as const };
   }
@@ -86,14 +149,14 @@ export class TestnetActionStore {
     const context = this.read(id);
     if (!hash(value)) return fail("TESTNET_CONTEXT_INVALID");
     if (context.originalHash && !same(context.originalHash, value)) return fail("TESTNET_CONTEXT_HASH_CHANGED");
-    this.entries.get(id)!.originalHash = value.toLowerCase();
+    if (context.originalHash === null) this.save({ ...context, originalHash: value.toLowerCase() });
   }
   // Synchronous final boundary: reserve once even if the send response is lost.
   markSubmissionAttempted(id: string) {
     const context = this.read(id);
     if (context.submissionAttempted || context.originalHash !== null) return fail("TESTNET_CONTEXT_ATTEMPTED");
     parseTestnetSwapQuote(context.quote, this.now());
-    this.entries.get(id)!.submissionAttempted = true;
+    this.save({ ...context, submissionAttempted: true });
   }
 }
 

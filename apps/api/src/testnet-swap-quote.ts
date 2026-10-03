@@ -88,7 +88,12 @@ export class TestnetSwapQuoteReader {
       || state.sqrtPriceX96 <= MIN_SQRT || state.sqrtPriceX96 >= MAX_SQRT
       || ![deps.router, deps.quoter, deps.manager].every(d => same(d.factory, C.v3Factory) && same(d.weth, C.WETH.address))
       || !same(deps.router.positionManager, C.v3PositionManager)) return fail("TESTNET_CONFIGURATION_INVALID");
-    if (walletCode !== "0x") return fail("TESTNET_EOA_REQUIRED");
+    let walletKind: ReturnType<typeof classifyTestnetWalletCode>;
+    try { walletKind = classifyTestnetWalletCode(walletCode); } catch { return fail("TESTNET_EOA_REQUIRED"); }
+    if (walletKind === "metamask-delegated") {
+      try { await verifyTestnetMetaMaskRuntime(source, block.number); } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
+      freshness();
+    }
     try {
       verifyTestnetRuntimeCodes(P.chainId, addresses.slice(2).map((address, index) => ({ address, code: codes[index + 2] })));
     } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
@@ -116,3 +121,5 @@ export class TestnetSwapQuoteReader {
       qualification: { configurationVerified: true, runtimeVerified: true, executionEnabled: false } as const };
   }
 }
+import { classifyTestnetWalletCode } from "@vezta-dex/core";
+import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";

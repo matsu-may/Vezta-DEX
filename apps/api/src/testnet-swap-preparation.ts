@@ -1,11 +1,12 @@
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
-  inspectTestnetSwapTransaction, planTestnetTokenApproval, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
+  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
 import { parseTestnetApprovalRequest } from "./testnet-approval";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
+import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { planTestnetSourceGas, testnetGasFeeFields, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
 export interface BaseSepoliaPreparationSource extends BaseSepoliaWalletSource, BaseSepoliaSwapSource, TestnetFeeSource {
@@ -17,7 +18,7 @@ type RequestBody = ReturnType<typeof parseTestnetApprovalRequest>;
 type Code = "TESTNET_INTENT_INVALID" | "TESTNET_QUOTE_UNAVAILABLE" | "TESTNET_PREPARE_BUSY"
   | "TESTNET_PREPARE_TIMEOUT" | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN"
   | "TESTNET_PREPARE_STALE" | "TESTNET_CONFIGURATION_INVALID" | "TESTNET_EOA_REQUIRED"
-  | "TESTNET_RUNTIME_MISMATCH" | "TESTNET_STATE_INVALID" | "TESTNET_NONCE_CHANGED"
+  | "TESTNET_RUNTIME_MISMATCH" | "TESTNET_METAMASK_RUNTIME_MISMATCH" | "TESTNET_STATE_INVALID" | "TESTNET_NONCE_CHANGED"
   | "TESTNET_ALLOWANCE_CHANGED" | "TESTNET_BLOCK_CHANGED" | "TESTNET_SWAP_SIMULATION_FAILED"
   | "TESTNET_SWAP_GAS_INVALID" | "TESTNET_FEE_INVALID" | "TESTNET_FEE_MODEL_UNAVAILABLE"
   | "TESTNET_QUOTE_INVALID" | "TESTNET_IMPACT_EXCEEDED" | "TESTNET_MINIMUM_NOT_MET";
@@ -85,7 +86,13 @@ export class TestnetSwapPreparer {
       source.getAccountNonce(i.wallet, block.number), source.getPendingNonce(i.wallet),
     ]);
     fresh();
-    if (walletCode !== "0x") return fail("TESTNET_EOA_REQUIRED");
+    let accountKind: ReturnType<typeof classifyTestnetWalletCode>;
+    try { accountKind = classifyTestnetWalletCode(walletCode); } catch { return fail("TESTNET_EOA_REQUIRED"); }
+    if (accountKind === "metamask-delegated") {
+      try { await verifyTestnetMetaMaskRuntime(source, block.number); }
+      catch { return fail("TESTNET_METAMASK_RUNTIME_MISMATCH"); }
+      fresh();
+    }
     if (!tokenCodes.every(c => /^0x(?:[0-9a-fA-F]{2})+$/.test(c)) || decimals[0] !== 6 || decimals[1] !== 18) return fail("TESTNET_CONFIGURATION_INVALID");
     try { verifyTestnetRuntimeCodes(P.chainId, dependencies.map((address, n) => ({ address, code: codes[n] }))); }
     catch { return fail("TESTNET_RUNTIME_MISMATCH"); }

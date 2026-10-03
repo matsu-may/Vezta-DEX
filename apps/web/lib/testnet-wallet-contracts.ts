@@ -98,14 +98,17 @@ const executionSchema = z.object({ status: z.enum(["verified", "reverted"]), amo
   l2GasCost: walletUint, actualTotalFeeQualified: z.literal(false), balances: z.object({ USDC: walletUint, WETH: walletUint, ETH: walletUint }),
   tokenAllowance: walletUint, allowanceMatchesExpected: z.boolean(), stateBlockNumber: walletUint, stateBlockHash: walletHash });
 export const walletObservationResponseSchema = z.object({ observation: z.object({ contextId: id, hash: walletHash, kind: z.enum(["swap", "approve", "reset"]),
+    executionModel: z.literal("metamask-delegation").optional(), gasPayer: address.optional(),
     chainId: z.literal(P.chainId), source: z.literal("base-sepolia-rpc"), observedAt: z.iso.datetime(), executionEnabled: z.boolean(),
     status: z.enum(["unknown-original", "pending", "confirming", "reorged", "unverified", "confirmed", "reverted"]),
     diagnostic: z.enum(["transaction-unavailable", "unsupported-transaction-type", "transaction-mismatch", "receipt-mismatch", "event-mismatch"]).optional(),
-    confirmations: walletUint, blockNumber: walletUint.optional(), blockHash: walletHash.optional(), nonceUsed: z.boolean().optional(), execution: executionSchema.nullable() }) });
+    confirmations: walletUint, blockNumber: walletUint.optional(), blockHash: walletHash.optional(), nonceUsed: z.boolean().optional(), execution: executionSchema.nullable() })
+    .refine(o => (o.executionModel === undefined) === (o.gasPayer === undefined)) });
 
 export function parseTestnetWalletObservation(value: unknown, record: TestnetSubmission, now: number) {
   const { observation: o } = walletObservationResponseSchema.parse(value);
-  bound(record.hash !== null && same(o.hash, record.hash) && o.contextId === record.action.contextId && o.kind === record.action.kind);
+  bound(record.hash !== null && same(o.hash, record.hash) && o.contextId === record.action.contextId && o.kind === record.action.kind
+    && (o.gasPayer === undefined || !same(o.gasPayer, record.intent.wallet)));
   bound(o.diagnostic === undefined || o.status === "unverified");
   const observed = Date.parse(o.observedAt);
   bound(Number.isSafeInteger(now) && now >= 0 && observed <= now + 10000 && now - observed < 30000);
@@ -115,7 +118,7 @@ export function parseTestnetWalletObservation(value: unknown, record: TestnetSub
     && BigInt(o.blockNumber) > BigInt(record.quote.blockNumber));
   if (!e) throw new Error("Missing testnet execution");
   bound(BigInt(e.stateBlockNumber) >= BigInt(o.blockNumber!) + 1n && BigInt(e.l2GasCost) > 0n
-    && BigInt(e.l2GasCost) <= BigInt(record.action.transaction.gas) * BigInt(record.action.transaction.gasPrice)
+    && BigInt(e.l2GasCost) <= (o.executionModel === "metamask-delegation" ? 4000000000000000000n : BigInt(record.action.transaction.gas) * BigInt(record.action.transaction.gasPrice))
     && e.allowanceMatchesExpected === (BigInt(e.tokenAllowance) === (record.action.kind === "approve" ? BigInt(record.intent.amountIn) : 0n)));
   if (o.status === "reverted") bound(e.status === "reverted" && e.amountIn === undefined && e.amountOut === undefined && e.approvedAmount === undefined);
   else {

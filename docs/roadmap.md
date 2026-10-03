@@ -67,3 +67,7 @@ Use Vezta's `dex-threat-model` before new signing or data boundaries, `dex-chain
 - Trading and Liquidity API access, rate limits and supported Polygon actions. If a required action is unavailable, compare an SDK/RPC adapter before committing to it.
 
 These are evidence gates, not open-ended feature requests. Read-only scaffolding can use clearly labeled fixtures while live access is being arranged, but milestone 1 exits only after a real data source is verified. Writes stay disabled until their gates pass.
+
+## MetaMask compatibility checkpoint — 2026-10-03
+
+The owner selected EIP-7702 support after MetaMask relayed approval confirmations. The [implementation plan](superpowers/plans/2026-10-03-metamask-eip7702.md) qualifies only the independently rebuilt MetaMask v1.3 single-use/exact-call profile on Base Sepolia. Direct-account paths remain supported. Historical bounded approvals have separate read-only reconciliation and explicit acknowledgment; original history is retained. Public owner swap/LP acceptance is pending. Keep the [desktop guide](research/2026-10-02-testnet-desktop-owner-guide.md) as the next acceptance checklist, then review the existing complete testnet roadmap and Uniswap dependency strategy after the demo. This does not qualify mainnet, additional wallet implementations or Vezta integration.

@@ -17,6 +17,7 @@ async function setup(kind: Parameters<typeof lpWalletFixture>[0] = "mint", perce
   const make = () => new TestnetLpWalletController(wallet,api,storage,()=>now,coordination,()=>gate); const controller = make();
   const reviewed = async () => { await controller.connect(); await controller.study(f.intent); };
   return { f,controller,make,storage,methods,sends,api,reviewed,expire:()=>{now+=120000;},reject:()=>{reject=true;},lose:()=>{lose=true;},failReceipt:()=>{receiptFailure=true;},
+    setCode:(value:string)=>{code=value;},
     change:()=>{owner="0x1111111111111111111111111111111111111111";events.get("accountsChanged")?.([owner]);},wrongChain:()=>{chain="0x89";},smart:()=>{code="0xef0100";} };
 }
 it("explicitly studies, rechecks unchanged legacy calls and observes every operation independently", async () => {
@@ -85,4 +86,15 @@ it("blocks mutation of the original LP priority cap on recheck", async () => {
   expect(s.controller.snapshot().stage).toBe("review");
   Object.assign(s.f.study.transaction!, { maxPriorityFeePerGas: "2" }); Object.assign(s.f.study.gas!, { maxPriorityFeePerGas: "2" });
   await s.controller.submit(); expect(s.sends).toHaveLength(0); expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
+});
+
+it("connects and rechecks the pinned MetaMask indicator before sending the exact reviewed inner type2 LP call", async () => {
+  const s=await setup();s.setCode("0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b");
+  const fees={feeModel:"eip1559",maxFeePerGas:s.f.study.transaction!.gasPrice,maxPriorityFeePerGas:"1000000"};Object.assign(s.f.study.transaction!,fees);Object.assign(s.f.study.gas!,fees);
+  await s.reviewed();expect(s.controller.snapshot().stage).toBe("review");await s.controller.submit();expect(s.controller.snapshot().stage).toBe("pending");
+  expect(s.sends).toHaveLength(1);expect(s.sends[0][0]).toMatchObject({type:"0x2",from:s.f.intent.wallet,to:s.f.study.transaction!.to,data:s.f.study.transaction!.data});
+});
+it("rejects an unknown delegation indicator during final LP recheck without a prompt",async()=>{
+  const s=await setup();await s.reviewed();const call=s.api.call;s.api.call=async(action,body)=>{const result=await call(action,body);if(action==="recheck")s.setCode("0xef01001111111111111111111111111111111111111111");return result;};
+  await s.controller.submit();expect(s.sends).toHaveLength(0);expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
 });

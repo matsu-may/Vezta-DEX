@@ -7,6 +7,22 @@ import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 import { testnetLpWalletFixture } from "./testnet-lp-wallet.test-helper";
 import { pool } from "./testnet-lp.test-helper";
 import { TESTNET_NOW } from "./testnet-quote.test-helper";
+import { delegatedWalletCodeReader } from "./testnet-metamask-wallet.test-helper";
+
+it("prepares and rechecks LP for the pinned delegate, binding the wallet code identity", async () => {
+  const f = await testnetLpWalletFixture();
+  f.source.getCode = delegatedWalletCodeReader(f.source.getCode, f.wallet);
+  const study = await f.api.study({ intent: f.intent });
+  expect(study.status).toBe("prepared");
+  expect(await f.api.recheck({ contextId: study.contextId })).toEqual(study);
+  await expect(f.api.recheck({ contextId: f.study.contextId })).rejects.toThrow("TESTNET_LP_STATE_CHANGED");
+  const delegated = f.source.getCode;
+  f.source.getCode = async (address, block) => address.toLowerCase() === f.wallet.toLowerCase()
+    ? "0x" : delegated(address, block);
+  await expect(f.api.recheck({ contextId: study.contextId })).rejects.toThrow("TESTNET_LP_STATE_CHANGED");
+  f.source.getCode = delegatedWalletCodeReader(f.source.getCode, f.wallet, true);
+  await expect(f.api.study({ intent: f.intent })).rejects.toThrow("TESTNET_METAMASK_RUNTIME_MISMATCH");
+});
 it.each(["mint","increase","decrease","collect","burn","approve","reset"] as const)("prepares and independently rechecks immutable %s",async kind=>{
   const f=await testnetLpWalletFixture(kind);expect(f.study.status).toBe("prepared");expect(f.study.actionKind).toBe(kind);
   expect(await f.api.recheck({contextId:f.study.contextId})).toEqual(f.study);

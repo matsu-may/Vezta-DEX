@@ -55,3 +55,19 @@ it("passes only bounded unverified diagnostics through the receipt boundary", as
   const bad = createTestnetWalletProxy(env, async () => Response.json({ observation: { ...observation, diagnostic: "private RPC key" } }), f.f.clock);
   const response = await bad(request(body), "receipt"); expect(response.status).toBe(503); expect(await response.text()).not.toContain("private");
 });
+
+it("binds historical reconciliation to the requested owner/hash and fresh read-only observation", async () => {
+  const f = await reviewedFixture(); const hash = `0x${"11".repeat(32)}`;
+  const { TESTNET_SWAP_POLICY: P } = await import("@vezta-dex/core");
+  const reconciliation = {wallet:f.f.request.intent.wallet,hash,chainId:84532,kind:"approve",token:f.f.request.intent.tokenIn,spender:P.router,
+    approvedAmount:f.f.request.intent.amountIn,receiptBlockNumber:"124",receiptBlockHash:`0x${"ab".repeat(32)}`,observedAt:new Date(f.f.clock()).toISOString(),
+    confirmations:"2",currentAllowance:f.f.request.intent.amountIn,originalReviewAvailable:false,status:"verified-historical-approval",
+    executionModel:"metamask-delegation",gasPayer:"0x2222222222222222222222222222222222222222",actualTotalFeeQualified:false,executionEnabled:false};
+  const body = {wallet:reconciliation.wallet,hash};
+  const good = createTestnetWalletProxy({},async()=>Response.json({reconciliation}),f.f.clock);
+  expect((await good(request(body),"historical-approval")).status).toBe(200);
+  for(const change of [{wallet:reconciliation.gasPayer},{hash:`0x${"22".repeat(32)}`},{observedAt:new Date(f.f.clock()-30000).toISOString()}]) {
+    const proxy = createTestnetWalletProxy(env,async()=>Response.json({reconciliation:{...reconciliation,...change}}),f.f.clock);
+    expect((await proxy(request(body),"historical-approval")).status).toBe(503);
+  }
+});

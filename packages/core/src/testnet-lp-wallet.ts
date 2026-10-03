@@ -53,13 +53,15 @@ export const testnetLpStudySchema = z.object({ contextId: id.nullable(), intent:
       || BigInt(s.balances.ETH) < BigInt(s.gas!.totalFeeBudget))) ctx.addIssue({ code: "custom", message: "Invalid LP funding" });
   });
 export const testnetLpReceiptSchema = z.object({ contextId: id, hash, intent: testnetLpIntentSchema, actionKind: action, approvalToken,
+  executionModel: z.literal("metamask-delegation").optional(), gasPayer: address.optional(),
+  l2GasCost: uint.refine(v => BigInt(v) <= 4000000000000000000n).optional(),
   chainId: z.literal(84532), source: z.literal("base-sepolia-rpc"), observedAt: z.iso.datetime(), blockNumber: positive, blockHash: hash,
   receiptBlockNumber: positive.nullable(), receiptBlockHash: hash.nullable(),
   status: z.enum(["unknown","pending","confirming","confirmed","reverted","unverified","reorged"]), confirmations: uint,
   diagnostic: z.enum(["transaction-unavailable","unsupported-transaction-type","transaction-mismatch","receipt-mismatch","event-mismatch","state-mismatch"]).nullable(),
   verified: z.boolean(), tokenId: positive.nullable(), amount0: uint, amount1: uint,
   actualTotalFeeQualified: z.literal(false), executionEnabled: z.boolean() }).strict().refine(r => {
-    if (r.verified !== (r.status === "confirmed" || r.status === "reverted")
+    if ((r.executionModel === undefined) !== (r.gasPayer === undefined) || r.verified !== (r.status === "confirmed" || r.status === "reverted")
       || (r.receiptBlockNumber === null) !== (r.receiptBlockHash === null)
       || (r.actionKind === "approve" || r.actionKind === "reset") !== (r.approvalToken !== null)
       || (r.approvalToken === null && r.actionKind !== r.intent.kind)) return false;

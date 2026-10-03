@@ -1,3 +1,4 @@
+import { historicalTestnetApprovalRequestSchema, parseHistoricalTestnetApprovalResponse } from "./testnet-wallet-historical";
 import { z } from "zod";
 import { parseTestnetSwapIntent } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
@@ -12,7 +13,7 @@ const receipt = z.object({ contextId: id, hash: walletHash }).strict();
 export function createTestnetWalletProxy(env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch, now = Date.now) {
   let active = false; let starts: number[] = [];
   return async (request: Request, action: string): Promise<Response> => {
-    if (!["quote", "recheck", "receipt"].includes(action)) return json({ error: "Not found" }, 404);
+    if (!["quote", "recheck", "receipt", "historical-approval"].includes(action)) return json({ error: "Not found" }, 404);
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
     const url = new URL(request.url); const host = request.headers.get("host") ?? url.host;
     if (url.search) return json({ error: "Query parameters are not supported" }, 400);
@@ -27,6 +28,7 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
       const raw = await boundedJson(new Response(request.body), 4096);
       if (action === "quote") body = parseTestnetSwapIntent(raw);
       else if (action === "recheck") { const parsed = recheck.parse(raw); body = { ...parsed, intent: parseTestnetSwapIntent(parsed.intent) }; }
+      else if (action === "historical-approval") body = historicalTestnetApprovalRequestSchema.parse(raw);
       else body = receipt.parse(raw);
     } catch (error) { return json({ error: "Invalid testnet request", code: "TESTNET_INTENT_INVALID" }, error instanceof Error && error.message === "Response too large" ? 413 : 400); }
     let api: URL;
@@ -53,6 +55,7 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
         return json({ study: { ...parsed.study, executionEnabled: enabled && parsed.study.executionEnabled },
           action: parsed.action ? { ...parsed.action, executionEnabled: enabled && parsed.action.executionEnabled } : null });
       }
+      if (action === "historical-approval") return json({reconciliation:parseHistoricalTestnetApprovalResponse(raw,historicalTestnetApprovalRequestSchema.parse(body),now())});
       return json(walletObservationResponseSchema.parse(raw));
     } catch { return json({ error: "Testnet action unavailable", code: "TESTNET_BROWSER_UNAVAILABLE" }, 503); }
     finally { active = false; }

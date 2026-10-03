@@ -1,6 +1,13 @@
-import { expect, it, vi } from "vitest";
+import { chmodSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { afterEach, expect, it, vi } from "vitest";
 import { TESTNET_NOW } from "./testnet-quote.test-helper";
 import { testnetActionFixture } from "./testnet-action.test-helper";
+
+const directories: string[] = [];
+const directory = () => { const path = mkdtempSync(join(tmpdir(), "testnet-swap-contexts-")); directories.push(path); return path; };
+afterEach(() => { for (const path of directories.splice(0)) rmSync(path, { recursive: true, force: true }); });
 
 it("issues immutable bound contexts, retains original deadline and expires tracking separately", async () => {
   const { TestnetActionStore } = await import("./testnet-action");
@@ -68,4 +75,95 @@ it("does not consume blocked/ready/late or overlapping work", async () => {
   await expect(r.read({ ...s.request, kind: "swap" })).rejects.toMatchObject({ code: "TESTNET_RECHECK_BUSY" });
   s.source.getPendingNonce = original; s.setNow(TESTNET_NOW + 30000); release();
   await expect(running).rejects.toThrow(); expect(store.size).toBe(0);
+});
+
+it("recovers the issued context, attempt reservation and immutable original hash after the quote expires", async () => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const store = new TestnetActionStore(s.clock, 128, path);
+  const id = store.issue(s.input, () => {}).contextId;
+  store.markSubmissionAttempted(id);
+  const originalHash = `0x${"ab".repeat(32)}`;
+  store.bindHash(id, originalHash);
+  s.setNow(TESTNET_NOW + 30001);
+  const restored = new TestnetActionStore(s.clock, 128, path);
+  expect(restored.read(id)).toMatchObject({ originalHash, submissionAttempted: true, transaction: s.input.transaction,
+    quoteExpiresAt: "2026-09-30T20:27:10.000Z", trackingExpiresAt: TESTNET_NOW + 86400000 });
+  expect(() => restored.markSubmissionAttempted(id)).toThrow("TESTNET_CONTEXT_ATTEMPTED");
+  restored.bindHash(id, originalHash);
+  expect(() => restored.bindHash(id, `0x${"cd".repeat(32)}`)).toThrow("TESTNET_CONTEXT_HASH_CHANGED");
+  expect(new TestnetActionStore(s.clock, 128, path).read(id).originalHash).toBe(originalHash);
+  expect(statSync(path).mode & 0o777).toBe(0o700);
+  expect(statSync(join(path, `${id}.json`)).mode & 0o777).toBe(0o600);
+  expect(readdirSync(path)).toEqual([`${id}.json`]);
+  s.setNow(TESTNET_NOW + 86400000);
+  expect(new TestnetActionStore(s.clock, 128, path).size).toBe(0);
+  expect(readdirSync(path)).toEqual([]);
+});
+
+it.each(["calldata", "issuedAt", "tracking", "deadline", "extra", "transactionExtra"])("fails closed when persisted %s is tampered", async change => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const id = new TestnetActionStore(s.clock, 128, path).issue(s.input, () => {}).contextId;
+  const file = join(path, `${id}.json`);
+  const entry = JSON.parse(readFileSync(file, "utf8"));
+  if (change === "calldata") entry.transaction.data = "0x1234";
+  if (change === "issuedAt") entry.issuedAt += 60000;
+  if (change === "tracking") entry.trackingExpiresAt++;
+  if (change === "deadline") entry.quoteExpiresAt = "2026-10-01T20:27:10.000Z";
+  if (change === "extra") entry.untrusted = true;
+  if (change === "transactionExtra") entry.transaction.authorizationList = [];
+  writeFileSync(file, JSON.stringify(entry));
+  expect(() => new TestnetActionStore(s.clock, 128, path)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+});
+
+it.each(["directoryPermissions", "filePermissions", "oversized", "symlink", "unexpected", "capacity", "directorySize"])("rejects unsafe or unbounded %s on startup", async change => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const store = new TestnetActionStore(s.clock, 128, path);
+  const id = store.issue(s.input, () => {}).contextId; const file = join(path, `${id}.json`);
+  if (change === "directoryPermissions") chmodSync(path, 0o755);
+  if (change === "filePermissions") chmodSync(file, 0o644);
+  if (change === "oversized") writeFileSync(file, " ".repeat(32769));
+  if (change === "symlink") { const contents = readFileSync(file); rmSync(file); const other = join(directory(), "entry.json"); writeFileSync(other, contents, { mode: 0o600 }); symlinkSync(other, file); }
+  if (change === "unexpected") writeFileSync(join(path, "unexpected.json"), "{}");
+  if (change === "capacity") store.issue(s.input, () => {});
+  if (change === "directorySize") for (let i = 0; i < 256; i++) writeFileSync(join(path, `${i}.json`), "{}");
+  expect(() => new TestnetActionStore(s.clock, change === "capacity" ? 1 : 128, path)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+});
+
+it("keeps in-memory hash and attempt unchanged when persistence fails", async () => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const store = new TestnetActionStore(s.clock, 128, path);
+  const id = store.issue(s.input, () => {}).contextId;
+  const moved = join(directory(), "moved"); renameSync(path, moved); writeFileSync(path, "unavailable");
+  expect(() => store.markSubmissionAttempted(id)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+  expect(store.read(id).submissionAttempted).toBe(false);
+  expect(() => store.bindHash(id, `0x${"ab".repeat(32)}`)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+  expect(store.read(id).originalHash).toBeNull();
+  expect(() => store.issue(s.input, () => {})).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+  expect(store.size).toBe(1);
+});
+
+it("cleans bounded private orphan temp files after a crash and preserves the last committed context", async () => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const store = new TestnetActionStore(s.clock, 128, path);
+  const id = store.issue(s.input, () => {}).contextId;
+  store.markSubmissionAttempted(id); store.bindHash(id, `0x${"ab".repeat(32)}`);
+  writeFileSync(join(path, `${id}.${"12".repeat(8)}.tmp`), '{"originalHash":', { mode: 0o600 });
+  const restored = new TestnetActionStore(s.clock, 128, path);
+  expect(restored.read(id)).toMatchObject({ originalHash: `0x${"ab".repeat(32)}`, submissionAttempted: true });
+  expect(readdirSync(path)).toEqual([`${id}.json`]);
+});
+
+it.each(["permissions", "oversized", "symlink", "name"])("does not accept an unsafe orphan temp %s", async kind => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  const id = new TestnetActionStore(s.clock, 128, path).issue(s.input, () => {}).contextId;
+  const temp = join(path, kind === "name" ? "unknown.tmp" : `${id}.${"12".repeat(8)}.tmp`);
+  if (kind === "symlink") symlinkSync(join(path, `${id}.json`), temp);
+  else writeFileSync(temp, kind === "oversized" ? " ".repeat(32769) : "partial", { mode: kind === "permissions" ? 0o644 : 0o600 });
+  expect(() => new TestnetActionStore(s.clock, 128, path)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
 });

@@ -1,15 +1,16 @@
+import { parseHistoricalTestnetApproval, type HistoricalTestnetApproval } from "./testnet-wallet-historical";
 import { OtherTestnetSubmissionError, requireNoOtherTestnetSubmission } from "./testnet-cross-flow";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
-import { testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
+import { classifyTestnetWalletCode, testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
   type TestnetWalletQuote, type TestnetWalletAction, type TestnetSubmission } from "./testnet-wallet-contracts";
 import { TESTNET_SUBMISSION_KEY, readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission,
-  sameTestnetSubmission, readTestnetManualReview, archiveTestnetApproval, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
+  sameTestnetSubmission, readTestnetManualReview, readTestnetHistoricalAcknowledgments, acknowledgeTestnetHistoricalApproval, archiveTestnetApproval, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
 export interface TestnetWallet { request(args: { method: string; params?: unknown[] }): Promise<unknown>;
   on?(event: string, listener: (value: unknown) => void): void; removeListener?(event: string, listener: (value: unknown) => void): void }
-export interface TestnetWalletApi { call(action: "quote" | "recheck" | "receipt", body: unknown): Promise<unknown> }
+export interface TestnetWalletApi { call(action: "quote" | "recheck" | "receipt" | "historical-approval", body: unknown): Promise<unknown> }
 export interface TestnetWalletCoordination { run(action: () => Promise<void>): Promise<void> }
 export const testnetWalletCoordination: TestnetWalletCoordination = { async run(action) {
   if (typeof navigator === "undefined" || !navigator.locks?.request) throw new Error("Coordination unavailable");
@@ -22,6 +23,7 @@ type Stage = "disconnected" | "connected" | "quote-review" | "action-review" | "
 type Review = ReturnType<typeof parseTestnetWalletReview>["study"];
 type Observation = ReturnType<typeof parseTestnetWalletObservation>;
 export interface TestnetWalletSnapshot { stage: Stage; busy: boolean; message: string; account: Address | null;
+  historical?: HistoricalTestnetApproval | null; historicalRecord?: TestnetSubmission | null; resolvedHistory?: ReturnType<typeof readTestnetHistoricalAcknowledgments>;
   contextUnavailable?: boolean; archived?: TestnetSubmission[]; review: Review | null; quote: TestnetWalletQuote | null; action: TestnetWalletAction | null; submission: TestnetSubmission | null; observation: Observation | null }
 const initial = (): TestnetWalletSnapshot => ({ stage: "disconnected", busy: false, message: "", account: null,
   review: null, quote: null, action: null, submission: null, observation: null });
@@ -29,7 +31,7 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 class WrongTestnetNetwork extends Error {}
 class UnsupportedDemoWallet extends Error {}
 function connectionMessage(error: unknown) {
-  if (error instanceof UnsupportedDemoWallet) return "Smart accounts or archived wallets are unavailable in this demo. Select a different standard account on Base Sepolia.";
+  if (error instanceof UnsupportedDemoWallet) return "This account uses an unsupported contract or has an unresolved archived approval. Use the supported MetaMask delegation or reconcile its historical approval first.";
   if (error instanceof WrongTestnetNetwork) return "Wrong wallet network. Select Base Sepolia (chain 84532), then connect again.";
   const code = error && typeof error === "object" && "code" in error ? error.code : undefined;
   if (code === 4001) return "Wallet connection rejected. Open MetaMask and connect again when ready.";
@@ -58,7 +60,7 @@ export class TestnetWalletController {
   constructor(private readonly wallet: TestnetWallet, private readonly api: TestnetWalletApi, private readonly storage: TestnetSubmissionStorage,
     private readonly now = Date.now, private readonly coordination = testnetWalletCoordination,
     private readonly executionAllowed: () => boolean = () => false) {
-    try { this.state.archived = readTestnetManualReview(storage); } catch { this.state.stage = "recovery-blocked"; }
+    try { this.state.archived = readTestnetManualReview(storage); this.state.resolvedHistory = readTestnetHistoricalAcknowledgments(storage); this.state.historical = null; } catch { this.state.stage = "recovery-blocked"; }
     const saved = readTestnetSubmission(storage);
     if (saved.kind === "invalid") this.state.stage = "recovery-blocked";
     if (saved.kind === "record" && this.state.stage !== "recovery-blocked") { this.state.submission = saved.record; this.state.stage = saved.record.hash ? "pending" : "uncertain"; }
@@ -84,11 +86,11 @@ export class TestnetWalletController {
     if (BigInt(chain as string) !== BigInt(P.chainId)) throw new WrongTestnetNetwork();
     if (readTestnetManualReview(this.storage).some(record => same(record.intent.wallet, owner))) throw new UnsupportedDemoWallet();
     const code = await this.wallet.request({ method: "eth_getCode", params: [owner, "latest"] }); this.generationCheck(g);
-    require(typeof code === "string" && /^0x(?:[0-9a-f]{2})*$/i.test(code));
-    if (code !== "0x") throw new UnsupportedDemoWallet();
+    // Recognize the pinned indicator only; the API independently qualifies delegate runtime.
+    try { classifyTestnetWalletCode(code); } catch { throw new UnsupportedDemoWallet(); }
   }
   private synchronize() {
-    try { this.publish({ archived: readTestnetManualReview(this.storage) }); }
+    try { this.publish({ archived: readTestnetManualReview(this.storage), resolvedHistory: readTestnetHistoricalAcknowledgments(this.storage) }); }
     catch { this.publish({ stage: "recovery-blocked" }); throw new Error("Invalid archive"); }
     const saved = readTestnetSubmission(this.storage);
     if (saved.kind === "invalid") { this.publish({ stage: "recovery-blocked", review: null, quote: null, action: null }); throw new Error("Invalid recovery"); }
@@ -185,6 +187,21 @@ export class TestnetWalletController {
       writeTestnetSubmission(this.storage, candidate, original); this.publish({ submission: candidate });
     }
     this.applyObservation(o);
+  }); }
+  async reconcileHistoricalApproval(hash?: string) { return this.run(async () => {
+    const record = hash ? readTestnetManualReview(this.storage).find(r => r.hash && same(r.hash,hash)) : this.state.submission;
+    require(record && record.hash && record.action.kind !== "swap");
+    this.publish({historical:null,historicalRecord:null});
+    const raw = await this.api.call("historical-approval",{wallet:record!.intent.wallet,hash:record!.hash});
+    const historical = parseHistoricalTestnetApproval(raw,record!,this.now());
+    this.publish({historical,historicalRecord:record!,message:"Historical approval verified from signed chain execution. The original API review is unavailable; acknowledge this separate result to continue."});
+  }); }
+  async acknowledgeHistoricalApproval() { return this.run(async () => {
+    require(this.state.historical && this.state.historicalRecord);
+    acknowledgeTestnetHistoricalApproval(this.storage,this.state.historicalRecord!,this.state.historical!,this.now());
+    const saved = readTestnetSubmission(this.storage); require(saved.kind !== "invalid");
+    this.generation++;this.publish({historical:null,historicalRecord:null,resolvedHistory:readTestnetHistoricalAcknowledgments(this.storage),archived:readTestnetManualReview(this.storage),
+      submission:saved.kind === "record" ? saved.record : null,observation:null,contextUnavailable:false,review:null,quote:null,action:null,account:null,stage:"disconnected",message:"Historical approval acknowledged. Original hash retained in history. Reconnect and request a fresh quote."});
   }); }
   async archiveUnverifiedApproval() { return this.run(async () => {
     const original = this.state.submission; require(original && original.hash && original.action.kind !== "swap");

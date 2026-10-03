@@ -7,7 +7,7 @@ import { TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
 const hash = `0x${"11".repeat(32)}`;
 async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, enabled = true) {
   const r = await reviewedFixture(kind, reverse); const storage = memoryStorage(); const listeners = new Map<string, Set<(v: unknown) => void>>();
-  let now = r.f.clock(); let reject = false; let lose = false; let grantEvent = false; let receiptFail = false; let paused: (() => void) | undefined;
+  let code = "0x"; let now = r.f.clock(); let reject = false; let lose = false; let grantEvent = false; let receiptFail = false; let paused: (() => void) | undefined;
   const methods: string[] = []; const sends: unknown[][] = []; let account = getAddress(r.f.request.intent.wallet); let chain = "0x14a34";
   const wallet = { on(event: string, fn: (v: unknown) => void) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event)!.add(fn); },
     removeListener(event: string, fn: (v: unknown) => void) { listeners.get(event)?.delete(fn); },
@@ -15,7 +15,7 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
       methods.push(method); if (method === "eth_requestAccounts" && grantEvent) for (const fn of listeners.get("accountsChanged") || []) fn([account]);
       if (method === "eth_accounts" || method === "eth_requestAccounts") return [account];
       if (method === "eth_chainId") return chain;
-      if (method === "eth_getCode") return "0x";
+      if (method === "eth_getCode") return code;
       if (method === "eth_sendTransaction") { sends.push(params!); if (reject) throw { code: 4001 }; if (lose) throw new Error("private provider details");
         if (paused) await new Promise<void>(resolve => { paused = resolve; }); return hash; }
       throw new Error("unexpected wallet method");
@@ -43,6 +43,7 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
   const controller = make();
   const reviewed = async () => { await controller.connect(); await controller.quote(r.f.request.intent); await controller.review(kind === "swap" ? "swap" : "approval"); };
   return { ...r, controller, make, storage, api, checked, quoted, methods, sends, reviewed,
+    setCode: (value: string) => { code = value; },
     emitGrant: () => { grantEvent = true; }, failReceipt: () => { receiptFail = true; },
     expire: () => { now += 30000; }, reject: () => { reject = true; }, lose: () => { lose = true; },
     change: (event: string) => { if (event === "accountsChanged") account = "0x1111111111111111111111111111111111111111";
@@ -208,5 +209,19 @@ it("sends the exact explicit reviewed fee envelope and preserves it through relo
     if (dynamic) { expect(sent.maxPriorityFeePerGas).toBe("0xf4240"); expect(sent.maxFeePerGas).toBe(`0x${BigInt(s.checked.action!.transaction.gasPrice).toString(16)}`); expect(sent).not.toHaveProperty("gasPrice"); }
     else { expect(sent).toHaveProperty("gasPrice"); expect(sent).not.toHaveProperty("maxFeePerGas"); }
     expect(s.make().snapshot().submission).toEqual(s.controller.snapshot().submission);
+  }
+});
+
+it("accepts only the pinned MetaMask delegation indicator and sends the reviewed inner type2 envelope", async () => {
+  const s = await setup(); s.setCode("0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b");
+  const fees = { feeModel: "eip1559", maxFeePerGas: s.checked.action!.transaction.gasPrice, maxPriorityFeePerGas: "1000000" };
+  Object.assign(s.checked.action!.transaction, fees); Object.assign(s.checked.study.transaction!, fees); Object.assign(s.checked.study.gas!, fees);
+  await s.reviewed(); expect(s.controller.snapshot().stage).toBe("action-review"); await s.controller.submit();
+  expect(s.controller.snapshot().stage).toBe("pending"); expect(s.sends).toHaveLength(1);
+  expect(s.sends[0][0]).toMatchObject({type:"0x2",from:s.f.request.intent.wallet,to:s.checked.action!.transaction.to,data:s.checked.action!.transaction.data});
+});
+it("fails closed when unknown delegation code appears after review", async () => {
+  for (const code of ["0x00", "0xef01001111111111111111111111111111111111111111", "0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b00"]) {
+    const s = await setup(); await s.reviewed(); s.setCode(code); await s.controller.submit(); expect(s.sends).toHaveLength(0); expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBeNull();
   }
 });

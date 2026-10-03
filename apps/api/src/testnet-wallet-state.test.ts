@@ -2,6 +2,17 @@ import { afterEach, expect, it, vi } from "vitest";
 import { TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import { TestnetWalletStateReader, type BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
+import { delegatedWalletCodeReader } from "./testnet-metamask-wallet.test-helper";
+
+it("returns the MetaMask delegated account kind only after proving the pinned runtimes", async () => {
+  const s = stateSource();
+  s.getCode = delegatedWalletCodeReader(s.getCode, testnetIntent().wallet);
+  expect(await new TestnetWalletStateReader(() => s, () => TESTNET_NOW).read(testnetIntent()))
+    .toMatchObject({ accountKind: "metamask-delegated", accountNonce: "7", executionEnabled: false });
+  s.getCode = delegatedWalletCodeReader(s.getCode, testnetIntent().wallet, true);
+  await expect(new TestnetWalletStateReader(() => s, () => TESTNET_NOW).read(testnetIntent()))
+    .rejects.toMatchObject({ code: "TESTNET_METAMASK_RUNTIME_MISMATCH" });
+});
 
 afterEach(() => vi.useRealTimers());
 export function stateSource(): BaseSepoliaWalletSource {

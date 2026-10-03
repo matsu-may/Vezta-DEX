@@ -7,26 +7,34 @@ Scope: Base Sepolia 84532, Uniswap v3 test USDC/WETH 0.3% pool. This guide cover
 1. In `vezta-dex`, configure `BASE_SEPOLIA_RPC_URL` in `apps/api/.env`; keep it private. The read-only API does not need a Trading API key for this direct-v3 testnet adapter.
 2. Stop your previous `pnpm dev` launcher with Ctrl-C, then run `pnpm dev:testnet`. Do not start both launchers together. Keep this terminal open.
 3. Open `http://127.0.0.1:3020/demo/3` using the same hostname throughout. `localhost` and `127.0.0.1` have different origins and recovery storage.
-4. Select a standard MetaMask account on **Base Sepolia**, chain **84532** (not Ethereum Sepolia 11155111). Smart/delegated account envelopes are not supported by this demo. The previously archived unsupported approval wallet remains blocked; use a different standard account.
+4. Select your MetaMask account on **Base Sepolia**, chain **84532** (not Ethereum Sepolia 11155111). Direct accounts and the independently verified MetaMask v1.3 delegation profile are supported. Unknown contract wallets remain blocked. Resolve existing original transactions before requesting another action.
 5. Fund that account with faucet **test USDC** and **test ETH on Base Sepolia**. WETH for LP can be obtained by the first USDC→WETH swap; test ETH pays gas and is a separate balance. Do not use mainnet assets or real keys in configuration.
 
-## Standard wallet and fee compatibility
+## MetaMask EIP-7702 compatibility (2026-10-03)
 
-New production studies use EIP-1559: the review shows maximum total fee per gas and maximum priority fee. These are ceilings, not the effective charged price. Historical legacy recovery retains its original gas-price model. Keep the prepared nonce, gas limit and fee caps unchanged in MetaMask.
+The demo supports the pinned MetaMask v1.3 single-action delegation profile on Base Sepolia: one exact reviewed call, signed one-use and exact-execution caveats, independently rebuilt manager/delegate/enforcer runtimes. Arbitrary Smart Accounts, batches, TRY calls, extra grants and unknown delegates remain unsupported. See the [design](../superpowers/specs/2026-10-03-metamask-eip7702-design.md).
 
-Disable Smart account for the selected Base Sepolia account before sending. An empty preflight account code cannot prevent the wallet from later converting a request to a wrapped/relayed transaction. If this happens, keep the hash and inspect the receipt diagnostic; never keep creating/funding new wallets without checking the transaction type. Direct type-2 support does not qualify EIP-7702 type 0x4 receipts. Old hashes remain unchanged after settings are toggled. Archiving an unsupported approval preserves it and blocks its account; it neither verifies nor revokes on-chain authorization.
+EIP-1559 is the fee model; it does not guarantee that MetaMask will broadcast a direct type-2 transaction. MetaMask may authorize EIP-7702 and relay the reviewed inner call. The relayer has its own outer nonce and pays outer gas. The verified result displays that payer and observed L2 cost; actual charged L1/operator totals remain unqualified. No setting change rewrites an existing hash.
 
-See [MetaMask standard-account settings](https://support.metamask.io/configure/accounts/switch-to-or-revert-from-a-smart-account/) and [compatibility design](../superpowers/specs/2026-10-03-testnet-eip1559-design.md). After public demo acceptance, review the full roadmap again before resuming product expansion and selective Uniswap source reuse.
+### Recover the existing approval first
 
-### Check the EIP-1559 update
+1. Preserve your browser recovery storage and original hash. Keep using `http://127.0.0.1:3020`; do not clear storage, resend approval or change origins to bypass recovery.
+2. Stop your old launcher with Ctrl-C and restart **`pnpm dev:testnet`** to load this update. Open `/demo/1` and reload. Newly issued swap contexts persist privately for 24 hours; contexts lost before this update are not reconstructed from browser input.
+3. For an existing approval shown as `unverified` or with a lost context, click **Verify historical approval**. If archived, select its original hash in the preserved history. This is a read-only request and does not open MetaMask.
+4. Review the wallet, Base Sepolia, original token/router and exact amount. A qualified historical result explicitly says the original review is unavailable. Click **Acknowledge historical approval** only after reviewing it. If its 30-second observation expires, verify again. This acknowledgment preserves the original record and does not revoke allowance or send a transaction.
+5. Reconnect the same wallet and request a fresh quote. An existing exact 1-USDC allowance should lead to swap review rather than another approval. Other unresolved records still block that wallet.
 
-1. Preserve every unresolved original hash and its recovery record first. Do not delete storage or change hostname to bypass an account block. An old type-4 hash cannot become type-2; checking it again may correctly remain `unverified`.
-2. When no transaction is pending, restart your launcher with `pnpm dev:testnet` to load the update. On `/demo/1`, connect a standard Base Sepolia account that is not blocked by unresolved recovery. Request a fresh quote and review the next required approval/swap. A rejected or expired review requires a fresh review.
-3. Check **Fee model: EIP-1559**, **Maximum fee per gas**, **Maximum priority fee per gas**, network 84532, exact input, spender/target and total fee budget. On `/demo/2`, expand **Transaction and fee details** to see these fields. Keep the reviewed transaction fields unchanged in MetaMask.
-4. Confirm only that reviewed action. Preserve its new hash, then click **Check original transaction** (or **Check original LP transaction**). Wait for two confirmations and a verified execution. Only then should **Acknowledge verified result** become available. After an approval, acknowledge it and request a fresh quote before reviewing the swap.
-5. If it remains `unverified`, report the new hash and safe receipt `diagnostic`. If the explorer shows type `0x4`/EIP-7702 or a relayer, stop: the wallet still changed the request into an unsupported envelope. Do not submit again or keep funding alternative accounts; that compatibility requires a separate decision. Explorer Success alone does not qualify the original reviewed transaction.
+The owner-provided hash `0x889a6ff469519954beb459f2ce04dfabb4bd957e6b5c00b7b05230fbe7fbe3b1` was independently verified read-only as an exact **1 USDC approval** for wallet `0x2c90304a4A0570221af2d997ccAc8f1Bc722D99a`. A different wallet or hash must pass its own checks. Historical recovery is limited to bounded approvals/resets; it does not qualify old swaps or LP operations without their original contexts.
 
-Public acceptance is still required even though local type-2 tests pass. The application explicitly requests type-2; installed wallet behavior must be checked on the owner's machine.
+### Check a new reviewed swap
+
+1. Request a fresh **1 USDC → WETH** quote on `/demo/1`; check chain 84532, input, minimum output, spender/target and fee budget. If the review expires, request it again.
+2. Confirm only the reviewed operation in MetaMask. Keep the returned hash. The wallet may use its supported Smart Account profile; disabling it is no longer required for that profile.
+3. Click **Check original transaction**, wait for two confirmations, and expect a verified execution. Wrapped results show **MetaMask delegation**, **Gas payer** and observed outer L2 cost. Check actual input and output against the reviewed input/minimum.
+4. Click **Acknowledge verified result**, then obtain a fresh quote for the reverse direction if needed. Acknowledgment never broadcasts another transaction.
+5. If still `unverified`, preserve the hash and report the safe diagnostic. Explorer Success alone does not establish matching reviewed economics; do not resend. A pending wrapper recovered by pasted hash remains unverified until canonical inclusion proves it belongs to the reviewed operation.
+
+Public acceptance with your installed MetaMask is still required. Local mocks and fork fixtures do not substitute for that check.
 
 ## Suggested recording order
 

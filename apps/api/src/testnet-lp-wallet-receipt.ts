@@ -1,7 +1,9 @@
 import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
+import { verifyMetaMaskExecution } from "./testnet-metamask-execution";
+import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { decodeEventLog, erc20Abi, parseAbi, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpReceiptRequestSchema, parseTestnetLpReceipt,
-  type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
+  TESTNET_METAMASK as M, classifyTestnetWalletCode, type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
 import type { BaseSepoliaReceiptSource, TestnetObservedReceipt } from "./testnet-receipt";
 import { TestnetLpError, lpAssert, lpSdkPosition, type BaseSepoliaLpSource } from "./testnet-lp-position";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -120,19 +122,30 @@ export class TestnetLpWalletReceiptReader {
     const [tx,r]=await Promise.all([s.getTransaction(hash),s.getReceipt(hash)]);fresh();
     if(!tx)return await stable()?result(r?"unverified":"unknown",r?"transaction-unavailable":null):result("reorged");
     const expected=study.transaction!;
-    if(tx.type!=="legacy"&&tx.type!=="eip1559")return result("unverified","unsupported-transaction-type");
-    if(!same(tx.hash,hash)||tx.chainId!==84532||!same(tx.from,expected.from)||!same(tx.to,expected.to)||!same(tx.input,expected.data)||tx.value!==0n
-      ||!Number.isSafeInteger(tx.nonce)||String(tx.nonce)!==expected.nonce||tx.gas!==BigInt(expected.gas)||!matchesTestnetFeeEnvelope(tx,expected))return result("unverified","transaction-mismatch");
+    let relay:{executionModel:"metamask-delegation";gasPayer:Hex}|undefined;
+    if(same(tx.to,M.manager)&&same(tx.hash,hash)) {
+      // Pending manager calldata does not yet prove canonical delegated execution.
+      if(!r)return result("unverified");
+      try{relay=await verifyMetaMaskExecution(s,tx,r,expected);}
+      catch{return result("unverified","transaction-mismatch");}
+      fresh();
+    } else {
+      if(tx.type!=="legacy"&&tx.type!=="eip1559")return result("unverified","unsupported-transaction-type");
+      if(!same(tx.hash,hash)||tx.chainId!==84532||!same(tx.from,expected.from)||!same(tx.to,expected.to)||!same(tx.input,expected.data)||tx.value!==0n
+        ||!Number.isSafeInteger(tx.nonce)||String(tx.nonce)!==expected.nonce||tx.gas!==BigInt(expected.gas)||!matchesTestnetFeeEnvelope(tx,expected))return result("unverified","transaction-mismatch");
+    }
     // A typo or unknown candidate cannot poison recovery. Bind only a verified original envelope.
     if(!await stable())return result("reorged");
-    this.store.bindHash(study.contextId!,hash);
-    if(!r)return result("pending");
-    const receiptBaseFee=expected.feeModel==="eip1559"?await s.getBlockBaseFee?.(r.blockNumber):undefined;fresh();
-    if(!same(r.transactionHash,hash)||!same(r.from,expected.from)||!same(r.to,expected.to)||tx.blockNumber!==r.blockNumber||!same(tx.blockHash,r.blockHash)
+    if(!r){this.store.bindHash(study.contextId!,hash);return result("pending");}
+    const receiptBaseFee=!relay&&expected.feeModel==="eip1559"?await s.getBlockBaseFee?.(r.blockNumber):undefined;fresh();
+    if(!same(r.transactionHash,hash)||!same(r.from,relay?tx.from:expected.from)||!same(r.to,relay?M.manager:expected.to)||tx.blockNumber!==r.blockNumber||!same(tx.blockHash,r.blockHash)
       ||r.blockNumber<=BigInt(study.blockNumber)||r.blockNumber>head.number||!/^0x[a-fA-F0-9]{64}$/.test(r.blockHash)||BigInt(r.blockHash)===0n
-      ||!uint(r.gasUsed)||r.gasUsed===0n||r.gasUsed>BigInt(expected.gas)||!matchesTestnetReceiptGasPrice(r.effectiveGasPrice,expected,receiptBaseFee)||r.logs.length>128)return result("unverified","receipt-mismatch");
+      ||!uint(r.gasUsed)||r.gasUsed===0n||(!relay&&(r.gasUsed>BigInt(expected.gas)||!matchesTestnetReceiptGasPrice(r.effectiveGasPrice,expected,receiptBaseFee)))||r.logs.length>128)return result("unverified","receipt-mismatch");
     if(!same(await s.getBlockHash(r.blockNumber),r.blockHash)||!await stable())return result("reorged");
+    this.store.bindHash(study.contextId!,hash);
     base.receiptBlockNumber=r.blockNumber.toString();base.receiptBlockHash=r.blockHash;base.confirmations=(head.number-r.blockNumber+1n).toString();
+    base.l2GasCost=(r.gasUsed*r.effectiveGasPrice).toString();
+    if(relay){base.executionModel=relay.executionModel;base.gasPayer=relay.gasPayer;}
     if(BigInt(base.confirmations)<2n)return result("confirming");
     if(r.status==="reverted") {
       if(r.logs.length!==0)return result("unverified","receipt-mismatch");
@@ -147,7 +160,9 @@ export class TestnetLpWalletReceiptReader {
         Promise.all(addresses.map(a=>s.getCode(a,r.blockNumber))),Promise.all([C.USDC.address,C.WETH.address].map(a=>s.getDecimals(a,r.blockNumber))),
         s.getDependencyConfiguration(r.blockNumber),s.getPool(3000,r.blockNumber),s.getTickSpacing(P.pool,r.blockNumber),s.getCode(study.intent.wallet,r.blockNumber),
       ]);fresh();verifyTestnetRuntimeCodes(84532,addresses.map((address,index)=>({address,code:codes[index]})));
-      lpAssert(walletCode==="0x"&&decimals[0]===6&&decimals[1]===18&&same(poolAddress,P.pool)&&spacing===60
+      const walletKind=classifyTestnetWalletCode(walletCode);
+      if(walletKind==="metamask-delegated")await verifyTestnetMetaMaskRuntime(s,r.blockNumber);
+      lpAssert(decimals[0]===6&&decimals[1]===18&&same(poolAddress,P.pool)&&spacing===60
         &&same(deps.manager.factory,C.v3Factory)&&same(deps.manager.weth,C.WETH.address),"TESTNET_LP_STATE_INVALID");
       const kind=study.actionKind,p=study.plan;
       if(kind==="approve"||kind==="reset") {

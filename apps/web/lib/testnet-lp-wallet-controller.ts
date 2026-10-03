@@ -1,5 +1,5 @@
 import { getAddress, toHex, type Address } from "viem";
-import { testnetRpcFeeFields, testnetLpIntentSchema, parseTestnetLpStudy, type TestnetLpIntent, type TestnetLpStudy, type TestnetLpReceipt } from "@vezta-dex/core";
+import { classifyTestnetWalletCode, testnetRpcFeeFields, testnetLpIntentSchema, parseTestnetLpStudy, type TestnetLpIntent, type TestnetLpStudy, type TestnetLpReceipt } from "@vezta-dex/core";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { type TestnetWallet, type TestnetWalletCoordination, testnetWalletCoordination } from "./testnet-wallet-controller";
 import { readTestnetManualReview, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
@@ -59,7 +59,7 @@ export class TestnetLpWalletController {
       message: e instanceof OtherTestnetSubmissionError ? e.message : e instanceof TestnetBrowserError ? testnetLpMessage(e.code, !!this.state.submission)
         : this.state.submission ? "Preserve the original context and hash. Check its receipt; do not resend."
           : e && typeof e === "object" && "code" in e && e.code === 4001 ? "Wallet request rejected. Request a fresh study when you are ready."
-          : e instanceof Error && e.message === "Unsupported wallet" ? "Select a standard account on Base Sepolia. Smart accounts and wallets with archived unresolved approvals are blocked."
+          : e instanceof Error && e.message === "Unsupported wallet" ? "Use a standard account or the supported MetaMask delegation on Base Sepolia. Reconcile any archived unresolved approval first."
           : e instanceof Error && e.message === "Wrong chain" ? "Select Base Sepolia (84532) in MetaMask and connect again."
             : "Action unavailable or rejected. Check wallet, recovery history and Base Sepolia, then request a fresh study." }); }
     finally { this.active = false; this.publish({ busy: false }); }
@@ -71,7 +71,8 @@ export class TestnetLpWalletController {
     if (typeof chain !== "string" || !/^0x[0-9a-f]+$/i.test(chain) || BigInt(chain) !== 84532n) throw new Error("Wrong chain");
     if (readTestnetManualReview(this.storage).some(r => same(r.intent.wallet, owner))) throw new Error("Unsupported wallet");
     const code = await this.wallet.request({ method: "eth_getCode", params: [owner, "latest"] }); this.generationCheck(g);
-    if (code !== "0x") throw new Error("Unsupported wallet");
+    // The API separately verifies the runtime behind the recognized delegation indicator.
+    try { classifyTestnetWalletCode(code); } catch { throw new Error("Unsupported wallet"); }
   }
   async connect() { return this.run(async () => { this.free(); const g = this.generation; this.connecting = true; this.grant = null;
     try { const owner = account(await this.wallet.request({ method: "eth_requestAccounts" })); this.generationCheck(g); bound(!this.grant || same(owner, this.grant));

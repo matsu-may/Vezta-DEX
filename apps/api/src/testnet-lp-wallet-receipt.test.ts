@@ -1,4 +1,4 @@
-import { encodeAbiParameters,encodeEventTopics,parseAbi,type Hex } from "viem";
+import { encodeAbiParameters,encodeEventTopics,parseAbi,type Hex,type Address } from "viem";
 import { expect,it } from "vitest";
 import { BASE_SEPOLIA_CANDIDATE as C,TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import { TestnetLpWalletReceiptReader,type BaseSepoliaLpReceiptSource } from "./testnet-lp-wallet-receipt";
@@ -18,8 +18,8 @@ const poolEvents=parseAbi([
 ]);
 const erc20=parseAbi(["event Transfer(address indexed from,address indexed to,uint256 value)","event Approval(address indexed owner,address indexed spender,uint256 value)"]);
 const hash=`0x${"cc".repeat(32)}` as Hex,rhash=`0x${"dd".repeat(32)}` as Hex,hhash=`0x${"ee".repeat(32)}` as Hex,zero="0x0000000000000000000000000000000000000000";
-async function fixture(kind:"mint"|"increase"|"decrease"|"collect"|"burn"|"approve"|"reset",eip1559=false) {
-  const f=await testnetLpWalletFixture(kind),p=f.study.plan,t=f.study.transaction!,logs:TestnetObservedReceipt["logs"]=[];
+async function fixture(kind:"mint"|"increase"|"decrease"|"collect"|"burn"|"approve"|"reset",eip1559=false,wallet?:Address) {
+  const f=await testnetLpWalletFixture(kind,wallet),p=f.study.plan,t=f.study.transaction!,logs:TestnetObservedReceipt["logs"]=[];
   const log=(address:string,topics:ReturnType<typeof encodeEventTopics>,data:Hex)=>logs.push({address,topics:topics as Hex[],data,blockNumber:125n,blockHash:rhash,transactionHash:hash});
   const liquidity=kind==="decrease"?BigInt(p.liquidity):1000n;
   const amount0=kind==="collect"?5n:BigInt(kind==="decrease"?p.amount0Minimum:p.amount0Desired),amount1=kind==="collect"?7n:BigInt(kind==="decrease"?p.amount1Minimum:p.amount1Desired);
@@ -104,4 +104,54 @@ it("verifies type-2 LP lifecycle and cap-bound receipt fees",async()=>{
     f.receipt.effectiveGasPrice=BigInt(f.study.transaction!.gasPrice);
     expect(await f.reader.observe(f.query)).toMatchObject({status:"unverified",diagnostic:"receipt-mismatch",verified:false});
   }
+});
+
+// The exact same LP economics must hold when MetaMask relays the reviewed inner call.
+async function delegatedFixture(kind: "approve"|"mint"|"increase"|"decrease"|"collect"|"burn") {
+  const {metamaskFixtureAccount}=await import("../../../packages/core/src/testnet-metamask.test-helper");
+  const {wrappedReceiptFixture}=await import("./testnet-metamask-execution.test-helper");
+  const {TESTNET_METAMASK:M}=await import("@vezta-dex/core");
+  const f=await fixture(kind,false,metamaskFixtureAccount.address),t=f.study.transaction!;
+  const w=await wrappedReceiptFixture({to:t.to as Hex,value:t.value,data:t.data as Hex},125n);
+  w.tx.hash=hash;w.tx.blockHash=rhash;w.receipt.transactionHash=hash;w.receipt.blockHash=rhash;
+  w.receipt.logs=w.receipt.logs.map(l=>({...l,blockHash:rhash,transactionHash:hash}));
+  w.receipt.logs.push(...f.receipt.logs);
+  const originalCode=f.source.getCode;
+  f.source.getCode=(a,b)=>a.toLowerCase()===metamaskFixtureAccount.address.toLowerCase()||Object.values(M).some(v=>typeof v==="string"&&v.toLowerCase()===a.toLowerCase())?w.source.getCode(a,b):originalCode(a,b);
+  f.source.getTransaction=async()=>w.tx;f.source.getReceipt=async()=>w.receipt;
+  f.source.getBlockTransactions=async()=>[w.tx];f.source.getBlockBaseFee=async()=>5000000n;
+  return { f, w };
+}
+it.each(["approve","mint","increase","decrease","collect","burn"] as const)("qualifies constrained delegated %s without substituting relayer identity for NFT owner",async kind=>{
+  const { f, w } = await delegatedFixture(kind);
+  expect(await f.reader.observe(f.query)).toMatchObject({status:"confirmed",verified:true,executionModel:"metamask-delegation",gasPayer:w.tx.from,l2GasCost:"1200000000000"});
+});
+
+it.each(["valid", "malformed"])("keeps a %s pending LP manager candidate unverified and unbound", async kind => {
+  const { f, w } = await delegatedFixture("approve");
+  f.source.getTransaction = async () => ({ ...w.tx, input: kind === "malformed" ? "0x1234" : w.tx.input, blockNumber: null, blockHash: null });
+  f.source.getReceipt = async () => null;
+  expect(await f.reader.observe(f.query)).toMatchObject({ status: "unverified", verified: false });
+  expect(f.store.read(f.study.contextId!).originalHash).toBeNull();
+});
+
+it("rejects an old same-call LP approval without poisoning the original hash", async () => {
+  const { f, w } = await delegatedFixture("approve");
+  w.tx.type = "eip1559"; w.tx.authorizationList = [];
+  const { TESTNET_METAMASK: M } = await import("@vezta-dex/core");
+  const getCode = f.source.getCode;
+  f.source.getCode = (address, block) => address.toLowerCase() === w.f.owner.toLowerCase()
+    ? Promise.resolve(`0xef0100${M.delegate.slice(2)}` as Hex) : getCode(address, block);
+  const getBlockHash = f.source.getBlockHash;
+  f.source.getBlockHash = block => block === 122n ? Promise.resolve(rhash) : getBlockHash(block);
+  w.tx.blockNumber = 122n; w.receipt.blockNumber = 122n;
+  for (const log of w.receipt.logs) log.blockNumber = 122n;
+  expect(await f.reader.observe(f.query)).toMatchObject({ status: "unverified", diagnostic: "receipt-mismatch" });
+  expect(f.store.read(f.study.contextId!).originalHash).toBeNull();
+  const correctHash = `0x${"77".repeat(32)}` as Hex;
+  w.tx.hash = correctHash; w.receipt.transactionHash = correctHash;
+  w.tx.blockNumber = 125n; w.receipt.blockNumber = 125n;
+  for (const log of w.receipt.logs) { log.blockNumber = 125n; log.transactionHash = correctHash; }
+  expect(await f.reader.observe({ ...f.query, hash: correctHash })).toMatchObject({ status: "confirmed", verified: true });
+  expect(f.store.read(f.study.contextId!).originalHash).toBe(correctHash);
 });
