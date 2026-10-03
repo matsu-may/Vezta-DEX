@@ -122,3 +122,4 @@ export { TESTNET_SWAP_POLICY, buildTestnetSwapTransaction, inspectTestnetSwapTra
 export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";
 
 export * from "./testnet-lp-wallet";
+export * from "./testnet-transaction-fees";

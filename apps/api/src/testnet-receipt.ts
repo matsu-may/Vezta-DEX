@@ -1,3 +1,4 @@
+import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
 import { z } from "zod";
 import { decodeEventLog, erc20Abi, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
@@ -6,7 +7,8 @@ import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 
 export interface TestnetObservedTransaction {
   hash: string; type: string; chainId?: number; from: string; to: string | null; input: Hex; value: bigint;
-  nonce: number; gas: bigint; gasPrice?: bigint; blockNumber: bigint | null; blockHash: string | null;
+  nonce: number; gas: bigint; gasPrice?: bigint | null; maxFeePerGas?: bigint | null; maxPriorityFeePerGas?: bigint | null;
+  accessList?: readonly unknown[] | null; authorizationList?: readonly unknown[] | null; blockNumber: bigint | null; blockHash: string | null;
 }
 export interface TestnetObservedReceipt {
   transactionHash: string; from: string; to: string | null; blockNumber: bigint; blockHash: string;
@@ -17,6 +19,7 @@ export interface TestnetObservedReceipt {
 export interface BaseSepoliaReceiptSource extends BaseSepoliaWalletSource {
   getTransaction(hash: Hex): Promise<TestnetObservedTransaction | null>;
   getReceipt(hash: Hex): Promise<TestnetObservedReceipt | null>;
+  getBlockBaseFee?(block: bigint): Promise<bigint>;
 }
 type ReceiptCode = "TESTNET_RECEIPT_INVALID" | "TESTNET_RECEIPT_BUSY" | "TESTNET_RECEIPT_TIMEOUT"
   | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN" | "TESTNET_RECEIPT_STALE" | "TESTNET_INTENT_INVALID";
@@ -33,10 +36,10 @@ export const parseTestnetReceiptRequest = (value: unknown) => querySchema.parse(
 
 function matchesOriginal(tx: TestnetObservedTransaction, c: TestnetActionContext, hash: string) {
   const expected = c.transaction;
-  return same(tx.hash, hash) && tx.type === "legacy" && tx.chainId === P.chainId && same(tx.from, c.intent.wallet)
+  return same(tx.hash, hash) && matchesTestnetFeeEnvelope(tx, expected) && tx.chainId === P.chainId && same(tx.from, c.intent.wallet)
     && same(tx.to, expected.to) && same(tx.input, expected.data) && tx.value === 0n
     && Number.isSafeInteger(tx.nonce) && tx.nonce >= 0 && String(tx.nonce) === expected.nonce
-    && tx.gas === BigInt(expected.gas) && tx.gasPrice === BigInt(expected.gasPrice);
+    && tx.gas === BigInt(expected.gas);
 }
 
 function reviewEvents(c: TestnetActionContext, r: TestnetObservedReceipt) {
@@ -119,15 +122,16 @@ export class TestnetReceiptReader {
       if (!same(stable, head.hash)) return empty("reorged");
       return { ...empty("unknown-original"), nonceUsed: nonce > BigInt(c.transaction.nonce) };
     }
-    if (tx.type !== "legacy") return empty("unverified", "0", "unsupported-transaction-type");
+    if (tx.type !== "legacy" && tx.type !== "eip1559") return empty("unverified", "0", "unsupported-transaction-type");
     if (!matchesOriginal(tx, c, hash)) return empty("unverified", "0", "transaction-mismatch");
     this.contexts.bindHash(c.contextId, hash);
     if (!receipt) return empty("pending");
+    const receiptBaseFee = c.transaction.feeModel === "eip1559" ? await source.getBlockBaseFee?.(receipt.blockNumber) : undefined; fresh();
     if (!same(receipt.transactionHash, hash) || !same(receipt.from, c.intent.wallet) || !same(receipt.to, c.transaction.to)
       || !same(tx.blockHash, receipt.blockHash) || tx.blockNumber !== receipt.blockNumber
       || !uint(receipt.blockNumber) || receipt.blockNumber <= BigInt(c.blockNumber) || receipt.blockNumber > head.number
       || !nonzeroHash(receipt.blockHash) || !uint(receipt.gasUsed) || receipt.gasUsed === 0n
-      || receipt.gasUsed > BigInt(c.transaction.gas) || receipt.effectiveGasPrice !== BigInt(c.transaction.gasPrice)
+      || receipt.gasUsed > BigInt(c.transaction.gas) || !matchesTestnetReceiptGasPrice(receipt.effectiveGasPrice, c.transaction, receiptBaseFee)
       || !Array.isArray(receipt.logs) || receipt.logs.length > 128) return empty("unverified", "0", "receipt-mismatch");
     const canonical = await source.getBlockHash(receipt.blockNumber); fresh();
     if (!same(canonical, receipt.blockHash)) return empty("reorged");

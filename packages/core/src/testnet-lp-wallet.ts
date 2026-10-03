@@ -1,5 +1,6 @@
 import { decodeFunctionData, encodeFunctionData, erc20Abi, getAddress, isAddress, parseAbi } from "viem";
 import { z } from "zod";
+import { testnetFeeFieldsSchema, sameTestnetFeeFields } from "./testnet-transaction-fees";
 import { BASE_SEPOLIA_CANDIDATE as C } from "./testnet";
 import { TESTNET_SWAP_POLICY as P } from "./testnet-swap";
 export const TESTNET_LP_WALLET_POLICY = Object.freeze({ chainId: 84532, ttlSeconds: 120, tickLower: -887220, tickUpper: 887220, maximumGas: 1000000 } as const);
@@ -27,11 +28,10 @@ export const testnetLpPlanSchema = z.object({ amount0Cap: uint, amount1Cap: uint
   liquidity: uint.refine(v => BigInt(v) < 2n ** 128n), positionLiquidity: uint.refine(v => BigInt(v) < 2n ** 128n),
   storedOwed0: uint.refine(v => BigInt(v) < 2n ** 128n), storedOwed1: uint.refine(v => BigInt(v) < 2n ** 128n),
   tickLower: tick, tickUpper: tick, deadline: positive.nullable() }).strict().refine(v => v.tickLower < v.tickUpper);
-export const testnetLpTransactionSchema = z.object({ chainId: z.literal(84532), from: wallet, to: address,
+export const testnetLpTransactionSchema = testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(84532), from: wallet, to: address,
   data: z.string().max(4096).regex(/^0x(?:[a-fA-F0-9]{2})+$/), value: z.literal("0"),
-  nonce: uint.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)), gas: uint.refine(v => BigInt(v) >= 21000n && BigInt(v) <= 1000000n),
-  gasPrice: positive.refine(v => BigInt(v) <= 2000000000000n) }).strict();
-const gasSchema = z.object({ estimatedGas: positive, gasLimit: positive, gasPrice: positive, l2FeeCeiling: positive,
+  nonce: uint.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)), gas: uint.refine(v => BigInt(v) >= 21000n && BigInt(v) <= 1000000n) }).strict();
+const gasSchema = testnetFeeFieldsSchema.safeExtend({ estimatedGas: positive, gasLimit: positive, l2FeeCeiling: positive,
   l1FeeUpperBound: positive, operatorFeeUpperBound: uint, totalFeeBudget: positive,
   totalFeeQualified: z.literal(true), fork: z.literal("jovian") }).strict().refine(v => BigInt(v.gasLimit) <= 1000000n
     && BigInt(v.estimatedGas) >= 21000n && BigInt(v.gasLimit) === (BigInt(v.estimatedGas) * 120n + 99n) / 100n
@@ -49,7 +49,7 @@ export const testnetLpStudySchema = z.object({ contextId: id.nullable(), intent:
   runtimeVerified: z.literal(true), executionEnabled: z.boolean() }).strict().superRefine((s,ctx) => {
     if ((s.actionKind === "reset" || s.actionKind === "approve") !== (s.approvalToken !== null)
       || (s.status === "prepared" ? s.contextId === null || s.transaction === null || s.gas === null || s.reason !== null : s.contextId !== null || s.transaction !== null || s.reason === null)) ctx.addIssue({ code: "custom", message: "Invalid LP preparation" });
-    if (s.transaction && (s.transaction.gas !== s.gas?.gasLimit || s.transaction.gasPrice !== s.gas?.gasPrice
+    if (s.transaction && (!s.gas || s.transaction.gas !== s.gas.gasLimit || !sameTestnetFeeFields(s.transaction, s.gas)
       || BigInt(s.balances.ETH) < BigInt(s.gas!.totalFeeBudget))) ctx.addIssue({ code: "custom", message: "Invalid LP funding" });
   });
 export const testnetLpReceiptSchema = z.object({ contextId: id, hash, intent: testnetLpIntentSchema, actionKind: action, approvalToken,

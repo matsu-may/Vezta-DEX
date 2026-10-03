@@ -10,9 +10,10 @@ afterEach(() => vi.useRealTimers());
 const hash = `0x${"12".repeat(32)}` as Hex;
 const receiptHash = `0x${"cd".repeat(32)}` as Hex;
 const headHash = `0x${"ef".repeat(32)}` as Hex;
-async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false) {
+async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, eip1559 = false) {
   const { TestnetReceiptReader } = await import("./testnet-receipt");
   const f = await testnetActionFixture(kind, reverse); const store = new TestnetActionStore(f.clock);
+  if (eip1559) Object.assign(f.input.transaction, { feeModel: "eip1559", maxFeePerGas: f.input.transaction.gasPrice, maxPriorityFeePerGas: "1000000" });
   const action = store.issue(f.input, () => f.quotes.store.consume(f.quoted.quoteId, f.request.intent));
   const context = store.read(action.contextId); const tx = context.transaction; const wallet = context.intent.wallet;
   const log = (address: string, name: "Transfer" | "Approval", from: Hex, to: Hex, value: bigint) => ({
@@ -21,14 +22,15 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
     data: encodeAbiParameters([{ type: "uint256" }], [value]), removed: false,
     blockNumber: 124n, blockHash: receiptHash, transactionHash: hash,
   });
-  const transaction = { hash, type: "legacy", chainId: 84532, from: wallet, to: tx.to, input: tx.data, value: 0n, nonce: 7,
+  const transaction = { hash, type: eip1559 ? "eip1559" : "legacy",
+    ...(eip1559 ? { maxFeePerGas: BigInt(tx.gasPrice), maxPriorityFeePerGas: 1000000n, accessList: [] } : {}), chainId: 84532, from: wallet, to: tx.to, input: tx.data, value: 0n, nonce: 7,
     gas: BigInt(tx.gas), gasPrice: BigInt(tx.gasPrice), blockNumber: 124n as bigint | null, blockHash: receiptHash as string | null };
   const receipt = { transactionHash: hash, from: wallet, to: tx.to, blockNumber: 124n, blockHash: receiptHash,
-    status: "success" as "success" | "reverted", gasUsed: kind === "swap" ? 100000n : 50000n, effectiveGasPrice: BigInt(tx.gasPrice),
+    status: "success" as "success" | "reverted", gasUsed: kind === "swap" ? 100000n : 50000n, effectiveGasPrice: eip1559 ? 6000000n : BigInt(tx.gasPrice),
     logs: kind === "swap" ? [log(context.intent.tokenIn, "Transfer", wallet, P.pool, BigInt(context.intent.amountIn)),
       log(context.intent.tokenOut, "Transfer", P.pool, wallet, BigInt(context.quote.amountOut))]
       : [log(context.intent.tokenIn, "Approval", wallet, P.router, kind === "reset" ? 0n : BigInt(context.intent.amountIn))] };
-  const source: BaseSepoliaReceiptSource = { ...f.source,
+  const source: BaseSepoliaReceiptSource = { ...f.source, async getBlockBaseFee(block) { expect(block).toBe(124n); return 5000000n; },
     async getLatestBlock() { return { number: 125n, timestamp: 1790800000n, hash: headHash }; },
     async getBlockHash(block) { return block === 124n ? receiptHash : block === 123n ? TESTNET_HASH : headHash; },
     async getTransaction() { return transaction; }, async getReceipt() { return receipt; },
@@ -137,4 +139,16 @@ it("explains unverified envelopes without accepting smart or altered transaction
   expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "transaction-mismatch", execution: null });
   s.transaction.nonce -= 1; s.receipt.logs = [];
   expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "event-mismatch", execution: null });
+});
+
+it("qualifies type-2 swap and exact approval with canonical effective fees and preserves mismatch recovery", async () => {
+  for (const kind of ["swap", "approve", "reset"] as const) {
+    const s = await setup(kind, false, true);
+    expect(await s.reader.observe(s.request)).toMatchObject({ status: "confirmed", execution: { status: "verified" } });
+    s.receipt.effectiveGasPrice = BigInt(s.store.read(s.request.contextId).transaction.gasPrice);
+    expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "receipt-mismatch", execution: null });
+  }
+  const s = await setup("approve", false, true); s.transaction.maxPriorityFeePerGas = 1000001n;
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "transaction-mismatch" });
+  expect(s.store.read(s.request.contextId).originalHash).toBeNull();
 });

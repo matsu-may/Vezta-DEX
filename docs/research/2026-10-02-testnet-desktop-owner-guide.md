@@ -10,6 +10,24 @@ Scope: Base Sepolia 84532, Uniswap v3 test USDC/WETH 0.3% pool. This guide cover
 4. Select a standard MetaMask account on **Base Sepolia**, chain **84532** (not Ethereum Sepolia 11155111). Smart/delegated account envelopes are not supported by this demo. The previously archived unsupported approval wallet remains blocked; use a different standard account.
 5. Fund that account with faucet **test USDC** and **test ETH on Base Sepolia**. WETH for LP can be obtained by the first USDC→WETH swap; test ETH pays gas and is a separate balance. Do not use mainnet assets or real keys in configuration.
 
+## Standard wallet and fee compatibility
+
+New production studies use EIP-1559: the review shows maximum total fee per gas and maximum priority fee. These are ceilings, not the effective charged price. Historical legacy recovery retains its original gas-price model. Keep the prepared nonce, gas limit and fee caps unchanged in MetaMask.
+
+Disable Smart account for the selected Base Sepolia account before sending. An empty preflight account code cannot prevent the wallet from later converting a request to a wrapped/relayed transaction. If this happens, keep the hash and inspect the receipt diagnostic; never keep creating/funding new wallets without checking the transaction type. Direct type-2 support does not qualify EIP-7702 type 0x4 receipts. Old hashes remain unchanged after settings are toggled. Archiving an unsupported approval preserves it and blocks its account; it neither verifies nor revokes on-chain authorization.
+
+See [MetaMask standard-account settings](https://support.metamask.io/configure/accounts/switch-to-or-revert-from-a-smart-account/) and [compatibility design](../superpowers/specs/2026-10-03-testnet-eip1559-design.md). After public demo acceptance, review the full roadmap again before resuming product expansion and selective Uniswap source reuse.
+
+### Check the EIP-1559 update
+
+1. Preserve every unresolved original hash and its recovery record first. Do not delete storage or change hostname to bypass an account block. An old type-4 hash cannot become type-2; checking it again may correctly remain `unverified`.
+2. When no transaction is pending, restart your launcher with `pnpm dev:testnet` to load the update. On `/demo/1`, connect a standard Base Sepolia account that is not blocked by unresolved recovery. Request a fresh quote and review the next required approval/swap. A rejected or expired review requires a fresh review.
+3. Check **Fee model: EIP-1559**, **Maximum fee per gas**, **Maximum priority fee per gas**, network 84532, exact input, spender/target and total fee budget. On `/demo/2`, expand **Transaction and fee details** to see these fields. Keep the reviewed transaction fields unchanged in MetaMask.
+4. Confirm only that reviewed action. Preserve its new hash, then click **Check original transaction** (or **Check original LP transaction**). Wait for two confirmations and a verified execution. Only then should **Acknowledge verified result** become available. After an approval, acknowledge it and request a fresh quote before reviewing the swap.
+5. If it remains `unverified`, report the new hash and safe receipt `diagnostic`. If the explorer shows type `0x4`/EIP-7702 or a relayer, stop: the wallet still changed the request into an unsupported envelope. Do not submit again or keep funding alternative accounts; that compatibility requires a separate decision. Explorer Success alone does not qualify the original reviewed transaction.
+
+Public acceptance is still required even though local type-2 tests pass. The application explicitly requests type-2; installed wallet behavior must be checked on the owner's machine.
+
 ## Suggested recording order
 
 | Route | Owner check |

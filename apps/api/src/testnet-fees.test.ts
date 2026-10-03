@@ -5,6 +5,20 @@ import { TESTNET_SWAP_POLICY as P, BASE_SEPOLIA_CANDIDATE as C } from "@vezta-de
 const transaction = { chainId: 84532 as const, from: "0x1111111111111111111111111111111111111111" as const,
   to: C.USDC.address, value: "0" as const, data: `0x095ea7b3${P.router.slice(2).padStart(64, "0")}${"f4240".padStart(64, "0")}` as Hex };
 
+it("plans pinned type-2 caps and serializes the same envelope for additional fees", async () => {
+  const { planTestnetSourceGas, testnetGasFeeFields, serializeTestnetFeeEnvelope, completeTestnetFeeBudget } = await import("./testnet-fees");
+  const plan = await planTestnetSourceGas({ async getGasPrice() { throw new Error("no legacy fallback"); },
+    async getEip1559Fees(block) { expect(block).toBe(123n); return { baseFeePerGas: 5000000n, maxPriorityFeePerGas: 1000000n }; } }, 123n, 50000n, "approval");
+  const fields = testnetGasFeeFields(plan);
+  expect(fields).toEqual({ gasPrice: "11000000", feeModel: "eip1559", maxFeePerGas: "11000000", maxPriorityFeePerGas: "1000000" });
+  const decoded = parseTransaction(serializeTestnetFeeEnvelope({ ...transaction, ...fields }, 7n, plan.gasLimit, plan.gasPrice));
+  expect(decoded).toMatchObject({ type: "eip1559", maxFeePerGas: 11000000n, maxPriorityFeePerGas: 1000000n, nonce: 7, gas: 60000n });
+  expect(decoded).not.toHaveProperty("gasPrice");
+  expect(completeTestnetFeeBudget(plan, { l1FeeUpperBound: 100n, operatorFeeUpperBound: 0n, fork: "jovian" }))
+    .toMatchObject({ ...fields, l2FeeCeiling: "660000000000" });
+  await expect(planTestnetSourceGas({ async getGasPrice() { return 1n; }, async getEip1559Fees() { throw new Error("RPC unavailable"); } }, 123n, 50000n, "approval")).rejects.toThrow();
+});
+
 it("covers all three snapshot fee components and rounds execution gas upward", async () => {
   const { planTestnetGas, completeTestnetFeeBudget } = await import("./testnet-fees");
   const plan = planTestnetGas(50001n, 10000000n, "approval");

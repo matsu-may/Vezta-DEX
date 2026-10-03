@@ -1,6 +1,7 @@
 import { formatUnits } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
 import type { TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
+import { TestnetFeeReview } from "./testnet-fee-review";
 export function testnetAmount(raw: string, token: string) {
   const usdc = token.toLowerCase() === C.USDC.address.toLowerCase();
   return `${formatUnits(BigInt(raw), usdc ? 6 : 18)} ${usdc ? "USDC" : "WETH"}`;
@@ -32,7 +33,7 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
           <div><dt>Transaction target</dt><dd className="mono">{a.transaction.to}</dd></div>
           <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div></>}
         {study.gas && <><div><dt>Gas limit</dt><dd>{study.gas.gasLimit}</dd></div>
-          <div><dt>Gas price</dt><dd>{formatUnits(BigInt(study.gas.gasPrice), 9)} gwei</dd></div>
+          <TestnetFeeReview fees={study.gas} />
           <div><dt>L2 fee ceiling</dt><dd>{eth(study.gas.l2FeeCeiling)}</dd></div>
           <div><dt>L1 fee upper bound</dt><dd>{eth(study.gas.l1FeeUpperBound)}</dd></div>
           <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div>

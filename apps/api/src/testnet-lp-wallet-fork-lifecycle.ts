@@ -9,6 +9,7 @@ import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 import { TestnetLpWalletReceiptReader } from "./testnet-lp-wallet-receipt";
 import { runTestnetLpWalletForkSteps } from "./testnet-lp-wallet-fork-steps";
 import { forkAssert, guardedForkRequest } from "./testnet-fork";
+import { sendReviewedForkTransaction } from "./testnet-fork-send";
 import { withForkSnapshot } from "./testnet-fork-snapshot";
 import { mineFreshForkBlock } from "./testnet-fork-clock";
 import type { startOwnedTestnetAnvil } from "./testnet-fork-process";
@@ -70,8 +71,7 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
         const checked = await wallet.recheck({ contextId: review.contextId });
         forkAssert(JSON.stringify(checked.transaction) === JSON.stringify(review.transaction) && checked.contextId === review.contextId, "FORK_LP_WALLET_CONTEXT_INVALID");
         const t = checked.transaction!;
-        const hash = await mutate("eth_sendTransaction", [{ from:t.from, to:t.to, data:t.data, value:"0x0", chainId:toHex(84532),
-          type:"0x0", nonce:toHex(BigInt(t.nonce)), gas:toHex(BigInt(t.gas)), gasPrice:toHex(BigInt(t.gasPrice)) }]);
+        const hash = await sendReviewedForkTransaction(boundary, origin, t, () => signal.throwIfAborted());
         forkAssert(typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash), "FORK_HASH_INVALID");
         await client.waitForTransactionReceipt({ hash: hash as Hex, timeout:30000, retryCount:0 }); await fresh();
         const observation = await receipt.observe({ contextId:checked.contextId, hash });

@@ -9,6 +9,31 @@ import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.
 
 afterEach(() => { vi.unstubAllGlobals(); vi.useRealTimers(); });
 
+it("permits canonical receipt base fees above the planning input bound within the supported cap", async () => {
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body));
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: { number: "0x7b", hash: `0x${"ab".repeat(32)}`,
+      timestamp: "0x6abda000", baseFeePerGas: `0x${1100000000000n.toString(16)}`, transactions: [] } });
+  });
+  expect(await createBaseSepoliaPreflightSource("https://receipt-fees.example.invalid").getBlockBaseFee!(123n)).toBe(1100000000000n);
+});
+
+it("reads the type-2 base fee from the specified block and preserves priority failures", async () => {
+  const calls: { method: string; params: unknown[] }[] = []; let invalid = false;
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    const body = JSON.parse(String(init.body)); calls.push(body);
+    const result = body.method === "eth_maxPriorityFeePerGas" ? invalid ? "0x0" : "0xf4240"
+      : { number: "0x7b", hash: `0x${"ab".repeat(32)}`, timestamp: "0x6abda000", baseFeePerGas: "0x4c4b40", transactions: [] };
+    return Response.json({ jsonrpc: "2.0", id: body.id, result });
+  });
+  const source = createBaseSepoliaPreflightSource("https://fees-wire.example.invalid");
+  expect(await source.getEip1559Fees!(123n)).toEqual({ baseFeePerGas: 5000000n, maxPriorityFeePerGas: 1000000n });
+  expect(calls.find(c => c.method === "eth_getBlockByNumber")!.params[0]).toBe("0x7b");
+  expect(calls.some(c => c.method === "eth_gasPrice")).toBe(false);
+  invalid = true;
+  await expect(source.getEip1559Fees!(123n)).rejects.toThrow();
+});
+
 it("distinguishes missing original transaction/receipt from RPC failures without sending", async () => {
   let limited = false; const methods: string[] = [];
   vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {

@@ -36,3 +36,16 @@ it("binds receipt block, exact confirmations, diagnostics and verified economics
 it("requires complete explicit plan fields and strict study keys",()=>{
   expect(testnetLpStudySchema.safeParse({...study(),rpcUrl:"https://private"}).success).toBe(false);
 });
+
+it("validates coupled LP fee descriptors and independently binds the gas budget to the transaction", () => {
+  const f = study(); const fees = { feeModel: "eip1559", maxFeePerGas: f.transaction!.gasPrice, maxPriorityFeePerGas: "1000000" };
+  Object.assign(f.transaction!, fees); Object.assign(f.gas!, fees);
+  expect(() => inspectTestnetLpTransaction(f, now)).not.toThrow();
+  expect(testnetLpStudySchema.parse(f).transaction).toMatchObject(fees);
+  for (const target of ["gas", "transaction"] as const) {
+    const bad = structuredClone(f); Object.assign(bad[target]!, { maxPriorityFeePerGas: "2" });
+    expect(testnetLpStudySchema.safeParse(bad).success).toBe(false);
+    delete (bad[target] as unknown as Record<string, unknown>).maxPriorityFeePerGas;
+    expect(testnetLpStudySchema.safeParse(bad).success).toBe(false);
+  }
+});

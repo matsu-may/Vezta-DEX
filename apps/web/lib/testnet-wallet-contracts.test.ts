@@ -61,3 +61,22 @@ it("validates original receipt identity and economics without requiring an unexp
     expect(() => parseTestnetWalletObservation(bad, record, f.clock())).toThrow();
   }
 });
+
+it("binds coupled EIP-1559 gas studies and keeps their fields in original recovery", async () => {
+  const { f, q, checked } = await reviewedFixture();
+  const fees = { feeModel: "eip1559", maxFeePerGas: checked.action!.transaction.gasPrice, maxPriorityFeePerGas: "1000000" };
+  Object.assign(checked.action!.transaction, fees); Object.assign(checked.study.transaction!, fees); Object.assign(checked.study.gas!, fees);
+  const review = parseTestnetWalletReview(checked, q, "swap", f.clock());
+  const record = parseTestnetSubmission({ version: 1, intent: f.request.intent, quote: q.quote, action: review.action!, attemptedAt: f.clock(), hash: null });
+  expect(record.action.transaction).toMatchObject(fees);
+  for (const target of ["gas", "transaction", "action"] as const) {
+    const bad = structuredClone(checked);
+    const part = target === "action" ? bad.action!.transaction : target === "transaction" ? bad.study.transaction! : bad.study.gas!;
+    Object.assign(part, { maxPriorityFeePerGas: "2" });
+    expect(() => parseTestnetWalletReview(bad, q, "swap", f.clock())).toThrow();
+  }
+  const storage = memoryStorage(); writeTestnetSubmission(storage, record);
+  const changed = structuredClone(record); Object.assign(changed.action.transaction, { maxPriorityFeePerGas: "2" });
+  expect(() => clearTestnetSubmission(storage, changed)).toThrow();
+  expect(readTestnetSubmission(storage)).toEqual({ kind: "record", record });
+});

@@ -1,11 +1,11 @@
 import { z } from "zod";
 import type { Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  planTestnetTokenApproval, type TestnetSwapTransaction } from "@vezta-dex/core";
+  planTestnetTokenApproval, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
-import { planTestnetGas, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
+import { planTestnetSourceGas, testnetGasFeeFields, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
 export interface BaseSepoliaApprovalSource extends BaseSepoliaWalletSource, TestnetFeeSource {
   simulateApproval(transaction: TestnetSwapTransaction, block: bigint): Promise<Hex>;
@@ -31,7 +31,7 @@ const fail = (code: Code): never => { throw new TestnetApprovalError(code); };
 const uint = (value: bigint, bits = 256) => typeof value === "bigint" && value >= 0n && value < 2n ** BigInt(bits);
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 type GasStudy = ReturnType<typeof completeTestnetFeeBudget>;
-type UnsignedApproval = TestnetSwapTransaction & { nonce: string; gas: string; gasPrice: string };
+type UnsignedApproval = TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
 
 export class TestnetApprovalReader {
   private busy = false;
@@ -111,13 +111,11 @@ export class TestnetApprovalReader {
       catch { return fail("TESTNET_APPROVAL_SIMULATION_FAILED"); }
       fresh();
       if (returned.toLowerCase() !== `0x${"0".repeat(63)}1`) return fail("TESTNET_APPROVAL_SIMULATION_FAILED");
-      const [estimate, price] = await Promise.all([
-        source.estimateApprovalGas(plan.transaction, block.number), source.getGasPrice(),
-      ]);
+      const estimate = await source.estimateApprovalGas(plan.transaction, block.number);
       fresh();
       let planGas;
-      try { planGas = planTestnetGas(estimate, price, "approval"); } catch { return fail("TESTNET_APPROVAL_GAS_INVALID"); }
-      const additional = await source.getAdditionalFees(plan.transaction, nonce, planGas.gasLimit, planGas.gasPrice, block.number);
+      try { planGas = await planTestnetSourceGas(source, block.number, estimate, "approval"); } catch { return fail("TESTNET_APPROVAL_GAS_INVALID"); }
+      const additional = await source.getAdditionalFees({ ...plan.transaction, ...testnetGasFeeFields(planGas) }, nonce, planGas.gasLimit, planGas.gasPrice, block.number);
       fresh();
       gas = completeTestnetFeeBudget(planGas, additional);
       simulation = { status: "success" }; funding.l2BudgetCovered = eth >= BigInt(gas.l2FeeCeiling);
@@ -126,7 +124,7 @@ export class TestnetApprovalReader {
       else if (!funding.totalBudgetCovered) reason = "TESTNET_TOTAL_BUDGET_LOW";
       else {
         status = "unsigned-prepared";
-        transaction = { ...plan.transaction, nonce: nonce.toString(), gas: gas.gasLimit, gasPrice: gas.gasPrice };
+        transaction = { ...plan.transaction, nonce: nonce.toString(), gas: gas.gasLimit, ...testnetGasFeeFields(planGas) };
       }
     }
     const [stateHash, quoteHash, finalPending, finalAllowance] = await Promise.all([

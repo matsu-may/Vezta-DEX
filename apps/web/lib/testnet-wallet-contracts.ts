@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getAddress, type Hex } from "viem";
 import { parseTestnetSwapIntent, parseTestnetSwapQuote, inspectTestnetSwapTransaction, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY as P, type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
+  TESTNET_SWAP_POLICY as P, testnetFeeFieldsSchema, sameTestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
 
 export const walletUint = z.string().regex(/^(0|[1-9][0-9]{0,77})$/).refine(v => BigInt(v) < 2n ** 256n);
 export const walletHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/).refine(v => BigInt(v) > 0n);
@@ -9,11 +9,10 @@ const id = z.string().regex(/^[a-f0-9]{48}$/);
 const address = z.string().transform(v => getAddress(v));
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const bound = (condition: boolean) => { if (!condition) throw new Error("Invalid testnet wallet binding"); };
-const txSchema = z.object({ chainId: z.literal(P.chainId), from: address, to: address, value: z.literal("0"),
+const txSchema = testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(P.chainId), from: address, to: address, value: z.literal("0"),
   data: z.string().max(4096).regex(/^0x(?:[0-9a-fA-F]{2})+$/).transform(v => v as Hex),
   nonce: walletUint.refine(v => BigInt(v) <= BigInt(Number.MAX_SAFE_INTEGER)),
-  gas: walletUint.refine(v => BigInt(v) >= 21000n && BigInt(v) <= 650000n),
-  gasPrice: walletUint.refine(v => BigInt(v) > 0n && BigInt(v) <= 2000000000000n) }).strict();
+  gas: walletUint.refine(v => BigInt(v) >= 21000n && BigInt(v) <= 650000n) }).strict();
 export const walletActionSchema = z.object({ contextId: id, kind: z.enum(["swap", "approve", "reset"]),
   chainId: z.literal(P.chainId), transaction: txSchema, quoteExpiresAt: z.iso.datetime(),
   trackingExpiresAt: z.iso.datetime(), executionEnabled: z.boolean() }).strict();
@@ -41,7 +40,7 @@ function inspectAction(action: TestnetWalletAction, intent: TestnetSwapIntent, q
     if (plan.kind !== "ready") bound(same(tx.to, plan.transaction.to) && same(tx.data, plan.transaction.data));
   }
 }
-const gasSchema = z.object({ estimatedGas: walletUint, gasLimit: walletUint, gasPrice: walletUint,
+const gasSchema = testnetFeeFieldsSchema.safeExtend({ estimatedGas: walletUint, gasLimit: walletUint,
   l2FeeCeiling: walletUint, l1FeeUpperBound: walletUint, operatorFeeUpperBound: walletUint,
   totalFeeBudget: walletUint, totalFeeQualified: z.literal(true), fork: z.literal("jovian") });
 export const walletStudySchema = z.object({ status: z.enum(["blocked", "approval-required", "allowance-ready", "unsigned-prepared"]),
@@ -74,7 +73,7 @@ export function parseTestnetWalletReview(value: unknown, quoted: TestnetWalletQu
   const estimate = BigInt(gas.estimatedGas); const limit = BigInt(gas.gasLimit); const price = BigInt(gas.gasPrice);
   const l1 = BigInt(gas.l1FeeUpperBound); const operator = BigInt(gas.operatorFeeUpperBound); const total = BigInt(gas.totalFeeBudget);
   bound(estimate >= 21000n && estimate <= (kind === "swap" ? 500000n : 200000n)
-    && limit === (estimate * 120n + 99n) / 100n && tx.gas === gas.gasLimit && tx.gasPrice === gas.gasPrice
+    && limit === (estimate * 120n + 99n) / 100n && tx.gas === gas.gasLimit && sameTestnetFeeFields(tx, gas)
     && BigInt(gas.l2FeeCeiling) === limit * price && l1 > 0n && l1 <= 10n ** 17n && operator <= 10n ** 17n
     && total === limit * price + 2n * (l1 + operator) && total < 10n ** 18n && BigInt(study.nativeBalance) >= total);
   const plan = planTestnetTokenApproval(intent, BigInt(study.currentAllowance));

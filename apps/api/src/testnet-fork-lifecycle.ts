@@ -5,7 +5,7 @@ import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
 import { forkAssert, guardedForkRequest, reviewTestnetForkReceipt, type TestnetForkReceiptEvidence } from "./testnet-fork";
-import { prepareForkContextSend } from "./testnet-fork-send";
+import { prepareForkContextSend, sendReviewedForkTransaction } from "./testnet-fork-send";
 import { TestnetActionStore, TestnetRechecker } from "./testnet-action";
 import { TestnetReceiptReader } from "./testnet-receipt";
 import { withForkSnapshot } from "./testnet-fork-snapshot";
@@ -106,10 +106,8 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       const before = { input: BigInt(study.inputBalance), native: BigInt(study.nativeBalance),
         output: await reads.getTokenBalance(request.intent.tokenOut, wallet, BigInt(study.blockNumber)) };
       const beforeWrite = await prepareForkContextSend(reads, contexts, contextId, signal);
-      const hash = await mutate("eth_sendTransaction", [{ from: transaction.from, to: transaction.to,
-        data: transaction.data, value: "0x0", nonce: toHex(BigInt(transaction.nonce)),
-        gas: toHex(BigInt(transaction.gas)), gasPrice: toHex(BigInt(transaction.gasPrice)),
-        chainId: toHex(P.chainId), type: "0x0" }], beforeWrite);
+      const hash = await sendReviewedForkTransaction(boundary, origin, transaction,
+        () => { signal.throwIfAborted(); beforeWrite(); });
       forkAssert(typeof hash === "string" && /^0x[0-9a-fA-F]{64}$/.test(hash), "FORK_HASH_INVALID");
       const receipt = await client.waitForTransactionReceipt({ hash: hash as Hex, timeout: 30000, retryCount: 0 });
       await mutate("evm_mine", []);

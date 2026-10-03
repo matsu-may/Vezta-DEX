@@ -1,5 +1,5 @@
 import { getAddress, toHex, type Address } from "viem";
-import { testnetLpIntentSchema, parseTestnetLpStudy, type TestnetLpIntent, type TestnetLpStudy, type TestnetLpReceipt } from "@vezta-dex/core";
+import { testnetRpcFeeFields, testnetLpIntentSchema, parseTestnetLpStudy, type TestnetLpIntent, type TestnetLpStudy, type TestnetLpReceipt } from "@vezta-dex/core";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { type TestnetWallet, type TestnetWalletCoordination, testnetWalletCoordination } from "./testnet-wallet-controller";
 import { readTestnetManualReview, type TestnetSubmissionStorage } from "./testnet-wallet-storage";
@@ -94,7 +94,7 @@ export class TestnetLpWalletController {
     requireNoOtherTestnetSubmission(this.storage, "lp"); writeTestnetLpSubmission(this.storage, marker);
     this.publish({ submission: marker, study: null, observation: null, stage: "uncertain" }); let result: unknown;
     try { this.generationCheck(g); parseTestnetLpStudy(marker.study, this.now()); bound(this.executionAllowed()); requireNoOtherTestnetSubmission(this.storage, "lp");
-      const tx = marker.study.transaction!; result = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: tx.from, to: tx.to, data: tx.data, chainId: "0x14a34", value: "0x0", nonce: toHex(BigInt(tx.nonce)), gas: toHex(BigInt(tx.gas)), gasPrice: toHex(BigInt(tx.gasPrice)) }] });
+      const tx = marker.study.transaction!; result = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: tx.from, to: tx.to, data: tx.data, chainId: "0x14a34", value: "0x0", nonce: toHex(BigInt(tx.nonce)), gas: toHex(BigInt(tx.gas)), ...testnetRpcFeeFields(tx) }] });
     } catch (e) { if (e && typeof e === "object" && "code" in e && e.code === 4001) { clearTestnetLpSubmission(this.storage, marker); this.publish({ submission: null }); } throw e; }
     const sent = { ...marker, hash: walletHash.parse(result) }; this.publish({ submission: sent, stage: "pending" });
     try { writeTestnetLpSubmission(this.storage, sent, marker); } catch { this.publish({ message: "Copy the original hash now. Recovery storage could not be updated." }); }

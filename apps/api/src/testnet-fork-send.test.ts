@@ -75,3 +75,45 @@ it("checks an already-consumed recheck context against its original broadcast de
     expect(store.read(id).quoteExpiresAt).toBe("2026-09-30T20:27:10.000Z");
   }
 });
+
+it("sends the exact reviewed type-2 envelope on the guarded local transport", async () => {
+  const { sendReviewedForkTransaction } = await import("./testnet-fork-send");
+  const s = await setup(); const request = vi.fn<(args: { method: string; params?: readonly unknown[] }) => Promise<string>>().mockResolvedValue("0xhash"); const beforeWrite = vi.fn();
+  const origin = "http://127.0.0.1:8547";
+  const boundary = { transport: { type: "http", url: origin }, request,
+    async getChainId() { return 84532; }, async getClientVersion() { return "anvil/v1"; } };
+  const tx = { ...s.study.transaction, feeModel: "eip1559" as const,
+    maxFeePerGas: "20000000", maxPriorityFeePerGas: "1000000" };
+  await sendReviewedForkTransaction(boundary, origin, tx, beforeWrite);
+  expect(request).toHaveBeenCalledWith({ method: "eth_sendTransaction", params: [{
+    from: tx.from, to: tx.to, data: tx.data, value: "0x0", nonce: "0x7", gas: "0x2bf20",
+    chainId: "0x14a34", type: "0x2", maxFeePerGas: "0x1312d00", maxPriorityFeePerGas: "0xf4240",
+  }] });
+  expect(beforeWrite).toHaveBeenCalledTimes(1);
+});
+
+it("sends historical fees as explicit type 0 and rejects incomplete fee reviews before mutation", async () => {
+  const { sendReviewedForkTransaction } = await import("./testnet-fork-send");
+  const s = await setup(); const request = vi.fn<(args: { method: string; params?: readonly unknown[] }) => Promise<string>>().mockResolvedValue("0xhash"); const beforeWrite = vi.fn();
+  const origin = "http://127.0.0.1:8547";
+  const boundary = { transport: { type: "http", url: origin }, request,
+    async getChainId() { return 84532; }, async getClientVersion() { return "anvil/v1"; } };
+  await sendReviewedForkTransaction(boundary, origin, s.study.transaction, beforeWrite);
+  expect(request.mock.calls[0][0]).toMatchObject({ params: [{ type: "0x0", gasPrice: "0x1312d00" }] });
+  request.mockClear(); beforeWrite.mockClear();
+  await expect(sendReviewedForkTransaction(boundary, origin,
+    { ...s.study.transaction, feeModel: "eip1559" }, beforeWrite)).rejects.toThrow();
+  expect(request).not.toHaveBeenCalled(); expect(beforeWrite).not.toHaveBeenCalled();
+});
+
+it("rejects coupled fee fields that change or become partial at the final send boundary", async () => {
+  const s = await setup();
+  const tx = Object.assign(s.study.transaction, { feeModel: "eip1559" as const,
+    maxFeePerGas: "20000000", maxPriorityFeePerGas: "1000000" });
+  const final = await s.call();
+  tx.maxPriorityFeePerGas = "2000000";
+  expect(() => final()).toThrow();
+  tx.maxPriorityFeePerGas = "1000000";
+  Reflect.deleteProperty(tx, "maxFeePerGas");
+  await expect(s.call()).rejects.toThrow();
+});

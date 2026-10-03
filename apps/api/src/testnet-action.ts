@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { inspectTestnetSwapTransaction, parseTestnetSwapIntent, parseTestnetSwapQuote, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY as P, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
+  TESTNET_SWAP_POLICY as P, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
 import type { TestnetQuoteStore } from "./testnet-quote-store";
 import type { TestnetApprovalReader } from "./testnet-approval";
 import type { TestnetSwapPreparer } from "./testnet-swap-preparation";
@@ -19,7 +19,7 @@ const integer = (v: string) => /^(0|[1-9][0-9]{0,77})$/.test(v) && BigInt(v) < 2
 export interface TestnetActionInput {
   kind: "swap" | "approve" | "reset";
   intent: TestnetSwapIntent; quote: TestnetSwapQuote;
-  transaction: TestnetSwapTransaction & { nonce: string; gas: string; gasPrice: string };
+  transaction: TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
   blockNumber: string; blockHash: string; currentAllowance: string;
 }
 export interface TestnetActionContext extends TestnetActionInput {
@@ -32,7 +32,7 @@ const quoteIntent = (q: TestnetSwapQuote) => parseTestnetSwapIntent({ chainId: q
 function validateInput(value: TestnetActionInput, now: number): TestnetActionInput {
   try {
     const intent = parseTestnetSwapIntent(value.intent); const quote = parseTestnetSwapQuote(value.quote, now);
-    const tx = value.transaction;
+    const tx = value.transaction; validateTestnetFeeFields(tx);
     if (JSON.stringify(intent) !== JSON.stringify(quoteIntent(quote)) || !integer(value.blockNumber)
       || BigInt(value.blockNumber) < BigInt(quote.blockNumber) || !hash(value.blockHash)
       || (value.blockNumber === quote.blockNumber && !same(value.blockHash, quote.blockHash))

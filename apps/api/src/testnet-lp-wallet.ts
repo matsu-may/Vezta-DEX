@@ -6,7 +6,7 @@ import { TestnetLpError, lpAssert, lpSdkPool, lpSdkPosition, type BaseSepoliaLpS
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
 import { planTestnetLp } from "./testnet-lp-plan";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
-import { completeTestnetFeeBudget, planTestnetGas, TestnetFeeError } from "./testnet-fees";
+import { completeTestnetFeeBudget, planTestnetSourceGas, testnetGasFeeFields, TestnetFeeError } from "./testnet-fees";
 import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 export interface BaseSepoliaLpWalletSource extends BaseSepoliaLpSource, BaseSepoliaPreparationSource {
   simulateTestnetLp(transaction: TestnetLpTransaction, block: bigint): Promise<Hex>;
@@ -107,12 +107,12 @@ export class TestnetLpWallet {
         if(BigInt(balances.USDC)<BigInt(plan.amount0Desired)||BigInt(balances.WETH)<BigInt(plan.amount1Desired))reason="TESTNET_LP_TOKEN_BALANCE_LOW";
       }
       if(reason)return parseTestnetLpStudy({...base,reason},this.now());
-      const [estimate,price]=await Promise.all([s.estimateTestnetSwapGas(tx,b.number),s.getGasPrice()]);snapshot.fresh();
-      const gasPlan=planTestnetGas(estimate,price,base.approvalToken?"approval":"lp");
-      const fees=await s.getAdditionalFees(tx,nonce,gasPlan.gasLimit,gasPlan.gasPrice,b.number);snapshot.fresh();
+      const estimate=await s.estimateTestnetSwapGas(tx,b.number);snapshot.fresh();
+      const gasPlan=await planTestnetSourceGas(s,b.number,estimate,base.approvalToken?"approval":"lp");
+      const fees=await s.getAdditionalFees({...tx,...testnetGasFeeFields(gasPlan)},nonce,gasPlan.gasLimit,gasPlan.gasPrice,b.number);snapshot.fresh();
       const gas=completeTestnetFeeBudget(gasPlan,fees);
       if(BigInt(balances.ETH)<BigInt(gas.totalFeeBudget))return parseTestnetLpStudy({...base,gas,reason:"TESTNET_LP_TOTAL_BUDGET_LOW"},this.now());
-      const study={...base,status:"prepared" as const,reason:null,contextId:"00".repeat(24),gas,transaction:{...tx,nonce:nonce.toString(),gas:gas.gasLimit,gasPrice:gas.gasPrice}};
+      const study={...base,status:"prepared" as const,reason:null,contextId:"00".repeat(24),gas,transaction:{...tx,nonce:nonce.toString(),gas:gas.gasLimit,...testnetGasFeeFields(gasPlan)}};
       inspectTestnetLpTransaction(study,this.now());inspectLpSimulation(study,await s.simulateTestnetLp(study.transaction,b.number));
       await snapshot.stable();
       return this.store.issue(study,lpStateFingerprint({pool,position,allowances,nonce}));
@@ -127,11 +127,11 @@ export class TestnetLpWallet {
       lpAssert(b.number>=BigInt(original.blockNumber) && same(await s.getBlockHash(BigInt(original.blockNumber)),original.blockHash),"TESTNET_LP_BLOCK_CHANGED");
       lpAssert(lpStateFingerprint({pool,position,allowances,nonce})===context.state,"TESTNET_LP_STATE_CHANGED");
       const tx=original.transaction!;
-      const [estimate,price]=await Promise.all([s.estimateTestnetSwapGas({ ...tx,data:tx.data as Hex },b.number),s.getGasPrice()]);
-      lpAssert(typeof estimate === "bigint" && estimate >= 21000n && estimate <= BigInt(tx.gas) && typeof price === "bigint" && price > 0n && price <= BigInt(tx.gasPrice),"TESTNET_LP_FEES_CHANGED");
+      const [estimate,price]=await Promise.all([s.estimateTestnetSwapGas({ ...tx,data:tx.data as Hex },b.number),tx.feeModel==="eip1559"?s.getBlockBaseFee?.(b.number):s.getGasPrice()]);
+      lpAssert(typeof estimate === "bigint" && estimate >= 21000n && estimate <= BigInt(tx.gas) && typeof price === "bigint" && price >= 0n && (tx.feeModel==="eip1559"?price+BigInt(tx.maxPriorityFeePerGas!)<=BigInt(tx.maxFeePerGas!):price>0n && price<=BigInt(tx.gasPrice)),"TESTNET_LP_FEES_CHANGED");
       lpAssert(BigInt(balances.ETH) >= BigInt(original.gas!.totalFeeBudget) && BigInt(balances.USDC) >= BigInt(original.plan.amount0Desired) && BigInt(balances.WETH) >= BigInt(original.plan.amount1Desired),"TESTNET_LP_FUNDING_CHANGED");
       const fees=await s.getAdditionalFees({...tx,data:tx.data as Hex},nonce,BigInt(tx.gas),BigInt(tx.gasPrice),b.number);
-      completeTestnetFeeBudget({estimatedGas:BigInt(original.gas!.estimatedGas),gasLimit:BigInt(tx.gas),gasPrice:BigInt(tx.gasPrice)},fees);
+      completeTestnetFeeBudget({estimatedGas:BigInt(original.gas!.estimatedGas),gasLimit:BigInt(tx.gas),gasPrice:BigInt(tx.gasPrice),...(tx.feeModel==="eip1559"?{feeModel:tx.feeModel,maxFeePerGas:BigInt(tx.maxFeePerGas!),maxPriorityFeePerGas:BigInt(tx.maxPriorityFeePerGas!)}:{})},fees);
       lpAssert(fees.l1FeeUpperBound + fees.operatorFeeUpperBound <= BigInt(original.gas!.totalFeeBudget) - BigInt(original.gas!.l2FeeCeiling),"TESTNET_LP_FEES_CHANGED");
       inspectLpSimulation(original,await s.simulateTestnetLp(tx,b.number));await snapshot.stable();
       lpAssert(this.store.read(id).originalHash===null,"TESTNET_LP_CONTEXT_ATTEMPTED");

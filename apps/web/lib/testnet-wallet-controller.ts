@@ -2,7 +2,7 @@ import { OtherTestnetSubmissionError, requireNoOtherTestnetSubmission } from "./
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
-import { parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
+import { testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
   type TestnetWalletQuote, type TestnetWalletAction, type TestnetSubmission } from "./testnet-wallet-contracts";
 import { TESTNET_SUBMISSION_KEY, readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission,
@@ -157,7 +157,7 @@ export class TestnetWalletController {
       this.generationCheck(g); parseTestnetSwapQuote(original.quote, this.now()); require(this.executionAllowed());
       const tx = original.action.transaction;
       raw = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: tx.from, to: tx.to, data: tx.data,
-        chainId: toHex(P.chainId), value: "0x0", nonce: toHex(BigInt(tx.nonce)), gas: toHex(BigInt(tx.gas)), gasPrice: toHex(BigInt(tx.gasPrice)) }] });
+        chainId: toHex(P.chainId), value: "0x0", nonce: toHex(BigInt(tx.nonce)), gas: toHex(BigInt(tx.gas)), ...testnetRpcFeeFields(tx) }] });
     } catch (error) {
       if (error && typeof error === "object" && "code" in error && error.code === 4001) {
         clearTestnetSubmission(this.storage, original); this.publish({ submission: null });

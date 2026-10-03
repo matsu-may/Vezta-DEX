@@ -13,14 +13,17 @@ it("never prompts on load and shows all independent LP choices in read-only deve
   expect(screen.getByLabelText("Remove percentage")).toBeTruthy(); expect(screen.getByLabelText("Position NFT ID")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Study LP action" }).hasAttribute("disabled")).toBe(true);
 });
-it("shows spender, exact authorization, envelope and complete gas components before approval", async () => {
-  const { lpWalletFixture, LP_NOW } = await import("../lib/testnet-lp-wallet.test-helper"); const f = lpWalletFixture("approve"); vi.spyOn(Date,"now").mockReturnValue(LP_NOW);
+it.each([false, true])("shows spender, authorization and fee model before LP approval (dynamic=%s)", async dynamic => {
+  const { lpWalletFixture, LP_NOW } = await import("../lib/testnet-lp-wallet.test-helper"); const f = lpWalletFixture("approve");
+  if (dynamic) { const fees = { feeModel: "eip1559", maxFeePerGas: f.study.transaction!.gasPrice, maxPriorityFeePerGas: "1000000" }; Object.assign(f.study.transaction!, fees); Object.assign(f.study.gas!, fees); }
+  vi.spyOn(Date,"now").mockReturnValue(LP_NOW);
   Object.defineProperty(window,"ethereum",{configurable:true,value:{async request({method}:{method:string}){if(method==="eth_accounts"||method==="eth_requestAccounts")return[f.intent.wallet];if(method==="eth_chainId")return"0x14a34";if(method==="eth_getCode")return"0x";throw Error("unexpected");}}});
   vi.stubGlobal("navigator",{locks:{request:async(_key:unknown,_options:unknown,fn:(lock:unknown)=>Promise<void>)=>fn({})}});
   vi.stubGlobal("fetch",async()=>Response.json({study:f.study}));render(<TestnetLpWalletPanel executionEnabled={true}/>);
   fireEvent.click(await screen.findByRole("button",{name:"Connect Base Sepolia wallet"}));await screen.findByText(`Connected: ${f.intent.wallet}`);
   fireEvent.click(screen.getByRole("button",{name:"Study LP action"}));await screen.findByRole("heading",{name:"Review approve USDC"});
-  for(const label of ["Approval spender","Authorization in this action","Transaction target","Prepared nonce","Gas limit","Gas price","L1 fee upper bound","Operator fee upper bound","Native gas balance"])expect(screen.getByText(label)).toBeTruthy();
+  for(const label of ["Approval spender","Authorization in this action","Transaction target","Prepared nonce","Gas limit","Fee model",dynamic ? "Maximum fee per gas" : "Gas price","L1 fee upper bound","Operator fee upper bound","Native gas balance"])expect(screen.getByText(label)).toBeTruthy();
+  if (dynamic) { expect(screen.getByText("EIP-1559")).toBeTruthy(); expect(screen.getByText("Maximum priority fee per gas")).toBeTruthy(); expect(screen.queryByText("Gas price")).toBeNull(); }
 });
 it("does not claim an authorization after a reverted approval receipt", async () => {
   const {lpWalletFixture,LP_NOW,LP_HASH}=await import("../lib/testnet-lp-wallet.test-helper");const f=lpWalletFixture("approve");vi.spyOn(Date,"now").mockReturnValue(LP_NOW);

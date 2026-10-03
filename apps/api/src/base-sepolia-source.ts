@@ -170,7 +170,9 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
     },
     async simulateTestnetLp(transaction, blockNumber) {
       const result = await client.call({ account: transaction.from, to: transaction.to, data: transaction.data as `0x${string}`,
-        value: 0n, gas: BigInt(transaction.gas), gasPrice: BigInt(transaction.gasPrice), blockNumber });
+        value: 0n, gas: BigInt(transaction.gas), ...(transaction.feeModel === "eip1559"
+          ? { type: "eip1559" as const, maxFeePerGas: BigInt(transaction.maxFeePerGas!), maxPriorityFeePerGas: BigInt(transaction.maxPriorityFeePerGas!) }
+          : { type: "legacy" as const, gasPrice: BigInt(transaction.gasPrice) }), blockNumber });
       return result.data ?? "0x";
     },
     async simulateTestnetSwap(transaction, blockNumber) {
@@ -209,6 +211,21 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
         data: transaction.data, value: 0n, blockNumber });
     },
     getGasPrice() { return client.getGasPrice(); },
+    async getBlockBaseFee(blockNumber) {
+      const block = await client.getBlock({ blockNumber });
+      if (block.number !== blockNumber || typeof block.baseFeePerGas !== "bigint" || block.baseFeePerGas < 0n
+        || block.baseFeePerGas > 2000000000000n) throw new TestnetFeeError();
+      return block.baseFeePerGas;
+    },
+    async getEip1559Fees(blockNumber) {
+      const [block, priority] = await Promise.all([
+        client.getBlock({ blockNumber }), client.request({ method: "eth_maxPriorityFeePerGas" }),
+      ]);
+      const maxPriorityFeePerGas = BigInt(priority);
+      if (block.number !== blockNumber || typeof block.baseFeePerGas !== "bigint" || block.baseFeePerGas < 0n
+        || block.baseFeePerGas > 1000000000000n || maxPriorityFeePerGas <= 0n || maxPriorityFeePerGas > 2000000000000n) throw new TestnetFeeError();
+      return { baseFeePerGas: block.baseFeePerGas, maxPriorityFeePerGas };
+    },
     getTokenBalance(address, wallet, blockNumber) {
       return client.readContract({ address, abi: erc20Abi, functionName: "balanceOf", args: [wallet], blockNumber });
     },

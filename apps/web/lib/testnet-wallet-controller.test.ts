@@ -8,15 +8,15 @@ const hash = `0x${"11".repeat(32)}`;
 async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, enabled = true) {
   const r = await reviewedFixture(kind, reverse); const storage = memoryStorage(); const listeners = new Map<string, Set<(v: unknown) => void>>();
   let now = r.f.clock(); let reject = false; let lose = false; let grantEvent = false; let receiptFail = false; let paused: (() => void) | undefined;
-  const methods: string[] = []; let account = getAddress(r.f.request.intent.wallet); let chain = "0x14a34";
+  const methods: string[] = []; const sends: unknown[][] = []; let account = getAddress(r.f.request.intent.wallet); let chain = "0x14a34";
   const wallet = { on(event: string, fn: (v: unknown) => void) { if (!listeners.has(event)) listeners.set(event, new Set()); listeners.get(event)!.add(fn); },
     removeListener(event: string, fn: (v: unknown) => void) { listeners.get(event)?.delete(fn); },
-    async request({ method }: { method: string }) {
+    async request({ method, params }: { method: string; params?: unknown[] }) {
       methods.push(method); if (method === "eth_requestAccounts" && grantEvent) for (const fn of listeners.get("accountsChanged") || []) fn([account]);
       if (method === "eth_accounts" || method === "eth_requestAccounts") return [account];
       if (method === "eth_chainId") return chain;
       if (method === "eth_getCode") return "0x";
-      if (method === "eth_sendTransaction") { if (reject) throw { code: 4001 }; if (lose) throw new Error("private provider details");
+      if (method === "eth_sendTransaction") { sends.push(params!); if (reject) throw { code: 4001 }; if (lose) throw new Error("private provider details");
         if (paused) await new Promise<void>(resolve => { paused = resolve; }); return hash; }
       throw new Error("unexpected wallet method");
     } };
@@ -42,7 +42,7 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
   const make = (gate = enabled) => new TestnetWalletController(wallet, api, storage, () => now, coordination, () => gate);
   const controller = make();
   const reviewed = async () => { await controller.connect(); await controller.quote(r.f.request.intent); await controller.review(kind === "swap" ? "swap" : "approval"); };
-  return { ...r, controller, make, storage, api, checked, quoted, methods, reviewed,
+  return { ...r, controller, make, storage, api, checked, quoted, methods, sends, reviewed,
     emitGrant: () => { grantEvent = true; }, failReceipt: () => { receiptFail = true; },
     expire: () => { now += 30000; }, reject: () => { reject = true; }, lose: () => { lose = true; },
     change: (event: string) => { if (event === "accountsChanged") account = "0x1111111111111111111111111111111111111111";
@@ -186,4 +186,27 @@ it("LP recovery cannot prevent checking an already submitted original swap", asy
   s.storage.setItem("vezta-dex:base-sepolia-lp-submission:v1", "corrupt");
   await s.controller.observe(); expect(s.controller.snapshot().stage).toBe("confirmed");
   expect(s.methods.filter(m => m === "eth_sendTransaction")).toHaveLength(1);
+});
+
+it("sends the exact explicit reviewed fee envelope and preserves it through reload", async () => {
+  for (const dynamic of [false, true]) {
+    const s = await setup();
+    if (dynamic) {
+      const fees = { feeModel: "eip1559", maxFeePerGas: s.checked.action!.transaction.gasPrice, maxPriorityFeePerGas: "1000000" };
+      Object.assign(s.checked.action!.transaction, fees); Object.assign(s.checked.study.transaction!, fees); Object.assign(s.checked.study.gas!, fees);
+    }
+    await s.reviewed(); await s.controller.submit();
+    expect(s.controller.snapshot().stage).toBe("pending");
+    expect(s.sends).toHaveLength(1);
+    const sent = s.sends[0][0] as Record<string, unknown>;
+    const tx = s.checked.action!.transaction;
+    expect(sent).toEqual({ from: tx.from, to: tx.to, data: tx.data, chainId: "0x14a34", value: "0x0",
+      nonce: `0x${BigInt(tx.nonce).toString(16)}`, gas: `0x${BigInt(tx.gas).toString(16)}`,
+      ...(dynamic ? { type: "0x2", maxFeePerGas: `0x${BigInt(tx.gasPrice).toString(16)}`, maxPriorityFeePerGas: "0xf4240" }
+        : { type: "0x0", gasPrice: `0x${BigInt(tx.gasPrice).toString(16)}` }) });
+    expect(sent.type).toBe(dynamic ? "0x2" : "0x0");
+    if (dynamic) { expect(sent.maxPriorityFeePerGas).toBe("0xf4240"); expect(sent.maxFeePerGas).toBe(`0x${BigInt(s.checked.action!.transaction.gasPrice).toString(16)}`); expect(sent).not.toHaveProperty("gasPrice"); }
+    else { expect(sent).toHaveProperty("gasPrice"); expect(sent).not.toHaveProperty("maxFeePerGas"); }
+    expect(s.make().snapshot().submission).toEqual(s.controller.snapshot().submission);
+  }
 });

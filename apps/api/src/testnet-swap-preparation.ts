@@ -1,12 +1,12 @@
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
-  inspectTestnetSwapTransaction, planTestnetTokenApproval, type TestnetSwapTransaction } from "@vezta-dex/core";
+  inspectTestnetSwapTransaction, planTestnetTokenApproval, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
 import { parseTestnetApprovalRequest } from "./testnet-approval";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
-import { planTestnetGas, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
+import { planTestnetSourceGas, testnetGasFeeFields, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
 export interface BaseSepoliaPreparationSource extends BaseSepoliaWalletSource, BaseSepoliaSwapSource, TestnetFeeSource {
   simulateTestnetSwap(transaction: TestnetSwapTransaction, block: bigint): Promise<Hex>;
@@ -29,7 +29,7 @@ const uint = (v: bigint, bits = 256) => typeof v === "bigint" && v >= 0n && v < 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const MIN_SQRT = 4295128739n;
 const MAX_SQRT = 1461446703485210103287273052203988822378723970342n;
-type UnsignedSwap = TestnetSwapTransaction & { nonce: string; gas: string; gasPrice: string };
+type UnsignedSwap = TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
 
 export class TestnetSwapPreparer {
   private busy = false;
@@ -144,16 +144,16 @@ export class TestnetSwapPreparer {
         return fail("TESTNET_SWAP_SIMULATION_FAILED");
       }
       if (output !== q.amountOut || output < BigInt(quote.minimumAmountOut)) return fail("TESTNET_SWAP_SIMULATION_FAILED");
-      const [estimate, price] = await Promise.all([source.estimateTestnetSwapGas(tx, block.number), source.getGasPrice()]);
+      const estimate = await source.estimateTestnetSwapGas(tx, block.number);
       fresh();
       let planned;
-      try { planned = planTestnetGas(estimate, price, "swap"); } catch { return fail("TESTNET_SWAP_GAS_INVALID"); }
-      const additional = await source.getAdditionalFees(tx, nonce, planned.gasLimit, planned.gasPrice, block.number);
+      try { planned = await planTestnetSourceGas(source, block.number, estimate, "swap"); } catch { return fail("TESTNET_SWAP_GAS_INVALID"); }
+      const additional = await source.getAdditionalFees({ ...tx, ...testnetGasFeeFields(planned) }, nonce, planned.gasLimit, planned.gasPrice, block.number);
       fresh(); gas = completeTestnetFeeBudget(planned, additional); simulation = { status: "success", amountOut: output.toString() };
       funding.l2BudgetCovered = eth >= BigInt(gas.l2FeeCeiling); funding.totalBudgetCovered = eth >= BigInt(gas.totalFeeBudget);
       if (!funding.l2BudgetCovered) reason = "TESTNET_L2_BUDGET_LOW";
       else if (!funding.totalBudgetCovered) reason = "TESTNET_TOTAL_BUDGET_LOW";
-      else { status = "unsigned-prepared"; transaction = { ...tx, nonce: nonce.toString(), gas: gas.gasLimit, gasPrice: gas.gasPrice }; }
+      else { status = "unsigned-prepared"; transaction = { ...tx, nonce: nonce.toString(), gas: gas.gasLimit, ...testnetGasFeeFields(planned) }; }
     }
     const [stateHash, quoteHash, finalPending, finalAllowance] = await Promise.all([
       source.getBlockHash(block.number), source.getBlockHash(BigInt(quote.blockNumber)),

@@ -150,6 +150,14 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 Prepare pinned artifacts, deployment probes, quote/state/preparation logic, controller/recovery, SDK LP math, disposable-fork fixtures, mocked browser tests, desktop UI and local controls. Stop owner-dependent checks at wallet signatures, public-testnet funding/receipts or unavailable host services. Do not mark those gates passed from mocks or send a wallet transaction on the owner's behalf.
 
+## Required checkpoint after public desktop demo
+
+Before resuming broader DEX implementation, review this roadmap again against actual accepted swap/LP hashes, wallet compatibility, remaining UX/data gaps and product priorities. Do not treat demo completion as mainnet approval or complete multi-chain execution.
+
+Owner accepts selective official Uniswap reuse: pinned SDK packages for application integration; clone source at pinned commits only for protocol learning, deployment/ABI/calldata comparison, debugging and tests. Add v4-core/v4-periphery when an actual v4/hook adapter needs them. Full AMM fork/deployment is a separate decision requiring its own scope/security review. Preserve the v3 demo and its qualified dependencies; cloning does not resolve wallet transaction compatibility.
+
+Current pre-acceptance correction: [standard-wallet EIP-1559 design](../specs/2026-10-03-testnet-eip1559-design.md) and [implementation plan](2026-10-03-testnet-eip1559.md). New direct type-2 support is separate from wrapped EIP-7702/relayer support. Preserve historical unsupported approvals; disabling wallet settings affects future requests only.
+
 ## Later milestones: complete the broader DEX requirement
 
 1. **Mobile polish:** after the functional desktop demo, complete responsive/accessibility/browser acceptance as requested.

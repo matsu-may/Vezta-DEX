@@ -6,17 +6,17 @@ import { TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
 import { memoryStorage } from "./testnet-wallet.test-helper";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 async function setup(kind: Parameters<typeof lpWalletFixture>[0] = "mint", percentage: 25|50|100 = 25, gate = true) {
-  const f = lpWalletFixture(kind, percentage); const storage = memoryStorage(); const methods: string[] = []; const events = new Map<string,(v: unknown)=>void>();
+  const f = lpWalletFixture(kind, percentage); const storage = memoryStorage(); const methods: string[] = []; const sends: unknown[][] = []; const events = new Map<string,(v: unknown)=>void>();
   let now = LP_NOW; let reject = false; let lose = false; let code = "0x"; let chain = "0x14a34"; let owner = f.intent.wallet; let receiptFailure = false;
-  const wallet = { on(e: string, fn: (v: unknown)=>void) { events.set(e,fn); }, removeListener() {}, async request({method}: {method:string}) {
+  const wallet = { on(e: string, fn: (v: unknown)=>void) { events.set(e,fn); }, removeListener() {}, async request({method,params}: {method:string;params?:unknown[]}) {
     methods.push(method); if (method === "eth_accounts" || method === "eth_requestAccounts") return [owner]; if (method === "eth_chainId") return chain; if (method === "eth_getCode") return code;
-    if (method === "eth_sendTransaction") { expect(storage.getItem(TESTNET_LP_SUBMISSION_KEY)).not.toBeNull(); if (reject) throw {code:4001}; if (lose) throw Error("unknown"); return LP_HASH; } throw Error("unexpected");
+    if (method === "eth_sendTransaction") { sends.push(params!); expect(storage.getItem(TESTNET_LP_SUBMISSION_KEY)).not.toBeNull(); if (reject) throw {code:4001}; if (lose) throw Error("unknown"); return LP_HASH; } throw Error("unexpected");
   } };
   const api: TestnetLpWalletApi = { async call(action) { if (action === "receipt") { if (receiptFailure) throw new TestnetBrowserError(503,"TESTNET_LP_TIMEOUT"); return {observation:{...f.observation, observedAt:new Date(now).toISOString()}}; } return {study:f.study}; } };
   const coordination = { async run(fn:()=>Promise<void>) { await fn(); } };
   const make = () => new TestnetLpWalletController(wallet,api,storage,()=>now,coordination,()=>gate); const controller = make();
   const reviewed = async () => { await controller.connect(); await controller.study(f.intent); };
-  return { f,controller,make,storage,methods,api,reviewed,expire:()=>{now+=120000;},reject:()=>{reject=true;},lose:()=>{lose=true;},failReceipt:()=>{receiptFailure=true;},
+  return { f,controller,make,storage,methods,sends,api,reviewed,expire:()=>{now+=120000;},reject:()=>{reject=true;},lose:()=>{lose=true;},failReceipt:()=>{receiptFailure=true;},
     change:()=>{owner="0x1111111111111111111111111111111111111111";events.get("accountsChanged")?.([owner]);},wrongChain:()=>{chain="0x89";},smart:()=>{code="0xef0100";} };
 }
 it("explicitly studies, rechecks unchanged legacy calls and observes every operation independently", async () => {
@@ -61,4 +61,28 @@ it("blocks wallets with archived unresolved swap approvals before a new LP study
   const {reviewedFixture}=await import("./testnet-wallet.test-helper");const {TESTNET_MANUAL_REVIEW_KEY}=await import("./testnet-wallet-storage");
   const old=await reviewedFixture("approve");const s=await setup();const record={version:1,intent:old.f.request.intent,quote:old.q.quote,action:old.checked.action,attemptedAt:old.f.clock(),hash:LP_HASH};
   s.storage.setItem(TESTNET_MANUAL_REVIEW_KEY,JSON.stringify([record]));await s.controller.connect();expect(s.controller.snapshot().account).toBeNull();expect(s.controller.snapshot().message).toContain("archived unresolved");expect(s.methods).not.toContain("eth_sendTransaction");
+});
+
+it("sends explicit legacy or EIP-1559 LP envelopes and retains all recovery fields", async () => {
+  for (const dynamic of [false, true]) {
+    const s = await setup();
+    if (dynamic) { const fees = { feeModel: "eip1559", maxFeePerGas: s.f.study.transaction!.gasPrice, maxPriorityFeePerGas: "1000000" }; Object.assign(s.f.study.transaction!, fees); Object.assign(s.f.study.gas!, fees); }
+    await s.reviewed(); await s.controller.submit(); expect(s.controller.snapshot().stage).toBe("pending"); expect(s.sends).toHaveLength(1);
+    const sent = s.sends[0][0] as Record<string, unknown>;
+    const tx = s.f.study.transaction!;
+    expect(sent).toEqual({ from: tx.from, to: tx.to, data: tx.data, chainId: "0x14a34", value: "0x0", nonce: "0x7", gas: "0x1d4c0",
+      ...(dynamic ? { type: "0x2", maxFeePerGas: "0x1312d00", maxPriorityFeePerGas: "0xf4240" }
+        : { type: "0x0", gasPrice: "0x1312d00" }) });
+    expect(sent.type).toBe(dynamic ? "0x2" : "0x0");
+    if (dynamic) { expect(sent.maxFeePerGas).toBe("0x1312d00"); expect(sent.maxPriorityFeePerGas).toBe("0xf4240"); expect(sent).not.toHaveProperty("gasPrice"); }
+    else { expect(sent.gasPrice).toBe("0x1312d00"); expect(sent).not.toHaveProperty("maxFeePerGas"); }
+    expect(s.make().snapshot().submission).toEqual(s.controller.snapshot().submission);
+  }
+});
+it("blocks mutation of the original LP priority cap on recheck", async () => {
+  const s = await setup(); const fees = { feeModel: "eip1559", maxFeePerGas: s.f.study.transaction!.gasPrice, maxPriorityFeePerGas: "1000000" };
+  Object.assign(s.f.study.transaction!, fees); Object.assign(s.f.study.gas!, fees); await s.reviewed();
+  expect(s.controller.snapshot().stage).toBe("review");
+  Object.assign(s.f.study.transaction!, { maxPriorityFeePerGas: "2" }); Object.assign(s.f.study.gas!, { maxPriorityFeePerGas: "2" });
+  await s.controller.submit(); expect(s.sends).toHaveLength(0); expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
 });

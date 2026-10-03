@@ -1,5 +1,6 @@
 import { decodeEventLog, erc20Abi, isAddress, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, type TestnetFeeFields } from "@vezta-dex/core";
+import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
 
 export class TestnetForkError extends Error {
   constructor(readonly code: string) { super(code); }
@@ -40,10 +41,12 @@ export async function guardedForkRequest(client: ForkClientBoundary, origin: str
 export interface TestnetForkReceiptEvidence {
   kind: "swap" | "approve" | "reset";
   tokenIn: string; tokenOut: string; amountIn: string; minimumAmountOut: string;
-  transaction: { chainId: 84532; from: string; to: string; data: Hex; value: "0"; nonce: string; gas: string; gasPrice: string };
-  hash: Hex; afterBlock: bigint; canonical: { number: bigint; hash: string | null }; latestBlock: bigint;
+  transaction: { chainId: 84532; from: string; to: string; data: Hex; value: "0"; nonce: string; gas: string } & TestnetFeeFields;
+  hash: Hex; afterBlock: bigint; canonical: { number: bigint; hash: string | null; baseFeePerGas?: bigint | null }; latestBlock: bigint;
   tx: { hash: string; from: string; to: string | null; input: Hex; value: bigint; nonce: number;
-    chainId?: number; blockNumber: bigint | null; blockHash: string | null; gas: bigint; gasPrice?: bigint };
+    chainId?: number; blockNumber: bigint | null; blockHash: string | null; gas: bigint; type: string;
+    gasPrice?: bigint | null; maxFeePerGas?: bigint | null; maxPriorityFeePerGas?: bigint | null;
+    accessList?: readonly unknown[] | null; authorizationList?: readonly unknown[] | null };
   receipt: { transactionHash: string; from: string; to: string | null; blockNumber: bigint; blockHash: string;
     status: "success" | "reverted"; gasUsed: bigint; effectiveGasPrice: bigint;
     logs: { address: string; topics: readonly Hex[]; data: Hex; removed?: boolean;
@@ -64,12 +67,12 @@ export function reviewTestnetForkReceipt(e: TestnetForkReceiptEvidence) {
     && same(tx.from, wallet) && same(r.from, wallet) && same(tx.to, expected.to) && same(r.to, expected.to)
     && same(expected.to, e.kind === "swap" ? P.router : e.tokenIn)
     && same(tx.input, expected.data) && tx.value === 0n && Number.isSafeInteger(tx.nonce) && tx.nonce >= 0
-    && String(tx.nonce) === expected.nonce && tx.gas === BigInt(expected.gas) && tx.gasPrice === BigInt(expected.gasPrice)
+    && String(tx.nonce) === expected.nonce && tx.gas === BigInt(expected.gas) && matchesTestnetFeeEnvelope(tx, expected)
     && same(r.transactionHash, e.hash) && same(tx.blockHash, r.blockHash) && tx.blockNumber === r.blockNumber
     && e.canonical.number === r.blockNumber && same(e.canonical.hash, r.blockHash)
     && uint(e.afterBlock) && r.blockNumber > e.afterBlock && e.latestBlock >= r.blockNumber + 1n
     && r.status === "success" && uint(r.gasUsed) && r.gasUsed > 0n && r.gasUsed <= BigInt(expected.gas)
-    && uint(r.effectiveGasPrice) && r.effectiveGasPrice > 0n && r.effectiveGasPrice <= BigInt(expected.gasPrice)
+    && uint(r.effectiveGasPrice) && matchesTestnetReceiptGasPrice(r.effectiveGasPrice, expected, e.canonical.baseFeePerGas ?? undefined)
     && Object.values(e.before).every(uint) && Object.values(e.after).every(uint), "FORK_RECEIPT_INVALID");
   let input = 0n; let output = 0n; let approvals = 0;
   const approvalAmount = e.kind === "reset" ? 0n : amount;

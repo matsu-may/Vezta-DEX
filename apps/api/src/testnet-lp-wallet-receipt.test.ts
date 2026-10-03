@@ -18,7 +18,7 @@ const poolEvents=parseAbi([
 ]);
 const erc20=parseAbi(["event Transfer(address indexed from,address indexed to,uint256 value)","event Approval(address indexed owner,address indexed spender,uint256 value)"]);
 const hash=`0x${"cc".repeat(32)}` as Hex,rhash=`0x${"dd".repeat(32)}` as Hex,hhash=`0x${"ee".repeat(32)}` as Hex,zero="0x0000000000000000000000000000000000000000";
-async function fixture(kind:"mint"|"increase"|"decrease"|"collect"|"burn"|"approve"|"reset") {
+async function fixture(kind:"mint"|"increase"|"decrease"|"collect"|"burn"|"approve"|"reset",eip1559=false) {
   const f=await testnetLpWalletFixture(kind),p=f.study.plan,t=f.study.transaction!,logs:TestnetObservedReceipt["logs"]=[];
   const log=(address:string,topics:ReturnType<typeof encodeEventTopics>,data:Hex)=>logs.push({address,topics:topics as Hex[],data,blockNumber:125n,blockHash:rhash,transactionHash:hash});
   const liquidity=kind==="decrease"?BigInt(p.liquidity):1000n;
@@ -43,9 +43,15 @@ async function fixture(kind:"mint"|"increase"|"decrease"|"collect"|"burn"|"appro
       if(kind!=="decrease"){tokenTransfer(C.USDC.address,f.study.intent.wallet,P.pool,amount0);tokenTransfer(C.WETH.address,f.study.intent.wallet,P.pool,amount1);}
     }
   }
-  const tx:TestnetObservedTransaction={hash,type:"legacy",chainId:84532,from:t.from,to:t.to,input:t.data as Hex,value:0n,nonce:Number(t.nonce),gas:BigInt(t.gas),gasPrice:BigInt(t.gasPrice),blockNumber:125n,blockHash:rhash};
-  const receipt:TestnetObservedReceipt={transactionHash:hash,from:t.from,to:t.to,blockNumber:125n,blockHash:rhash,status:"success",gasUsed:100000n,effectiveGasPrice:BigInt(t.gasPrice),logs};
-  const source:BaseSepoliaLpReceiptSource={...f.source,async getLatestBlock(){return {number:126n,timestamp:1790800004n,hash:hhash};},
+  if(eip1559){
+    Object.assign(t,{feeModel:"eip1559",maxFeePerGas:t.gasPrice,maxPriorityFeePerGas:"1000000"});
+    Object.assign(f.study.gas!,{feeModel:"eip1559",maxFeePerGas:t.gasPrice,maxPriorityFeePerGas:"1000000"});
+    const context=f.store.read(f.study.contextId!);
+    const issued=f.store.issue(f.study,context.state);Object.assign(f.study,issued);
+  }
+  const tx:TestnetObservedTransaction={hash,type:eip1559?"eip1559":"legacy",...(eip1559?{maxFeePerGas:BigInt(t.gasPrice),maxPriorityFeePerGas:1000000n,accessList:[]}:{}),chainId:84532,from:t.from,to:t.to,input:t.data as Hex,value:0n,nonce:Number(t.nonce),gas:BigInt(t.gas),gasPrice:BigInt(t.gasPrice),blockNumber:125n,blockHash:rhash};
+  const receipt:TestnetObservedReceipt={transactionHash:hash,from:t.from,to:t.to,blockNumber:125n,blockHash:rhash,status:"success",gasUsed:100000n,effectiveGasPrice:eip1559?6000000n:BigInt(t.gasPrice),logs};
+  const source:BaseSepoliaLpReceiptSource={...f.source,async getBlockBaseFee(block){expect(block).toBe(125n);return 5000000n;},async getLatestBlock(){return {number:126n,timestamp:1790800004n,hash:hhash};},
     async getBlockHash(block){return block===125n?rhash:block===126n?hhash:f.study.blockHash as Hex;},async getTransaction(){return tx;},async getReceipt(){return receipt;},
     async getPositionOwnerOrNull(){return kind==="burn"?null:f.study.intent.wallet;},
     async getTokenAllowance(token){return kind==="reset"?0n:token.toLowerCase()===C.USDC.address.toLowerCase()?BigInt(p.amount0Cap):BigInt(p.amount1Cap);},
@@ -89,4 +95,13 @@ it("requires two confirmations and verifies canonical reverted receipts",async()
   expect(await f.reader.observe(f.query)).toMatchObject({status:"confirming",verified:false,confirmations:"1"});
   f.source.getLatestBlock=async()=>({number:126n,timestamp:1790800004n,hash:hhash});f.receipt.status="reverted";f.receipt.logs=[];
   expect(await f.reader.observe(f.query)).toMatchObject({status:"reverted",verified:true,amount0:"0",amount1:"0"});
+});
+
+it("verifies type-2 LP lifecycle and cap-bound receipt fees",async()=>{
+  for(const kind of ["approve","reset","mint","increase","decrease","collect","burn"] as const){
+    const f=await fixture(kind,true);
+    expect(await f.reader.observe(f.query)).toMatchObject({status:"confirmed",verified:true});
+    f.receipt.effectiveGasPrice=BigInt(f.study.transaction!.gasPrice);
+    expect(await f.reader.observe(f.query)).toMatchObject({status:"unverified",diagnostic:"receipt-mismatch",verified:false});
+  }
 });

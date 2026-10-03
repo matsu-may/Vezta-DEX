@@ -18,7 +18,7 @@ function evidence(): TestnetForkReceiptEvidence {
     amountIn: "1000000", minimumAmountOut: "995", transaction, hash,
     afterBlock: 123n, canonical: { number: 124n, hash: blockHash }, latestBlock: 125n,
     tx: { hash, from: wallet, to: P.router, input: "0x1234" as Hex, value: 0n,
-      nonce: 7, chainId: 84532, blockNumber: 124n, blockHash, gas: 180000n, gasPrice: 20000000n },
+      nonce: 7, chainId: 84532, blockNumber: 124n, blockHash, gas: 180000n, type: "legacy", gasPrice: 20000000n },
     receipt: { transactionHash: hash, from: wallet, to: P.router, blockNumber: 124n, blockHash,
       status: "success" as "success" | "reverted", gasUsed: 100000n, effectiveGasPrice: 20000000n,
       logs: [log(C.USDC.address, wallet, P.pool, 1000000n), log(C.WETH.address, P.pool, wallet, 1000n)] },
@@ -101,4 +101,46 @@ it.each(["approve", "reset"] as const)("requires original Approval event and pin
   expect(reviewTestnetForkReceipt(e)).toMatchObject({ verified: true, amountIn: "0", amountOut: "0" });
   e.after.allowance = amount + 1n;
   expect(() => reviewTestnetForkReceipt(e)).toThrow();
+});
+
+function eip1559Evidence(): TestnetForkReceiptEvidence {
+  const e = evidence();
+  e.transaction = { ...e.transaction, feeModel: "eip1559", maxFeePerGas: "20000000", maxPriorityFeePerGas: "1000000" };
+  Object.assign(e.tx, { type: "eip1559", maxFeePerGas: 20000000n, maxPriorityFeePerGas: 1000000n, gasPrice: 11000000n });
+  Object.assign(e.canonical, { baseFeePerGas: 10000000n });
+  e.receipt.effectiveGasPrice = 11000000n;
+  e.after.native = e.before.native - 1100000000000n;
+  return e;
+}
+
+it("verifies original type-2 caps against the receipt block's effective price below the ceiling", async () => {
+  const { reviewTestnetForkReceipt } = await import("./testnet-fork");
+  expect(reviewTestnetForkReceipt(eip1559Evidence())).toMatchObject({ verified: true, l2GasCost: "1100000000000" });
+  const capped = eip1559Evidence(); Object.assign(capped.canonical, { baseFeePerGas: 19500000n });
+  capped.receipt.effectiveGasPrice = 20000000n; capped.after.native = capped.before.native - 2000000000000n;
+  expect(reviewTestnetForkReceipt(capped)).toMatchObject({ verified: true });
+});
+
+it("rejects different fee caps, missing base fee, wrong effective price and unsupported envelopes", async () => {
+  const { reviewTestnetForkReceipt } = await import("./testnet-fork");
+  for (const change of ["max", "priority", "base", "effective", "legacy", "wrapped", "access-list", "authorization"]) {
+    const e = eip1559Evidence();
+    if (change === "max") Object.assign(e.tx, { maxFeePerGas: 21000000n });
+    if (change === "priority") Object.assign(e.tx, { maxPriorityFeePerGas: 2000000n });
+    if (change === "base") Reflect.deleteProperty(e.canonical, "baseFeePerGas");
+    if (change === "effective") { e.receipt.effectiveGasPrice = 10000000n; e.after.native = e.before.native - 1000000000000n; }
+    if (change === "legacy") Object.assign(e.tx, { type: "legacy", gasPrice: 20000000n });
+    if (change === "wrapped") Object.assign(e.tx, { type: "eip7702" });
+    if (change === "access-list") Object.assign(e.tx, { accessList: [{ address: wallet, storageKeys: [] }] });
+    if (change === "authorization") Object.assign(e.tx, { authorizationList: [{}] });
+    expect(() => reviewTestnetForkReceipt(e)).toThrow();
+  }
+});
+
+it("requires exact historical gas price and rejects type-2 conversion of a legacy review", async () => {
+  const { reviewTestnetForkReceipt } = await import("./testnet-fork");
+  const e = evidence(); e.receipt.effectiveGasPrice = 19000000n; e.after.native = e.before.native - 1900000000000n;
+  expect(() => reviewTestnetForkReceipt(e)).toThrow();
+  const converted = evidence(); Object.assign(converted.tx, { type: "eip1559", maxFeePerGas: 20000000n, maxPriorityFeePerGas: 1000000n });
+  expect(() => reviewTestnetForkReceipt(converted)).toThrow();
 });

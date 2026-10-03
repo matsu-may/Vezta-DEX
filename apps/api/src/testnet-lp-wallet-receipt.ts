@@ -1,3 +1,4 @@
+import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
 import { decodeEventLog, erc20Abi, parseAbi, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpReceiptRequestSchema, parseTestnetLpReceipt,
   type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
@@ -119,16 +120,17 @@ export class TestnetLpWalletReceiptReader {
     const [tx,r]=await Promise.all([s.getTransaction(hash),s.getReceipt(hash)]);fresh();
     if(!tx)return await stable()?result(r?"unverified":"unknown",r?"transaction-unavailable":null):result("reorged");
     const expected=study.transaction!;
-    if(tx.type!=="legacy")return result("unverified","unsupported-transaction-type");
+    if(tx.type!=="legacy"&&tx.type!=="eip1559")return result("unverified","unsupported-transaction-type");
     if(!same(tx.hash,hash)||tx.chainId!==84532||!same(tx.from,expected.from)||!same(tx.to,expected.to)||!same(tx.input,expected.data)||tx.value!==0n
-      ||!Number.isSafeInteger(tx.nonce)||String(tx.nonce)!==expected.nonce||tx.gas!==BigInt(expected.gas)||tx.gasPrice!==BigInt(expected.gasPrice))return result("unverified","transaction-mismatch");
+      ||!Number.isSafeInteger(tx.nonce)||String(tx.nonce)!==expected.nonce||tx.gas!==BigInt(expected.gas)||!matchesTestnetFeeEnvelope(tx,expected))return result("unverified","transaction-mismatch");
     // A typo or unknown candidate cannot poison recovery. Bind only a verified original envelope.
     if(!await stable())return result("reorged");
     this.store.bindHash(study.contextId!,hash);
     if(!r)return result("pending");
+    const receiptBaseFee=expected.feeModel==="eip1559"?await s.getBlockBaseFee?.(r.blockNumber):undefined;fresh();
     if(!same(r.transactionHash,hash)||!same(r.from,expected.from)||!same(r.to,expected.to)||tx.blockNumber!==r.blockNumber||!same(tx.blockHash,r.blockHash)
       ||r.blockNumber<=BigInt(study.blockNumber)||r.blockNumber>head.number||!/^0x[a-fA-F0-9]{64}$/.test(r.blockHash)||BigInt(r.blockHash)===0n
-      ||!uint(r.gasUsed)||r.gasUsed===0n||r.gasUsed>BigInt(expected.gas)||r.effectiveGasPrice!==BigInt(expected.gasPrice)||r.logs.length>128)return result("unverified","receipt-mismatch");
+      ||!uint(r.gasUsed)||r.gasUsed===0n||r.gasUsed>BigInt(expected.gas)||!matchesTestnetReceiptGasPrice(r.effectiveGasPrice,expected,receiptBaseFee)||r.logs.length>128)return result("unverified","receipt-mismatch");
     if(!same(await s.getBlockHash(r.blockNumber),r.blockHash)||!await stable())return result("reorged");
     base.receiptBlockNumber=r.blockNumber.toString();base.receiptBlockHash=r.blockHash;base.confirmations=(head.number-r.blockNumber+1n).toString();
     if(BigInt(base.confirmations)<2n)return result("confirming");
