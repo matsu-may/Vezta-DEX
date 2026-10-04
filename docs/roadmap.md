@@ -12,14 +12,17 @@ in the [UI session report](research/2026-10-04-demo-ui-refresh.md).
 The owner also confirmed header wallet connection. The approved compact
 Swap/Explore/Positions layout and official MetaMask icon are implemented in the
 [compact UI follow-up](research/2026-10-04-compact-demo-ui.md).
-Public hosting is the next separate step: current proxies, execution permissions
-and recovery storage are local-only. See [Vercel readiness](research/2026-10-04-vercel-readiness.md).
+Public hosting is the next separate step. Hosted proxies, guarded execution and
+persistent recovery storage are now prepared; actual hosting qualification remains
+open. See the [preparation checkpoint](research/2026-10-04-hosted-testnet-preparation.md).
 
 **Hosting follow-up, 2026-10-04:** code is published on GitHub, `main` is the
 local/default branch and initial remote CI passed. Follow the
 [six-phase Vercel deployment plan](superpowers/plans/2026-10-04-hosted-testnet-vercel.md)
 for hosted origins/auth, HTTPS reads, persistent API packaging, guarded wallet
-actions, staging and hosted acceptance. No hosting deployment is claimed yet.
+actions, staging and hosted acceptance. Use the [Vercel + DigitalOcean runbook](deployment/vercel-digitalocean.md)
+for account/DNS setup, read-only deployment, writes opt-in and rollback.
+No hosting deployment is claimed yet.
 
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 

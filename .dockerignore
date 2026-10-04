@@ -1,0 +1,13 @@
+**/node_modules
+**/.next
+**/dist
+**/coverage
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+.git
+.local-evidence
+.superpowers
+.playwright-cli
+docs
+deploy/.env

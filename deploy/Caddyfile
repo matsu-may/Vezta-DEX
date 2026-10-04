@@ -1,0 +1,15 @@
+{$DEX_API_HOST} {
+	request_body {
+		max_size 4KB
+	}
+	header {
+		X-Content-Type-Options nosniff
+		-Server
+	}
+	reverse_proxy api:3021 {
+		transport http {
+			dial_timeout 5s
+			response_header_timeout 60s
+		}
+	}
+}

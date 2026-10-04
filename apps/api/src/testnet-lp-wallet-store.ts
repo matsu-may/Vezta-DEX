@@ -18,9 +18,13 @@ export class TestnetLpWalletStore {
       const stat = lstatSync(directory); lpAssert(stat.isDirectory() && !stat.isSymbolicLink() && (stat.mode & 0o077) === 0,"TESTNET_LP_STORAGE_UNAVAILABLE");
       const names = readdirSync(directory); lpAssert(names.length <= 256,"TESTNET_LP_STORAGE_UNAVAILABLE");
       for (const name of names) {
-        lpAssert(/^[a-f0-9]{48}\.json$/.test(name),"TESTNET_LP_STORAGE_UNAVAILABLE");
+        const temporary = /^[a-f0-9]{48}\.[a-f0-9]{16}\.tmp$/.test(name);
+        lpAssert(temporary || /^[a-f0-9]{48}\.json$/.test(name),"TESTNET_LP_STORAGE_UNAVAILABLE");
         const file = join(directory,name), s = lstatSync(file);
         lpAssert(s.isFile() && !s.isSymbolicLink() && (s.mode & 0o777) === 0o600 && s.size <= 32768,"TESTNET_LP_STORAGE_UNAVAILABLE");
+        // Never returned to a caller: discard only validated interrupted writes.
+        // The last committed JSON remains the source for original-hash recovery.
+        if (temporary) { unlinkSync(file); continue; }
         const entry = schema.parse(JSON.parse(readFileSync(file,"utf8")));
         lpAssert(entry.study.contextId === name.slice(0,48) && entry.study.status === "prepared"
           && entry.trackingExpiresAt === entry.issuedAt + 86400000 && entry.issuedAt <= this.now() + 10000
@@ -46,7 +50,9 @@ export class TestnetLpWalletStore {
     const temp = join(this.directory,`${id}.${randomBytes(8).toString("hex")}.tmp`); let fd: number|undefined;
     try {
       fd = openSync(temp,"wx",0o600); writeFileSync(fd,JSON.stringify(schema.parse(c))); fsyncSync(fd); closeSync(fd); fd=undefined;
-      renameSync(temp,join(this.directory,`${id}.json`)); this.entries.set(id,structuredClone(c));
+      renameSync(temp,join(this.directory,`${id}.json`));
+      fd = openSync(this.directory,"r"); fsyncSync(fd); closeSync(fd); fd=undefined;
+      this.entries.set(id,structuredClone(c));
     } catch { throw new TestnetLpError("TESTNET_LP_STORAGE_UNAVAILABLE"); }
     finally { if (fd !== undefined) closeSync(fd); if (existsSync(temp)) unlinkSync(temp); }
   }

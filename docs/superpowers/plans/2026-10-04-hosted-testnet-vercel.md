@@ -1,6 +1,6 @@
 # Lộ trình đưa Vezta DEX demo lên Vercel
 
-**Ngày:** 2026-10-04. **Trạng thái:** kế hoạch; chưa triển khai hosting.
+**Ngày:** 2026-10-04. **Trạng thái:** code/config hosting đã chuẩn bị; chưa triển khai server/domain thật.
 Phạm vi: demo desktop Base Sepolia, độc lập với Vezta chính. Checklist chưa đánh
 dấu dưới đây là việc sắp làm, không phải bằng chứng hoàn thành.
 
@@ -35,10 +35,25 @@ Ví người dùng ký/gửi; API không giữ private key. Một API process gi
 quote consumption và RPC limiter hiện có. Chưa thêm replicas hoặc chuyển toàn bộ
 API sang serverless: việc đó cần shared atomic storage và shared limiter.
 
-Code hiện chặn upstream HTTPS và submission ngoài loopback. Đổi `DEX_API_URL`
-hoặc copy cờ `dev:testnet` lên Vercel **chưa đủ**. Cần hosted policy,
-backend authentication và configurable persistent storage.
+Code đã có hosted policy riêng, backend authentication và configurable persistent
+storage; local vẫn dùng loopback. Đổi riêng `DEX_API_URL` hoặc copy cờ
+`dev:testnet` lên Vercel **chưa đủ**: phải cấu hình đầy đủ hosted contract.
 [Phân tích blocker](../../research/2026-10-04-vercel-readiness.md).
+
+### Checkpoint chuẩn bị (không phải nghiệm thu hosted)
+
+| Giai đoạn | Đã chuẩn bị | Còn lại trên hosting |
+|---|---|---|
+| 1 | Spec, env contract, origin/auth, limits và recovery policy | Điền origins/secrets thật |
+| 2 | API allowlist/auth và HTTPS BFF, tests positive/negative | Qualify HTTPS reads với RPC thật |
+| 3 | Docker/Compose/Caddy, private volume và restart fixtures | Droplet, TLS, backup/restore/restart trên server |
+| 4 | Default-off writes, exact origin và kill switch giữ receipts | MetaMask acceptance trên domain HTTPS |
+| 5 | Settings và runbook từng bước | Tạo resources/DNS, deploy read-only, staging checks |
+| 6 | Checklist có sẵn | Bật writes sau qualification, nghiệm thu/quay video |
+
+Các checklist bên dưới giữ tiêu chí end-to-end; không đánh dấu hoàn thành chỉ
+dựa vào unit tests. Xem [runbook](../../deployment/vercel-digitalocean.md) và
+[báo cáo chuẩn bị](../../research/2026-10-04-hosted-testnet-preparation.md).
 
 ## Giai đoạn 1 — Đặc tả môi trường hosted
 

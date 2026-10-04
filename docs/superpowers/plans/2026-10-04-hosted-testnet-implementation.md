@@ -26,33 +26,33 @@
 
 **Files:** `packages/core/src/hosted-config.ts`, test, `index.ts`.
 **Interfaces:** produces `readHostedConfig(env): HostedConfig | undefined` and validated public/API origins, token, writes flag.
-- [ ] Write config rejection/default-off tests; run `pnpm exec vitest run packages/core/src/hosted-config.test.ts` (RED: module absent).
-- [ ] Implement exact HTTPS origin validation and fail-closed mode parsing.
-- [ ] Run same tests (GREEN), commit `feat(dex): define hosted testnet configuration`.
+- [x] Write config rejection/default-off tests; run `pnpm exec vitest run packages/core/src/hosted-config.test.ts` (RED: module absent).
+- [x] Implement exact HTTPS origin validation and fail-closed mode parsing.
+- [x] Run same tests (GREEN), commit `feat(dex): define hosted testnet configuration`.
 
 ### Task 2: API admission and persistent startup
 
 **Files:** `apps/api/src/hosted-api.ts`, test, `api-binding.ts`, execution gate, `main.ts`.
 **Interfaces:** consumes Task 1; produces `createHostedAdmission(env, now)`, `contextDirectories(env, localRoot)` and `requirePrivateApiHost(host, env)`.
-- [ ] Test auth, global budgets, disabled recheck/allowed receipt, mainnet denial, binding and private directories; run focused Vitest (RED).
-- [ ] Implement guard before body/dispatch; integrate health/readiness, storage paths and hosted execution flag.
-- [ ] Run focused tests (GREEN), commit `feat(dex): guard hosted API and persist recovery`.
+- [x] Test auth, global budgets, disabled recheck/allowed receipt, mainnet denial, binding and private directories; run focused Vitest (RED).
+- [x] Implement guard before body/dispatch; integrate health/readiness, storage paths and hosted execution flag.
+- [x] Run focused tests (GREEN), commit `feat(dex): guard hosted API and persist recovery`.
 
 ### Task 3: Web hosted boundaries
 
 **Files:** `apps/web/lib/hosted-boundary.ts`, test, testnet proxy/gate modules, API route durations.
 **Interfaces:** consumes Task 1/2; produces `testnetBrowserAllowed(request, env)` and `testnetApiTarget(env, allowLocalAlias?)` returning URL and server headers.
-- [ ] Test production HTTPS requests, forged origin/headers, token never returned, invalid-mode no local fallback and receipt with writes off; run focused Vitest (RED).
-- [ ] Integrate shared boundary across depth, positions, swap, LP; gate production only via complete hosted config.
-- [ ] Run web/core/API boundary tests (GREEN), commit `feat(dex): support approved HTTPS testnet origin`.
+- [x] Test production HTTPS requests, forged origin/headers, token never returned, invalid-mode no local fallback and receipt with writes off; run focused Vitest (RED).
+- [x] Integrate shared boundary across depth, positions, swap, LP; gate production only via complete hosted config.
+- [x] Run web/core/API boundary tests (GREEN), commit `feat(dex): support approved HTTPS testnet origin`.
 
 ### Task 4: Deployment package and handoff
 
 **Files:** `deploy/Dockerfile.api`, `deploy/compose.yaml`, `deploy/Caddyfile`, examples, `.dockerignore`, runbook and roadmap.
 **Interfaces:** consumes Tasks 1–3 env contract; single non-root container/private mount, no public API port.
-- [ ] Package source workspace with pinned tsx/frozen dependencies and no build scripts; document read-only deploy first.
-- [ ] Run clean API boot without owner .env, full tests/typecheck/lint/build and audit; Docker/Compose checks if daemon available. Expected: clean checks or explicit tool/environment limitation.
-- [ ] Fresh whole-branch review and one fix pass for material findings; commit package, update checkpoint and owner handoff.
+- [x] Package source workspace with pinned tsx/frozen dependencies and no build scripts; document read-only deploy first.
+- [x] Run clean API boot without owner .env, full tests/typecheck/lint/build and audit; Docker/Compose checks if daemon available. Expected: clean checks or explicit tool/environment limitation.
+- [x] Fresh whole-branch review and one fix pass for material findings; commit package, update checkpoint and owner handoff.
 
 ## Pre-flight interfaces
 
@@ -64,3 +64,7 @@
 
 Execution notes and any rulings are recorded in the session report. Owner's instruction
 to proceed independently takes precedence over repeated spec/plan approval prompts.
+
+## Completed preparation checkpoint
+
+All four implementation tasks are complete. See [session evidence](../../research/2026-10-04-hosted-testnet-preparation.md) and [owner deployment runbook](../../deployment/vercel-digitalocean.md). Real infrastructure and hosted wallet acceptance remain open.

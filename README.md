@@ -9,8 +9,11 @@ Read the Vezta DEX mechanism & demo report in [English](docs/reports/2026-10-04-
 `main` is the current local and GitHub default branch. Follow the
 [six-phase hosted testnet plan](docs/superpowers/plans/2026-10-04-hosted-testnet-vercel.md)
 to prepare the web app on Vercel and a separate Node API with persistent recovery
-storage. Current production proxies and submission permissions require hosted
-configuration work; the functional online demo has not been deployed yet.
+storage. Hosted configuration, authenticated HTTPS proxies and the API container
+are prepared. Follow the [DigitalOcean + Vercel runbook](docs/deployment/vercel-digitalocean.md)
+to deploy read-only first, then qualify wallet actions on the approved origin.
+The functional online demo has not been deployed yet; accounts, DNS and hosted
+wallet acceptance remain owner steps. See the [preparation checkpoint](docs/research/2026-10-04-hosted-testnet-preparation.md).
 
 ## Wallet-free demo
 

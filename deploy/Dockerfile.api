@@ -1,0 +1,18 @@
+FROM node:24-bookworm-slim
+RUN npm install --global pnpm@10.33.2 --ignore-scripts --no-audit --no-fund
+WORKDIR /app
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json ./apps/api/package.json
+COPY packages/core/package.json ./packages/core/package.json
+# The pinned tsx runner is a runtime dependency; source rebuild tools stay out.
+RUN pnpm install --filter @vezta-dex/api... --prod --frozen-lockfile --ignore-scripts
+COPY --chown=node:node apps/api/src ./apps/api/src
+COPY --chown=node:node packages/core/src ./packages/core/src
+COPY tsconfig.base.json ./
+COPY apps/api/tsconfig.json ./apps/api/tsconfig.json
+COPY packages/core/tsconfig.json ./packages/core/tsconfig.json
+USER node
+WORKDIR /app/apps/api
+ENV NODE_ENV=production HOST=0.0.0.0 PORT=3021
+EXPOSE 3021
+CMD ["node", "--import", "tsx", "src/main.ts"]

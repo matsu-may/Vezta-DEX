@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
-import { mkdtempSync, rmSync, symlinkSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { createHostedAdmission, contextDirectories } from "./hosted-api";
 import { requirePrivateApiHost } from "./api-binding";
@@ -37,7 +37,9 @@ it("permits container binding and HTTP execution only with complete explicit hos
 it("requires a private durable root and rejects symlinked roots without fallback", () => {
   expect(() => contextDirectories(env, "/local")).toThrow();
   for (const root of ["/", "relative", "/tmp/data", "/var/tmp/data"]) expect(() => contextDirectories({ ...env, DEX_CONTEXT_DIR: root }, "/local")).toThrow();
-  const root = mkdtempSync(join(tmpdir(), "dex-hosted-"));
+  const privateRoot = fileURLToPath(new URL("../../../.local-evidence/", import.meta.url));
+  mkdirSync(privateRoot, { recursive: true, mode: 0o700 });
+  const root = mkdtempSync(join(privateRoot, "dex-hosted-"));
   try {
     expect(contextDirectories({ ...env, DEX_CONTEXT_DIR: root }, "/local")).toEqual({ swap: join(root, "swap"), lp: join(root, "lp") });
     const link = `${root}-link`; symlinkSync(root, link);

@@ -1,0 +1,59 @@
+name: vezta-dex-demo
+services:
+  api:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.api
+    image: vezta-dex-api:${DEX_RELEASE_TAG:-local}
+    restart: unless-stopped
+    init: true
+    read_only: true
+    user: "1000:1000"
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    tmpfs: ["/tmp:rw,noexec,nosuid,size=64m"]
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3021"
+      DEX_HOSTED_MODE: "1"
+      DEX_PUBLIC_ORIGIN: ${DEX_PUBLIC_ORIGIN:?Set frontend HTTPS origin}
+      DEX_API_URL: https://${DEX_API_HOST:?Set API hostname}
+      DEX_BFF_TOKEN: ${DEX_BFF_TOKEN:?Set shared server token}
+      DEX_HOSTED_WRITES_ENABLED: ${DEX_HOSTED_WRITES_ENABLED:-0}
+      DEX_CONTEXT_DIR: /data/contexts
+      BASE_SEPOLIA_RPC_URL: ${BASE_SEPOLIA_RPC_URL:?Set Base Sepolia RPC}
+      BASE_SEPOLIA_RPC_RPS: ${BASE_SEPOLIA_RPC_RPS:-3}
+    volumes:
+      - type: bind
+        source: ${DEX_DATA_DIR:?Set persistent host directory}
+        target: /data
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3021/healthz').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+  caddy:
+    image: caddy:2.11.6
+    restart: unless-stopped
+    ports: ["80:80", "443:443"]
+    environment:
+      DEX_API_HOST: ${DEX_API_HOST:?Set API hostname}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api: { condition: service_healthy }
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+volumes:
+  caddy_data:
+  caddy_config:

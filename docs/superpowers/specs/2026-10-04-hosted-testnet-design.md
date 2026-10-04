@@ -49,8 +49,9 @@ remains the existing tracking capability, not a new authenticated user session.
 
 ## Packaging and delivery
 
-Keep pinned tsx and install dev dependencies with scripts disabled in the API
-image initially: the source workspace exports TypeScript. Use Node 24 and
+Keep pinned tsx as a runtime dependency and install production dependencies with
+scripts disabled in the API image: the source workspace exports TypeScript. This
+excludes legacy contract rebuild/Hardhat tooling from the running image. Use Node 24 and
 pnpm 10.33.2, frozen lockfile. Runtime pins are compiled application source;
 source rebuild tools/private evidence are never runtime requirements.
 Non-root API, read-only image with writable private bind mount and scratch tmpfs.
