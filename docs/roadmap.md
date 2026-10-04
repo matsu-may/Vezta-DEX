@@ -1,10 +1,12 @@
 # Vezta DEX Roadmap
 
-**Latest receipt fix, 2026-10-04:** owner selected restricted two-level MetaMask
-swap support. Both balance-enforcer runtimes were independently rebuilt and
-the existing USDC→WETH hash now verifies through the complete receipt API.
-Owner browser check/acknowledgment, reverse swap, LP lifecycle and recovery
-acceptance remain open. See the [resolution and next owner actions](research/2026-10-04-metamask-nested-swap-investigation.md).
+**Current checkpoint, 2026-10-04:** the owner reports every desktop acceptance
+check passed, including both swaps, the LP lifecycle and failure/recovery cases.
+This is owner-reported acceptance; new individual LP hashes were not supplied.
+The launchpad-style `/demo/1`–`/demo/4` UI refresh and Vercel preparation are recorded
+in the [UI session report](research/2026-10-04-demo-ui-refresh.md).
+Public hosting is the next separate step: current proxies, execution permissions
+and recovery storage are local-only. See [Vercel readiness](research/2026-10-04-vercel-readiness.md).
 
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 
@@ -14,7 +16,7 @@ acceptance remain open. See the [resolution and next owner actions](research/202
 
 **Phase-2 runtime evidence:** all five runtimes were independently rebuilt at block 47551649; owner fresh inventory and both guarded quotes passed with identical code hashes. Wallet quotes enforce those hashes at each fresh canonical block. See the [accepted runtime gate](research/2026-10-02-testnet-runtime-quote-gate.md); its earlier host handoff is complete.
 
-**Current open gates:** Desktop demo routes, final recheck/receipt APIs and wallet recovery are implemented. Complete installed-wallet acceptance remains open; the first public nested swap has now verified, while reverse swap and LP lifecycle still need owner acceptance. Actual complete public-testnet fees remain unqualified. Keep accepted fork/runtime/probe evidence; do not repeat those checks without a concrete regression. Mainnet and Vezta integration remain separate milestones.
+**Current open gates:** Owner-reported local desktop wallet acceptance is complete. Visual acceptance of the refreshed UI, remote CI and hosted deployment acceptance remain separate. Actual complete public-testnet fees remain unqualified; the interface continues to distinguish snapshot budgets from observed L2 cost. Keep accepted fork/runtime/probe evidence and avoid repeating it without a concrete regression. Mainnet, complete mobile polish, broader multi-chain execution and Vezta integration remain separate milestones.
 
 ## Goal and boundaries
 

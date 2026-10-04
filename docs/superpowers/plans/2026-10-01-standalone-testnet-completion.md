@@ -1,6 +1,6 @@
 # Standalone Testnet DEX Completion Roadmap
 
-**Status:** Consolidated roadmap, 2026-10-01, updated 2026-10-02 after funded fork acceptance and final recheck/receipt implementation. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
+**Status:** Consolidated roadmap, 2026-10-01. Current update, 2026-10-04: the owner reports all desktop acceptance steps passed; launchpad-style UI refinement is locally qualified. Hosted deployment is a separate follow-up. Earlier status paragraphs below retain their dated implementation evidence. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
 
 **Early demo milestone, 2026-10-02:** follow the [short Explore → wallet swap → receipt roadmap](2026-10-02-early-testnet-demo.md) first. It narrows the first demo to one Base Sepolia pool and bidirectional swaps, then resumes this full six-phase roadmap. Map demo evidence onto Phases 1–3; LP and all remaining acceptance requirements stay open until actually verified. This adds an intermediate milestone, not a replacement plan.
 
@@ -97,7 +97,7 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 - [x] Implement original-context storage and explicit headless receipt/hash recovery without automatic rebroadcast. Deterministic tests cover pending/uncertain/reload and reject unverified reorg candidates. Replacement/cancellation identification and API-restart recovery remain unsupported and cannot be claimed from an advanced nonce.
 - [x] Qualify deterministic desktop browser and accepted disposable-fork scenarios before enabling localhost opt-in owner-operated execution; mock receipts/recovery and event/current-allowance presentation passed.
 - [ ] Reconcile public receipt events, actual spend/output, wallet compatibility, funded quote/recheck latency and actual charged L1/operator fees from the owner run.
-- [ ] Obtain owner-operated capped public-testnet evidence for both directions using faucet test ETH/USDC and resulting WETH.
+- [x] Owner reports both capped public-testnet swap directions passed (2026-10-04). Preserve earlier supplied transaction evidence; new per-direction hashes were not supplied with this confirmation.
 
 **Exit:** Both directions complete with original intent-bound receipts, balance deltas and recovery; cancellation/rejection never appears as success. Mock and fork success are recorded separately from public-testnet success.
 
@@ -113,7 +113,7 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 - [x] Wire public-wallet partial/full decrease, collect and close/burn. Internal planner and fork qualify principal/fee separation, burn prerequisites, actual pool payments vs nominal manager rounding and cleared residual allowance.
 - [x] Add LP rejection, ownership/nonce change, pending, reorg/unverified and original-hash recovery tests. Replacement candidates remain unresolved rather than inferred as success; position reads use the pinned chain directly, without an indexer.
 - [x] Run full Base Sepolia lifecycle on disposable fork: foundation block 47587031 and new wallet study/recheck/receipt consumers at 47594852. Reconcile NFT/liquidity/payments, verify restart recovery and cleared allowances, revert snapshot and stop owned child.
-- [ ] Obtain owner-operated public-testnet NFT and lifecycle receipt evidence after the LP wallet controller is qualified.
+- [x] Owner reports mint, increase, partial/full decrease, collect, burn and receipt checks passed (2026-10-04). This closes the owner acceptance checklist on their report; per-action NFT/hash evidence was not independently collected in the UI session.
 
 **Exit:** Create → increase → partial decrease → full decrease → collect → close is reproducible; ownership, liquidity progression, owed/collected amounts, balances and approvals reconcile. Collection is not represented as guaranteed positive fees when no fees accrued.
 
@@ -135,16 +135,20 @@ Follow-through: [fee/preparation spec](../specs/2026-10-02-testnet-fees-swap-pre
 
 ## Phase 6 — Acceptance and demo handoff
 
-**Status:** Unified [desktop owner guide](../../research/2026-10-02-testnet-desktop-owner-guide.md) and implementation/evidence checkpoint are written. Independent integrated qualification is complete. Owner public-testnet/desktop acceptance remains pending.
+**Status:** Unified [desktop owner guide](../../research/2026-10-02-testnet-desktop-owner-guide.md) and implementation/evidence checkpoint are written. Independent integrated qualification is complete. Owner reports all existing desktop acceptance checks passed on 2026-10-04. The [UI refresh](../../research/2026-10-04-demo-ui-refresh.md) and [hosting handoff](../../research/2026-10-04-vercel-readiness.md) are the current follow-up; new UI visual and hosted-domain acceptance are separate.
 
 - [x] Provide one setup/faucet/command checklist and one acceptance matrix for pool reads, both swaps, LP lifecycle and failure/recovery cases.
 - [x] Record actual host/live/fork/browser/CI evidence, versions, supported input ranges and known limitations. Review material findings and rerun relevant gates after fixes.
-- [ ] Confirm owner desktop acceptance and all public-testnet transaction gates. Document remaining mobile polish as the agreed separate pass.
+- [x] Owner reports the desktop guide's wallet/LP/recovery steps all passed (2026-10-04). The refreshed UI still needs a short visual review; actual complete charged fees, remote CI and hosted-domain acceptance remain separate. Mobile polish remains the agreed later pass.
 - [x] Preserve standalone boundaries and hand over reproducible local start/reset instructions. Public hosting/production deployment needs its own approval and operational plan.
 
 **Exit:** The accepted demo performs real Uniswap testnet swap and LP operations with verified receipts and clear failure/recovery states. `/demo` can remain as a wallet-free teaching mode. No mainnet or production claim follows automatically.
 
 **Owner:** Final installed-wallet/desktop acceptance. **Dependency:** Phases 1–5. **Verification:** Full local quality gates plus sanitized owner testnet receipts, browser results and explicit CI status.
+
+## Current follow-up — refreshed UI and hosting
+
+The owner accepted all existing test steps on 2026-10-04 and requested a launchpad-style desktop redesign before Vercel preparation. The new UI retains exact approvals, minimums, fee budgets, original-hash recovery and independent transaction review. Run a short visual pass over `/demo/1`–`/demo/4`; do not repeat the complete funded lifecycle without a regression. Hosting requires explicit HTTPS origin/proxy support and persistent backend contexts; a frontend build alone does not enable public wallet execution. See the [Vercel readiness plan](../../research/2026-10-04-vercel-readiness.md).
 
 ## Work that can proceed without the owner
 
