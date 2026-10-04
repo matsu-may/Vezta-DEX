@@ -8,8 +8,8 @@ async page => {
   // Mock the opt-in SSR permission in this disposable browser only. Keep the owner's running dev server untouched.
   await page.route("**/demo/1", async route => {
     const response = await route.fetch(); const html = await response.text();
-    const enabled = html.replaceAll('\\"executionEnabled\\":false', '\\"executionEnabled\\":true').replaceAll('Read-only preview · run pnpm dev:testnet for wallet acceptance', 'Local testnet acceptance enabled · MetaMask signs every transaction');
-    if (!enabled.includes("Local testnet acceptance enabled · MetaMask signs every transaction")) throw new Error("Expected testnet server permission fixture");
+    const enabled = html.replaceAll('\\"executionEnabled\\":false', '\\"executionEnabled\\":true').replaceAll('Read-only preview · wallet submission is disabled', 'Test tokens only · every transaction is signed in your wallet');
+    if (!enabled.includes("Test tokens only · every transaction is signed in your wallet")) throw new Error("Expected testnet server permission fixture");
     await route.fulfill({ response, body: enabled });
   });
   await page.context().addInitScript(f => {
@@ -71,7 +71,10 @@ async page => {
   for (const key of ["forward-swap", "reverse-swap", "forward-reset", "forward-approve"]) {
     await fresh(key); await reviewed();
     check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Review before explicit send: " + key);
-    if (key === "forward-swap") await page.screenshot({ path: ".playwright-cli/demo-01-desktop.png", fullPage: true });
+    if (key === "forward-swap") {
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: ".playwright-cli/demo-01-desktop.png", fullPage: true });
+    }
     await page.getByRole("button", { name: "Submit reviewed testnet transaction" }).click();
     await page.getByRole("button", { name: "Check original transaction" }).click();
     await page.getByRole("button", { name: "Acknowledge verified result" }).waitFor();

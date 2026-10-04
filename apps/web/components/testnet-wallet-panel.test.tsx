@@ -30,6 +30,21 @@ it("shows estimate, minimum and full budget before any send; input edits discard
   expect(screen.queryByRole("button", { name: "Submit reviewed testnet transaction" })).toBeNull();
   expect(screen.getByRole("button", { name: "Get wallet quote" }).hasAttribute("disabled")).toBe(false);
 });
+it("reverses the demo pair explicitly and invalidates the old quote and transaction review", async () => {
+  const f = await fixture(true); render(<TestnetWalletPanel executionEnabled presentation="demo" />);
+  fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" }));
+  await screen.findByText(/Connected:/);
+  fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" }));
+  await screen.findByText("Minimum received");
+  fireEvent.click(screen.getByRole("button", { name: "Review swap" }));
+  await screen.findByText("Complete snapshot fee budget");
+  fireEvent.click(screen.getByRole("button", { name: "Reverse token pair" }));
+  expect((screen.getByLabelText("Direction") as HTMLSelectElement).value).toBe("reverse");
+  expect((screen.getByLabelText("Input amount") as HTMLSelectElement).selectedOptions[0].textContent).toBe("0.0001");
+  expect(screen.queryByText("Minimum received")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Submit reviewed testnet transaction" })).toBeNull();
+  expect(f.methods).not.toContain("eth_sendTransaction");
+});
 it("keeps normal preview gated even if API metadata permits execution", async () => {
   await fixture(true); render(<TestnetWalletPanel executionEnabled={false} />);
   fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" })); await screen.findByText(/Connected:/);

@@ -5,7 +5,7 @@ async page => {
   for (const fixture of Object.values(fixtures)) Object.assign(fixture.observation, {executionModel:"metamask-delegation",gasPayer:"0x2222222222222222222222222222222222222222",l2GasCost:"123456789"});
   const checks=[];const apiCalls=[];const hash="0x"+"11".repeat(32);let selected=fixtures.mint;let receiptStatus="confirmed";let failRecheck=false;
   const origin="http://127.0.0.1:3020";
-  await page.route("**/demo/2",async route=>{const response=await route.fetch();let html=await response.text();html=html.replaceAll('\\"executionEnabled\\":false','\\"executionEnabled\\":true').replaceAll('Read-only preview · run pnpm dev:testnet for wallet acceptance','Local testnet acceptance enabled · MetaMask signs every transaction');await route.fulfill({response,body:html});});
+  await page.route("**/demo/2",async route=>{const response=await route.fetch();let html=await response.text();html=html.replaceAll('\\"executionEnabled\\":false','\\"executionEnabled\\":true').replaceAll('Read-only preview · wallet submission is disabled','Test tokens only · every transaction is signed in your wallet');await route.fulfill({response,body:html});});
   await page.context().addInitScript(f=>{
     const listeners=new Map();const mock={now:f.now,methods:[],account:f.intent.wallet,chain:"0x14a34",reject:false,uncertain:false};window.__lpWalletMock=mock;Date.now=()=>mock.now;
     window.ethereum={async request({method}){mock.methods.push(method);if(method==="eth_accounts"||method==="eth_requestAccounts")return[mock.account];if(method==="eth_chainId")return mock.chain;if(method==="eth_getCode")return"0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b";

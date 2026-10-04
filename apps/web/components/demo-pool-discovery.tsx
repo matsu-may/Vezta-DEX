@@ -71,9 +71,10 @@ export function DemoPoolDiscovery({ detail = false }: { detail?: boolean }) {
   return <div className="discovery-stack">
     <section className="section-card discovery-card" aria-label={detail ? "Pool detail" : "Curated pool discovery"} aria-busy={pending}>
       <div className="discovery-toolbar"><div><span className="eyebrow">CURATED PAIR · UNISWAP V3</span>
-        <h2>{detail ? "USDC / WETH" : "One pool. A clear starting point."}</h2>
+        <h2>{detail ? "Pool overview" : "Available pool"}</h2>
         <p>{detail ? "Inspect the pinned 0.3% pool before opening your wallet workflow." : "USDC / WETH on Base Sepolia. The 0.3% pool is the demo’s supported swap and liquidity path."}</p>
       </div><button className="button button-primary" onClick={refresh} disabled={pending}>{pending ? "Refreshing…" : "Refresh pool data"}</button></div>
+      <dl className="discovery-metrics"><div><dt>Network</dt><dd>Base Sepolia</dd></div><div><dt>Protocol</dt><dd>Uniswap v3</dd></div><div><dt>Pool fee</dt><dd>0.3%</dd></div><div><dt>USD TVL / APR</dt><dd className="metric-unavailable">Unavailable on testnet</dd></div></dl>
       <div className="discovery-pair-row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span>
         <div><strong>USDC / WETH</strong><span>Uniswap v3 · 0.3% fee · Test tokens</span></div></div>
         <span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span>

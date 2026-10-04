@@ -9,6 +9,11 @@ export function testnetAmount(raw: string, token: string) {
 const eth = (raw: string) => `${formatUnits(BigInt(raw), 18)} test ETH`;
 export function TestnetWalletReview({ state, compact = false }: { state: TestnetWalletSnapshot; compact?: boolean }) {
   const q = state.quote?.quote; const study = state.review; const a = state.action;
+  const feeDetails = study?.gas && <><div><dt>Gas limit</dt><dd>{study.gas.gasLimit}</dd></div>
+    <TestnetFeeReview fees={study.gas} />
+    <div><dt>L2 fee ceiling</dt><dd>{eth(study.gas.l2FeeCeiling)}</dd></div>
+    <div><dt>L1 fee upper bound</dt><dd>{eth(study.gas.l1FeeUpperBound)}</dd></div>
+    <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div></>;
   return <>
     {q && <section className="testnet-review" aria-label="Wallet quote">
       <h3>Quote · Base Sepolia</h3><dl className="demo-preview">
@@ -31,14 +36,11 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
         {a && <><div><dt>Action amount</dt><dd>{testnetAmount(a.kind === "reset" ? "0" : state.quote!.quote.amountIn, state.quote!.quote.tokenIn)}</dd></div>
           <div><dt>{a.kind === "swap" ? "Router" : "Approval spender"}</dt><dd className="mono">{P.router}</dd></div>
           <div><dt>Transaction target</dt><dd className="mono">{a.transaction.to}</dd></div>
-          <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div></>}
-        {study.gas && <><div><dt>Gas limit</dt><dd>{study.gas.gasLimit}</dd></div>
-          <TestnetFeeReview fees={study.gas} />
-          <div><dt>L2 fee ceiling</dt><dd>{eth(study.gas.l2FeeCeiling)}</dd></div>
-          <div><dt>L1 fee upper bound</dt><dd>{eth(study.gas.l1FeeUpperBound)}</dd></div>
-          <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div>
+          {!compact && <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div>}</>}
+        {study.gas && <>{!compact && feeDetails}
           <div><dt>Complete snapshot fee budget</dt><dd>{eth(study.gas.totalFeeBudget)}</dd></div></>}
       </dl><p className="form-help">Fee budget includes a buffer for L1 and operator fees. It is an estimate, not the final charged fee.</p>
+      {compact && (a || study.gas) && <details className="quote-provenance"><summary>Transaction and fee details</summary><dl className="demo-preview">{a && <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div>}{feeDetails}</dl></details>}
     </section>}
   </>;
 }

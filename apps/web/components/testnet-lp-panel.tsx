@@ -38,7 +38,7 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
       setPage(null); setPositions([]); setError("Testnet LP data unavailable. Refresh the read; check Base Sepolia RPC if it persists.");
     } finally { if (generation.current === token) setBusy(false); }
   }
-  return <div className="testnet-demo-grid recording-grid lp-recording-grid">
+  return <div className={`testnet-demo-grid recording-grid lp-recording-grid ${walletControls ? "lp-position-workspace" : ""}`}><div className="lp-position-column">
     <aside className="section-card testnet-explore">
       <span className="eyebrow">LIQUIDITY · BASE SEPOLIA</span><h2>USDC / WETH</h2><p>Uniswap v3 · 0.3% fee pool</p>
       <span className="badge badge-fresh">Test tokens only</span>
@@ -47,13 +47,14 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
       <details className="quote-provenance"><summary>Pool & manager</summary><p>Pool: {P.pool}</p><p>Position manager: {C.v3PositionManager}</p></details>
       <div className="lp-read-boundary"><strong>{walletControls ? "One action at a time" : "Read-only positions"}</strong><p>{walletControls ? "Review each approval and LP action separately. Preserve original transaction history until the result is verified." : "Read any wallet to inspect its positions. Wallet controls are available in Demo 02."}</p></div>
     </aside>
-    <section className="section-card" aria-label="Base Sepolia LP positions">{walletControls}<span className="eyebrow">YOUR POSITIONS</span><h2>Provide liquidity.</h2>
+    <section className="section-card lp-position-list" aria-label="Base Sepolia LP positions"><span className="eyebrow">YOUR POSITIONS</span><h2>Liquidity positions</h2>
       <p className="form-help">Read any wallet address. No connection, signature or transaction is requested.</p>
       <label className="form-label" htmlFor="lp-owner">Position owner address</label>
       <input className="field mono" id="lp-owner" value={owner} onChange={event => edit(event.target.value.trim())} placeholder="0x…" spellCheck={false} autoComplete="off" />
       <div className="testnet-actions">{connectedWallet && <button className="button demo-reset" disabled={busy || walletBusy} onClick={() => edit(connectedWallet)}>Use connected wallet</button>}<button className="button" disabled={!valid || busy} onClick={() => void read()}>Read LP positions</button><button className="button demo-reset" disabled={!onSelectAction || walletBusy} onClick={() => onSelectAction?.("mint", "")}>Create position</button></div>
       {busy && <p role="status">Reading a pinned Base Sepolia block…</p>}
       {error && <p role="alert" className="demo-error">{error}</p>}
+      {!page && !busy && !error && <div className="demo-empty"><strong>Your positions appear here</strong><p>Enter a wallet address and read its NFTs. Create a position to start providing liquidity to this pool.</p></div>}
       {page && <>
         {historical && <p role="status" className="form-help">A confirmed LP action changed this position state. Read LP positions again to get a fresh snapshot before selecting another position action.</p>}<p className="mono form-help">Queried owner: {page.owner}</p>{onSelectAction && !matchingOwner && <p className="form-help">Connect the queried owner to select actions for these positions.</p>}
         <div className="lp-scan-meta"><span className={stale ? "badge badge-warning" : "badge badge-fresh"}>{historical ? "Historical scan · refresh" : stale ? "Stale scan · refresh" : "Verified pinned read"}</span><span className="mono">Block {page.snapshot.number}</span></div>
@@ -72,6 +73,7 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
         {page.nextCursor && <button className="button demo-reset" disabled={busy || stale} onClick={() => void read(true)}>Scan next NFT</button>}
         <details className="quote-provenance"><summary>Read provenance</summary><p>Owner: {page.owner}</p><p>Source: {page.source} · runtime verified</p><p>Observed: {page.snapshot.observedAt}</p><p>Block hash: {page.snapshot.hash}</p><p>All pages use the same pinned block; refresh after 120 seconds.</p></details>
       </>}
-    </section>
+    </section></div>
+    {walletControls && <div className="section-card lp-action-panel">{walletControls}</div>}
   </div>;
 }

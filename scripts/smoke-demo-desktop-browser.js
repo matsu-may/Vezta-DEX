@@ -34,14 +34,14 @@ async page => {
   page.setDefaultTimeout(15000);
   await page.setViewportSize({ width: 1440, height: 1080 });
   await page.goto("http://127.0.0.1:3020/demo/3");
-  await page.getByRole("heading", { name: "Find your starting point." }).waitFor();
+  await page.getByRole("heading", { name: "Explore" }).waitFor();
   check(reads.length === 0, "Explore performs no automatic API reads");
   check(await page.getByText("Base Sepolia · Testnet", { exact: true }).count() === 1, "Explore labels the test network");
   await page.getByRole("button", { name: "Refresh pool data" }).click();
   await page.getByText("Depth screen passed", { exact: true }).waitFor();
   await page.screenshot({ path: ".playwright-cli/demo-03-desktop.png", fullPage: true });
   await page.getByRole("link", { name: "View pool detail" }).click();
-  await page.getByRole("heading", { name: "A closer look at the pool." }).waitFor();
+  await page.getByRole("heading", { name: "USDC / WETH" }).waitFor();
   check(reads.length === 1, "Detail requires its own explicit refresh");
   await page.getByRole("button", { name: "Refresh pool data" }).click();
   await page.getByText("Depth screen passed", { exact: true }).waitFor();
@@ -61,7 +61,7 @@ async page => {
   mode = "ready"; await page.getByRole("button", { name: "Refresh pool data" }).click();
   await page.getByText("Depth screen passed", { exact: true }).waitFor();
   await page.getByRole("link", { name: "Swap USDC / WETH" }).click();
-  await page.getByRole("heading", { name: "Trade on your terms." }).waitFor();
+  await page.getByRole("heading", { name: "Swap", exact: true }).waitFor();
   const nav = page.getByRole("navigation", { name: "Demo navigation" });
   check(await nav.getByRole("link", { name: "Swap", exact: true }).getAttribute("aria-current") === "page", "Swap navigation marks the active route");
   await nav.getByRole("link", { name: "Liquidity", exact: true }).click();

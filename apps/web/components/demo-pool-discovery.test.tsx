@@ -26,7 +26,7 @@ describe("curated desktop discovery", () => {
     expect(screen.getByRole("link", { name: "View pool detail" }).getAttribute("href")).toBe("/demo/4");
     expect(screen.getByRole("link", { name: "Swap USDC / WETH" }).getAttribute("href")).toBe("/demo/1");
     expect(screen.getByRole("link", { name: "Manage liquidity" }).getAttribute("href")).toBe("/demo/2");
-    expect(screen.queryByText(/TVL|APR/)).toBeNull();
+    expect(screen.getByText("USD TVL / APR").nextElementSibling?.textContent).toBe("Unavailable on testnet");
     expect(wallet).not.toHaveBeenCalled();
   });
 

@@ -24,7 +24,7 @@ async page => {
   const read = async () => { await page.getByRole("button", { name: "Read LP positions", exact: true }).click(); };
   await page.setViewportSize({ width: 1440, height: 1080 });
   await page.goto("http://127.0.0.1:3020/demo/2");
-  await page.getByRole("heading", { name: "Provide liquidity." }).waitFor();
+  await page.getByRole("heading", { name: "Liquidity positions" }).waitFor();
   check(calls.length === 0, "No API read on page load");
   check((await page.evaluate(() => window.__lpMock.walletCalls)).length === 0, "No wallet prompt on page load");
   await page.getByLabel("Position owner address").fill("bad");
