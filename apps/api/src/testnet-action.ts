@@ -1,3 +1,4 @@
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
@@ -24,6 +25,7 @@ export interface TestnetActionInput {
   intent: TestnetSwapIntent; quote: TestnetSwapQuote;
   transaction: TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
   blockNumber: string; blockHash: string; currentAllowance: string;
+  observedAt?: string; // Legacy persisted contexts predate independent study freshness.
 }
 export interface TestnetActionContext extends TestnetActionInput {
   contextId: string; issuedAt: number; trackingExpiresAt: number;
@@ -32,7 +34,7 @@ export interface TestnetActionContext extends TestnetActionInput {
 const contextSchema = z.object({ kind: z.enum(["swap", "approve", "reset"]), intent: z.unknown(), quote: z.unknown(),
   transaction: testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(P.chainId), from: z.string().max(42), to: z.string().max(42),
     data: z.string().max(4096), value: z.literal("0"), nonce: z.string().max(78), gas: z.string().max(78) }).strict(),
-  blockNumber: z.string().max(78), blockHash: z.string().max(66), currentAllowance: z.string().max(78),
+  observedAt: z.iso.datetime().optional(), blockNumber: z.string().max(78), blockHash: z.string().max(66), currentAllowance: z.string().max(78),
   contextId: z.string().regex(/^[a-f0-9]{48}$/), issuedAt: z.number().int().nonnegative(),
   trackingExpiresAt: z.number().int().nonnegative(), quoteExpiresAt: z.iso.datetime(),
   originalHash: z.string().regex(/^0x[0-9a-f]{64}$/).refine(v => BigInt(v) > 0n).nullable(), submissionAttempted: z.boolean() }).strict();
@@ -43,6 +45,11 @@ function validateInput(value: TestnetActionInput, now: number): TestnetActionInp
   try {
     const intent = parseTestnetSwapIntent(value.intent); const quote = parseTestnetSwapQuote(value.quote, now);
     const tx = value.transaction; validateTestnetFeeFields(tx);
+    if (value.observedAt !== undefined) {
+      const observed = Date.parse(z.iso.datetime().parse(value.observedAt));
+      if (observed < Date.parse(quote.observedAt) || observed > now + 10000 || now - observed >= 30000)
+        return fail("TESTNET_CONTEXT_INVALID");
+    }
     if (JSON.stringify(intent) !== JSON.stringify(quoteIntent(quote)) || !integer(value.blockNumber)
       || BigInt(value.blockNumber) < BigInt(quote.blockNumber) || !hash(value.blockHash)
       || (value.blockNumber === quote.blockNumber && !same(value.blockHash, quote.blockHash))
@@ -85,7 +92,7 @@ export class TestnetActionStore {
         const input = validateInput(value as TestnetActionInput, issuedAt);
         if (contextId !== name.slice(0, 48) || !Number.isSafeInteger(issuedAt) || issuedAt > now + 10000
           || trackingExpiresAt !== issuedAt + 86400000 || trackingExpiresAt > 8640000000000000
-          || quoteExpiresAt !== new Date(Date.parse(input.quote.observedAt) + 30000).toISOString())
+          || quoteExpiresAt !== testnetQuoteExpiresAt(input.quote))
           return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
         if (trackingExpiresAt <= now) unlinkSync(file);
         else this.entries.set(contextId, { ...input, contextId, issuedAt, trackingExpiresAt, quoteExpiresAt, originalHash, submissionAttempted });
@@ -130,9 +137,10 @@ export class TestnetActionStore {
   get size() { this.prune(); return this.entries.size; }
   issue(value: TestnetActionInput, consume: () => unknown) {
     this.prune(); const now = this.now(); const input = validateInput(value, now);
+    if (input.quote.quoteTtlSeconds !== undefined && input.observedAt === undefined) return fail("TESTNET_CONTEXT_INVALID");
     if (this.entries.size >= this.capacity) return fail("TESTNET_CONTEXT_CAPACITY");
     const contextId = randomBytes(24).toString("hex");
-    const quoteExpiresAt = new Date(Date.parse(input.quote.observedAt) + 30000).toISOString();
+    const quoteExpiresAt = testnetQuoteExpiresAt(input.quote);
     const context = { ...input, contextId, issuedAt: now, trackingExpiresAt: now + 86400000,
       quoteExpiresAt, originalHash: null, submissionAttempted: false };
     // Construction/capacity checks precede consumption; persist before returning a reviewable context.
@@ -183,7 +191,7 @@ export class TestnetRechecker {
       if (kind === "ready") return fail("TESTNET_CONTEXT_INVALID");
       const quote = this.quotes.read(request.quoteId, request.intent);
       const action = this.contexts.issue({ kind, intent: study.intent, quote, transaction: study.transaction,
-        blockNumber: study.blockNumber, blockHash: study.blockHash, currentAllowance: study.currentAllowance },
+        observedAt: study.observedAt, blockNumber: study.blockNumber, blockHash: study.blockHash, currentAllowance: study.currentAllowance },
       () => this.quotes.consume(request.quoteId, request.intent));
       return { study, action };
     } finally { this.busy = false; }

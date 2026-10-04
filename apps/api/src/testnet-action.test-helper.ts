@@ -30,6 +30,6 @@ export async function testnetActionFixture(kind: "swap" | "approve" | "reset" = 
   const study = await (kind === "swap" ? preparer : approvals).read(request);
   if (!study.transaction) throw new Error("funded fixture");
   const input = { kind, quote: quoted.quote, intent: study.intent, transaction: study.transaction,
-    blockNumber: study.blockNumber, blockHash: study.blockHash, currentAllowance: study.currentAllowance };
+    observedAt: study.observedAt, blockNumber: study.blockNumber, blockHash: study.blockHash, currentAllowance: study.currentAllowance };
   return { quotes, quoted, request, input, source, approvals, preparer, clock, setNow: (value: number) => { now = value; } };
 }

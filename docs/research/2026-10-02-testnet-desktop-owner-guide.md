@@ -26,6 +26,20 @@ EIP-1559 is the fee model; it does not guarantee that MetaMask will broadcast a 
 
 The owner-provided hash `0x889a6ff469519954beb459f2ce04dfabb4bd957e6b5c00b7b05230fbe7fbe3b1` was independently verified read-only as an exact **1 USDC approval** for wallet `0x2c90304a4A0570221af2d997ccAc8f1Bc722D99a`. A different wallet or hash must pass its own checks. Historical recovery is limited to bounded approvals/resets; it does not qualify old swaps or LP operations without their original contexts.
 
+### Quote and review timing (updated 2026-10-04)
+
+New Base Sepolia wallet quotes expire **120 seconds after the quoted block timestamp**. The response carries `quoteTtlSeconds: 120`; the countdown, server store, preparation and router calldata all use that original deadline. Legacy quotes/contexts without the marker keep their original **30-second** deadline. Neither refresh nor recovery extends an existing transaction.
+
+Simulation and fee studies still require a block less than **30 seconds old**. Submit opens a wallet prompt only while that review remains fresh; an expired review disables submit even if the quote countdown has time left. Request a fresh quote and review again when instructed. The on-chain swap deadline remains the quote's original deadline; minimum output and 0.5% slippage do not change.
+
+For the earlier step **3C** (`TESTNET_QUOTE_UNAVAILABLE` after allowance-ready):
+
+1. With no pending hash, reload `/demo/1` to load the update and click **Get wallet quote**. If your server has not loaded the changes, restart your launcher with `pnpm dev:testnet`. Preserve recovery storage.
+2. Click **Review approval** if checking allowance. When it says **Allowance is ready. Review swap next.**, click **Review swap**; do not submit another approval.
+3. Review **Simulated swap**, input, minimum received and complete fee budget. Click **Submit reviewed testnet transaction** while the simulation review is fresh, then confirm the same operation in MetaMask before the quote deadline.
+4. Keep the returned hash, click **Check original transaction** until the original execution verifies, compare **Verified executed output** with that quote's minimum, and click **Acknowledge verified result**.
+5. If there is already a hash, continue tracking that hash instead of requesting another submission. If still unavailable, report the safe Network response code and endpoint.
+
 ### Check a new reviewed swap
 
 1. Request a fresh **1 USDC → WETH** quote on `/demo/1`; check chain 84532, input, minimum output, spender/target and fee budget. If the review expires, request it again.

@@ -73,6 +73,20 @@ describe("Base Sepolia unsigned swap calldata", () => {
     expect(() => buildTestnetSwapTransaction(q, now + 0.5)).toThrow();
   });
 
+  it("allows a new demo quote until 120 seconds while binding its original deadline", () => {
+    const q = { ...quote(), quoteTtlSeconds: 120 };
+    const tx = buildTestnetSwapTransaction(q, now + 35000);
+    const decoded = decodeFunctionData({ abi, data: tx.data });
+    expect(decoded.args?.[0]).toBe(1790848918n);
+    expect(() => buildTestnetSwapTransaction(q, now + 117999)).not.toThrow();
+    expect(() => buildTestnetSwapTransaction(q, now + 118000)).toThrow();
+    expect(() => inspectTestnetSwapTransaction(buildTestnetSwapTransaction(quote(), now), q, now)).toThrow();
+    expect(() => inspectTestnetSwapTransaction(tx, quote(), now)).toThrow();
+    for (const ttl of [30, 121, 3600, "120", null]) {
+      expect(() => buildTestnetSwapTransaction({ ...q, quoteTtlSeconds: ttl }, now)).toThrow();
+    }
+  });
+
   it("rejects changed envelope, recipient, minimum, deadline, extra calls and noncanonical bytes", () => {
     const q = quote(); const tx = buildTestnetSwapTransaction(q, now);
     const outer = decodeFunctionData({ abi, data: tx.data });

@@ -7,7 +7,7 @@ import { TESTNET_DEPTH_INPUTS } from "./testnet-depth";
 export const TESTNET_SWAP_POLICY = Object.freeze({
   chainId: 84532, router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
   pool: "0x46880b404CD35c165EDdefF7421019F8dD25F4Ad", feeTier: 3000,
-  slippageBps: 50, quoteTtlSeconds: 30,
+  slippageBps: 50, quoteTtlSeconds: 30, demoQuoteTtlSeconds: 120,
 } as const);
 
 const swapAbi = parseAbi([
@@ -41,6 +41,7 @@ const quoteSchema = z.object({
   ...intentShape, protocol: z.literal("v3"), pool: address.refine(value => value === getAddress(TESTNET_SWAP_POLICY.pool)),
   feeTier: z.literal(TESTNET_SWAP_POLICY.feeTier), amountOut: uint, minimumAmountOut: uint,
   blockNumber: uint, blockHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).refine(value => BigInt(value) !== 0n),
+  quoteTtlSeconds: z.literal(TESTNET_SWAP_POLICY.demoQuoteTtlSeconds).optional(),
   observedAt: z.iso.datetime(), source: z.literal("base-sepolia-rpc"),
 }).strict().refine(supportedIntent);
 
@@ -62,12 +63,20 @@ export function parseTestnetSwapQuote(value: unknown, nowMs = Date.now()): Testn
   return reviewedQuote(value, nowMs).quote;
 }
 
+// Absence is the legacy policy. Never upgrade an existing quote/context implicitly.
+export function testnetQuoteExpiresAt(value: TestnetSwapQuote): string {
+  const quote = quoteSchema.parse(value);
+  const ttl = quote.quoteTtlSeconds ?? TESTNET_SWAP_POLICY.quoteTtlSeconds;
+  return new Date(Date.parse(quote.observedAt) + ttl * 1000).toISOString();
+}
+
 function reviewedQuote(value: unknown, nowMs: number): { quote: TestnetSwapQuote; deadline: bigint } {
   if (!Number.isSafeInteger(nowMs) || nowMs < 0) throw new Error("Invalid testnet clock");
   const quote = quoteSchema.parse(value);
   const observedMs = Date.parse(quote.observedAt);
-  const deadline = Math.floor(observedMs / 1000) + TESTNET_SWAP_POLICY.quoteTtlSeconds;
-  if (observedMs > nowMs + 10000 || nowMs - observedMs >= 30000
+  const expiresMs = Date.parse(testnetQuoteExpiresAt(quote));
+  const deadline = Math.floor(expiresMs / 1000);
+  if (observedMs > nowMs + 10000 || nowMs >= expiresMs
     || Math.floor(nowMs / 1000) >= deadline) throw new Error("Expired or future testnet quote");
   const minimum = BigInt(quote.amountOut) * 9950n / 10000n;
   if (minimum === 0n || minimum !== BigInt(quote.minimumAmountOut)) throw new Error("Invalid testnet minimum output");

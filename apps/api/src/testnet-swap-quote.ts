@@ -113,7 +113,7 @@ export class TestnetSwapQuoteReader {
     if (impact > 100) return fail("TESTNET_IMPACT_EXCEEDED");
     if (!same(await source.getBlockHash(block.number), block.hash)) return fail("TESTNET_BLOCK_CHANGED");
     freshness();
-    const quote = parseTestnetSwapQuote({ ...i, protocol: "v3", pool: P.pool, feeTier: P.feeTier,
+    const quote = parseTestnetSwapQuote({ ...i, protocol: "v3", pool: P.pool, feeTier: P.feeTier, quoteTtlSeconds: P.demoQuoteTtlSeconds,
       amountOut: q.amountOut.toString(), minimumAmountOut: (q.amountOut * 9950n / 10000n).toString(),
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: "base-sepolia-rpc" }, this.now());

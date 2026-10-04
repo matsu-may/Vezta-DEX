@@ -1,3 +1,4 @@
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { z } from "zod";
 import { getAddress, type Hex } from "viem";
 import { parseTestnetSwapIntent, parseTestnetSwapQuote, inspectTestnetSwapTransaction, planTestnetTokenApproval,
@@ -30,9 +31,9 @@ function bindIntent(intent: TestnetSwapIntent, quote: TestnetSwapQuote) {
 }
 function inspectAction(action: TestnetWalletAction, intent: TestnetSwapIntent, quote: TestnetSwapQuote, now: number) {
   bindIntent(intent, quote); const tx = action.transaction;
-  bound(same(tx.from, intent.wallet) && action.quoteExpiresAt === new Date(Date.parse(quote.observedAt) + 30000).toISOString());
+  bound(same(tx.from, intent.wallet) && action.quoteExpiresAt === testnetQuoteExpiresAt(quote));
   const expiry = Date.parse(action.trackingExpiresAt);
-  bound(expiry > Date.parse(action.quoteExpiresAt) && expiry <= Date.parse(quote.observedAt) + 86430000);
+  bound(expiry > Date.parse(action.quoteExpiresAt) && expiry <= Date.parse(testnetQuoteExpiresAt(quote)) + 86400000);
   if (action.kind === "swap") inspectTestnetSwapTransaction({ chainId: tx.chainId, from: tx.from, to: tx.to, data: tx.data, value: tx.value }, quote, now);
   else {
     const plan = planTestnetTokenApproval(intent, action.kind === "reset" ? 1n : 0n);
@@ -58,7 +59,7 @@ export function parseTestnetWalletReview(value: unknown, quoted: TestnetWalletQu
   const response = walletReviewSchema.parse(value);
   const { study, action } = response; const intent = parseTestnetSwapIntent(study.intent); bindIntent(intent, quote);
   const observed = Date.parse(study.observedAt);
-  bound(study.quoteId === quoted.quoteId && study.expiresAt === new Date(Date.parse(quote.observedAt) + 30000).toISOString()
+  bound(study.quoteId === quoted.quoteId && study.expiresAt === testnetQuoteExpiresAt(quote)
     && observed <= now + 10000 && now - observed < 30000 && BigInt(study.blockNumber) >= BigInt(quote.blockNumber)
     && (study.blockNumber !== quote.blockNumber || same(study.blockHash, quote.blockHash)));
   if (!action) { bound(study.status !== "unsigned-prepared" && study.transaction === null); return { study: { ...study, intent }, action }; }

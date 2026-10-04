@@ -1,4 +1,5 @@
 "use client";
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { useEffect, useRef, useState } from "react";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent } from "@vezta-dex/core";
 import { TestnetWalletController, type TestnetWallet, type TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
@@ -32,11 +33,12 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
     if (!state?.quote) return;
     const timer = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(timer);
   }, [state?.quote]);
-  const expiry = state?.quote ? Date.parse(state.quote.quote.observedAt) + 30000 : 0;
+  const expiry = state?.quote ? Date.parse(testnetQuoteExpiresAt(state.quote.quote)) : 0;
   const fresh = !!state?.quote && now < expiry;
   const busy = !state || state.busy || switching;
   const recovering = !!state?.submission || state?.stage === "recovery-blocked";
-  const canSubmit = executionEnabled && fresh && state?.quote?.executionEnabled && state.action?.executionEnabled;
+  const reviewFresh = !!state?.review && now < Date.parse(state.review.observedAt) + 30000;
+  const canSubmit = executionEnabled && reviewFresh && fresh && state?.quote?.executionEnabled && state.action?.executionEnabled;
   async function switchChain() {
     if (busy || !wallet.current) return; setSwitching(true);
     try { await wallet.current.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] }); setStartup(""); }
@@ -82,6 +84,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
             <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
               <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div></>}
           {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer.</p>
+            {!reviewFresh && <p role="status">Review expired. Request a fresh quote and review before continuing.</p>}
             <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button></>}
         </>}
         {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}

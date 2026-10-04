@@ -10,7 +10,7 @@ async function setup() {
   const quotes = new TestnetSwapQuoteReader(() => testnetQuoteSource(), undefined, () => now);
   const q = await quotes.read(intent);
   const study = { transaction: { ...buildTestnetSwapTransaction(q.quote, now), nonce: "7", gas: "180000", gasPrice: "20000000" },
-    blockNumber: "123", blockHash: TESTNET_HASH, currentAllowance: "1000000" };
+    observedAt: "2026-09-30T20:26:40.000Z", blockNumber: "123", blockHash: TESTNET_HASH, currentAllowance: "1000000" };
   const source = { async getPendingNonce() { return 7n; }, async getTokenAllowance() { return 1000000n; },
     async getBlockHash() { return TESTNET_HASH; } };
   const signal = new AbortController().signal;
@@ -72,7 +72,7 @@ it("checks an already-consumed recheck context against its original broadcast de
       await expect(prepareForkContextSend(f.source, store, id, new AbortController().signal, f.clock)).rejects.toThrow();
       expect(store.read(id).originalHash).toBeNull(); // A lost send response still cannot authorize retry.
     }
-    expect(store.read(id).quoteExpiresAt).toBe("2026-09-30T20:27:10.000Z");
+    expect(store.read(id).quoteExpiresAt).toBe("2026-09-30T20:28:40.000Z");
   }
 });
 
@@ -116,4 +116,18 @@ it("rejects coupled fee fields that change or become partial at the final send b
   tx.maxPriorityFeePerGas = "1000000";
   Reflect.deleteProperty(tx, "maxFeePerGas");
   await expect(s.call()).rejects.toThrow();
+});
+
+it("rejects a 29-second-old study at the final boundary even when issued just now", async () => {
+  const { prepareForkContextSend } = await import("./testnet-fork-send");
+  const { TestnetActionStore } = await import("./testnet-action");
+  const { testnetActionFixture } = await import("./testnet-action.test-helper");
+  const f = await testnetActionFixture();
+  f.setNow(TESTNET_NOW + 27000);
+  const store = new TestnetActionStore(f.clock);
+  const id = store.issue(f.input, () => {}).contextId;
+  const final = await prepareForkContextSend(f.source, store, id, new AbortController().signal, f.clock);
+  f.setNow(TESTNET_NOW + 28000);
+  expect(() => final()).toThrow();
+  expect(store.read(id).submissionAttempted).toBe(false);
 });

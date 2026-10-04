@@ -1,3 +1,4 @@
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { z } from "zod";
 import type { Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
@@ -145,7 +146,7 @@ export class TestnetApprovalReader {
     return { status, reason, chainId: P.chainId, quoteId: request.quoteId, intent: i,
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
-      expiresAt: new Date(Date.parse(quote.observedAt) + 30000).toISOString(), source: "base-sepolia-rpc" as const,
+      expiresAt: testnetQuoteExpiresAt(quote), source: "base-sepolia-rpc" as const,
       accountNonce: nonce.toString(), inputBalance: input.toString(), nativeBalance: eth.toString(),
       currentAllowance: allowance.toString(), approvalKind: plan.kind, funding, simulation, gas, transaction,
       runtimeVerified: true as const, executionEnabled: false as const };

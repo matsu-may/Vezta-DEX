@@ -225,3 +225,12 @@ it("fails closed when unknown delegation code appears after review", async () =>
     const s = await setup(); await s.reviewed(); s.setCode(code); await s.controller.submit(); expect(s.sends).toHaveLength(0); expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBeNull();
   }
 });
+
+it("does not send if recovery storage crosses the study freshness boundary", async () => {
+  const s = await setup(); await s.reviewed();
+  const save = s.storage.setItem;
+  s.storage.setItem = (key, value) => { save(key, value); if (key === TESTNET_SUBMISSION_KEY) s.expire(); };
+  await s.controller.submit();
+  expect(s.methods).not.toContain("eth_sendTransaction");
+  expect(s.controller.snapshot().stage).toBe("uncertain");
+});

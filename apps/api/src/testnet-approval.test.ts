@@ -115,7 +115,7 @@ it("rejects malformed, forged, expired and misbound requests before creating an 
     { ...request, quoteId: "ab".repeat(24) }, { ...request, intent: { ...request.intent, amountIn: "100000" } }]) {
     await expect(reader.read(input)).rejects.toThrow();
   }
-  setNow(TESTNET_NOW + 28000);
+  setNow(TESTNET_NOW + 118000);
   await expect(reader.read(request)).rejects.toMatchObject({ code: "TESTNET_QUOTE_UNAVAILABLE" });
   expect(create).not.toHaveBeenCalled();
 });
@@ -160,7 +160,7 @@ it("bounds gas/price, rejects quote expiry during simulation, and rounds buffere
     await expect(reader.read(request)).rejects.toMatchObject({ code: "TESTNET_APPROVAL_GAS_INVALID" });
   }
   source.getGasPrice = async () => 10000000n;
-  source.simulateApproval = async () => { setNow(TESTNET_NOW + 28000); return TRUE; };
+  source.simulateApproval = async () => { setNow(TESTNET_NOW + 118000); return TRUE; };
   await expect(reader.read(request)).rejects.toMatchObject({ code: "TESTNET_QUOTE_UNAVAILABLE" });
 });
 

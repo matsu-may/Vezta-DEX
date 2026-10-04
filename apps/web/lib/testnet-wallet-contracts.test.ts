@@ -1,3 +1,7 @@
+import { testnetActionFixture } from "../../api/src/testnet-action.test-helper";
+import { TestnetActionStore, TestnetRechecker } from "../../api/src/testnet-action";
+import { buildTestnetSwapTransaction, parseTestnetSwapIntent } from "@vezta-dex/core";
+import { parseTestnetWalletQuote } from "./testnet-wallet-contracts";
 import { expect, it } from "vitest";
 import { parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission } from "./testnet-wallet-contracts";
 import { reviewedFixture, memoryStorage } from "./testnet-wallet.test-helper";
@@ -79,4 +83,29 @@ it("binds coupled EIP-1559 gas studies and keeps their fields in original recove
   const changed = structuredClone(record); Object.assign(changed.action.transaction, { maxPriorityFeePerGas: "2" });
   expect(() => clearTestnetSubmission(storage, changed)).toThrow();
   expect(readTestnetSubmission(storage)).toEqual({ kind: "record", record });
+});
+
+it("accepts a fresh review after 35 seconds but rejects stale studies and changing the quote lifetime", async () => {
+  const f = await testnetActionFixture();
+  const intent = parseTestnetSwapIntent(f.request.intent);
+  const q = parseTestnetWalletQuote(f.quoted, intent, f.clock());
+  f.setNow(f.clock() + 35000);
+  f.source.getLatestBlock = async () => ({ number: 124n, timestamp: 1790800035n, hash: `0x${"ab".repeat(32)}` });
+  const checked = await new TestnetRechecker(f.approvals, f.preparer, f.quotes.store, new TestnetActionStore(f.clock))
+    .read({ ...f.request, kind: "swap" });
+  expect(parseTestnetWalletReview(checked, q, "swap", f.clock()).action?.quoteExpiresAt).toBe("2026-09-30T20:28:40.000Z");
+  expect(() => parseTestnetWalletReview(checked, q, "swap", f.clock() + 30000)).toThrow();
+  const changed = structuredClone(q); delete changed.quote.quoteTtlSeconds;
+  expect(() => parseTestnetWalletReview(checked, changed, "swap", f.clock())).toThrow();
+});
+
+it("recovers a legacy browser record with its original 30-second calldata and rejects a silent upgrade", async () => {
+  const { f, q, review } = await reviewedFixture();
+  const quote = { ...q.quote }; delete quote.quoteTtlSeconds;
+  const action = structuredClone(review.action!);
+  action.transaction.data = buildTestnetSwapTransaction(quote, f.clock()).data;
+  action.quoteExpiresAt = "2026-09-30T20:27:10.000Z";
+  const record = { version: 1, intent: f.request.intent, quote, action, attemptedAt: f.clock(), hash: `0x${"11".repeat(32)}` };
+  expect(parseTestnetSubmission(record).action.quoteExpiresAt).toBe("2026-09-30T20:27:10.000Z");
+  expect(() => parseTestnetSubmission({ ...record, quote: { ...quote, quoteTtlSeconds: 120 } })).toThrow();
 });

@@ -1,4 +1,4 @@
-import { BASE_SEPOLIA_CANDIDATE as C, parseTestnetSwapIntent, buildTestnetSwapTransaction } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, parseTestnetSwapIntent, buildTestnetSwapTransaction, testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { TestnetQuoteError, type TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import type { TestnetRpcDiagnosticSnapshot } from "./testnet-rpc-diagnostics";
 
@@ -22,7 +22,7 @@ export async function runTestnetWalletQuoteProbe(wallet: unknown, createReader: 
       const { quote } = result;
       rows.push({ status: "testnet-wallet-quote-read-only", direction: inputs[index].direction,
         chainId: quote.chainId, feeTier: quote.feeTier, blockNumber: quote.blockNumber,
-        observedAt: quote.observedAt, expiresAt: new Date(Date.parse(quote.observedAt) + 30000).toISOString(),
+        observedAt: quote.observedAt, expiresAt: testnetQuoteExpiresAt(quote),
         amountIn: quote.amountIn, amountOut: quote.amountOut, minimumAmountOut: quote.minimumAmountOut,
         priceImpactBps: result.priceImpactBps,
         checks: { intentMatches: stored.wallet === intent.wallet && stored.tokenIn === intent.tokenIn

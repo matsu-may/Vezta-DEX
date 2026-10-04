@@ -147,8 +147,13 @@ export class TestnetWalletController {
   }); }
   async submit() { return this.run(async () => {
     this.free(); const q = this.current(); const action = this.state.action; const g = this.generation;
-    require(action && q.executionEnabled && action.executionEnabled && this.executionAllowed());
-    await this.walletCheck(q.quote.wallet, g); this.current(); require(this.executionAllowed());
+    if (!action || !this.state.review) throw new Error("Missing reviewed action");
+    require(q.executionEnabled && action.executionEnabled && this.executionAllowed());
+    const reviewed = this.state.review;
+    const checkReview = () => parseTestnetWalletReview({ study: reviewed, action }, q,
+      action.kind === "swap" ? "swap" : "approval", this.now());
+    checkReview();
+    await this.walletCheck(q.quote.wallet, g); this.current(); checkReview(); require(this.executionAllowed());
     const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
       tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
     const original = parseTestnetSubmission({ version: 1, intent, quote: q.quote, action, attemptedAt: this.now(), hash: null });
@@ -156,7 +161,7 @@ export class TestnetWalletController {
     writeTestnetSubmission(this.storage, original); this.publish({ submission: original, review: null, quote: null, action: null, stage: "uncertain" });
     let raw: unknown;
     try {
-      this.generationCheck(g); parseTestnetSwapQuote(original.quote, this.now()); require(this.executionAllowed());
+      this.generationCheck(g); parseTestnetSwapQuote(original.quote, this.now()); checkReview(); require(this.executionAllowed());
       const tx = original.action.transaction;
       raw = await this.wallet.request({ method: "eth_sendTransaction", params: [{ from: tx.from, to: tx.to, data: tx.data,
         chainId: toHex(P.chainId), value: "0x0", nonce: toHex(BigInt(tx.nonce)), gas: toHex(BigInt(tx.gas)), ...testnetRpcFeeFields(tx) }] });

@@ -1,3 +1,4 @@
+import { buildTestnetSwapTransaction } from "@vezta-dex/core";
 import { chmodSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -14,7 +15,7 @@ it("issues immutable bound contexts, retains original deadline and expires track
   const s = await testnetActionFixture(); const store = new TestnetActionStore(s.clock);
   const issued = store.issue(s.input, () => s.quotes.store.consume(s.quoted.quoteId, s.request.intent));
   expect(issued).toMatchObject({ contextId: expect.stringMatching(/^[a-f0-9]{48}$/), kind: "swap", chainId: 84532,
-    quoteExpiresAt: "2026-09-30T20:27:10.000Z", executionEnabled: false });
+    quoteExpiresAt: "2026-09-30T20:28:40.000Z", executionEnabled: false });
   const saved = store.read(issued.contextId);
   s.input.transaction.nonce = "8"; saved.transaction.nonce = "9";
   expect(store.read(issued.contextId).transaction.nonce).toBe("7");
@@ -32,7 +33,7 @@ it("rejects altered semantics, expired quotes and capacity before consuming", as
     if (change === "nonce") s.input.transaction.nonce = "-1";
     if (change === "intent") s.input.intent.amountIn = "100000";
     if (change === "block") s.input.blockNumber = "122";
-    if (change === "deadline") s.setNow(TESTNET_NOW + 30000);
+    if (change === "deadline") s.setNow(TESTNET_NOW + 118000);
     if (change === "capacity") store.issue(s.input, () => {});
     expect(() => store.issue(s.input, consume)).toThrow(); expect(consume).not.toHaveBeenCalled();
   }
@@ -85,10 +86,10 @@ it("recovers the issued context, attempt reservation and immutable original hash
   store.markSubmissionAttempted(id);
   const originalHash = `0x${"ab".repeat(32)}`;
   store.bindHash(id, originalHash);
-  s.setNow(TESTNET_NOW + 30001);
+  s.setNow(TESTNET_NOW + 120001);
   const restored = new TestnetActionStore(s.clock, 128, path);
   expect(restored.read(id)).toMatchObject({ originalHash, submissionAttempted: true, transaction: s.input.transaction,
-    quoteExpiresAt: "2026-09-30T20:27:10.000Z", trackingExpiresAt: TESTNET_NOW + 86400000 });
+    quoteExpiresAt: "2026-09-30T20:28:40.000Z", trackingExpiresAt: TESTNET_NOW + 86400000 });
   expect(() => restored.markSubmissionAttempted(id)).toThrow("TESTNET_CONTEXT_ATTEMPTED");
   restored.bindHash(id, originalHash);
   expect(() => restored.bindHash(id, `0x${"cd".repeat(32)}`)).toThrow("TESTNET_CONTEXT_HASH_CHANGED");
@@ -166,4 +167,20 @@ it.each(["permissions", "oversized", "symlink", "name"])("does not accept an uns
   if (kind === "symlink") symlinkSync(join(path, `${id}.json`), temp);
   else writeFileSync(temp, kind === "oversized" ? " ".repeat(32769) : "partial", { mode: kind === "permissions" ? 0o644 : 0o600 });
   expect(() => new TestnetActionStore(s.clock, 128, path)).toThrow("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
+});
+
+it("restores legacy 30-second contexts without upgrading their calldata or expiry", async () => {
+  const { TestnetActionStore } = await import("./testnet-action");
+  const s = await testnetActionFixture(); const path = directory();
+  delete s.input.quote.quoteTtlSeconds; delete (s.input as { observedAt?: string }).observedAt;
+  s.input.transaction.data = buildTestnetSwapTransaction(s.input.quote, s.clock()).data;
+  const store = new TestnetActionStore(s.clock, 128, path);
+  const action = store.issue(s.input, () => {});
+  store.markSubmissionAttempted(action.contextId);
+  s.setNow(TESTNET_NOW + 35000);
+  const restored = new TestnetActionStore(s.clock, 128, path).read(action.contextId);
+  expect(restored.quoteExpiresAt).toBe("2026-09-30T20:27:10.000Z");
+  expect(restored.quote.quoteTtlSeconds).toBeUndefined();
+  expect(restored.transaction.data).toBe(s.input.transaction.data);
+  expect(restored.submissionAttempted).toBe(true);
 });

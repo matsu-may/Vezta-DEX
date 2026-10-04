@@ -9,7 +9,7 @@ import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { TestnetActionStore } from "./testnet-action";
 
 type Source = Pick<BaseSepoliaWalletSource, "getPendingNonce" | "getTokenAllowance" | "getBlockHash">;
-type Study = { transaction: TestnetForkReceiptEvidence["transaction"]; blockNumber: string; blockHash: string; currentAllowance: string };
+type Study = { observedAt?: string; transaction: TestnetForkReceiptEvidence["transaction"]; blockNumber: string; blockHash: string; currentAllowance: string };
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 export async function sendReviewedForkTransaction(boundary: ForkClientBoundary, origin: string,
@@ -50,6 +50,10 @@ async function prepareBoundForkSend(source: Source, i: TestnetSwapIntent, study:
   const tx = study.transaction; const originalFees = { ...tx }; const quote = readQuote(); signal.throwIfAborted();
   const validate = () => {
     signal.throwIfAborted(); readQuote();
+    // Legacy contexts have only their quote timestamp; never refresh that timestamp implicitly.
+    const observed = Date.parse(study.observedAt ?? quote.observedAt);
+    forkAssert(Number.isSafeInteger(observed) && observed <= now() + 10000 && now() - observed < 30000,
+      "FORK_STUDY_EXPIRED");
     validateTestnetFeeFields(tx);
     forkAssert(sameTestnetFeeFields(tx, originalFees), "FORK_TRANSACTION_CHANGED");
     forkAssert(tx.chainId === P.chainId && tx.value === "0" && same(tx.from, i.wallet)

@@ -11,7 +11,7 @@ it("validates the wallet before source creation and emits bounded diagnostics fo
   const results = await runTestnetWalletQuoteProbe(testnetIntent().wallet, create, () => TESTNET_NOW);
   expect(results).toHaveLength(2);
   for (const result of results) {
-    expect(result).toMatchObject({ status: "testnet-wallet-quote-read-only", checks: {
+    expect(result).toMatchObject({ status: "testnet-wallet-quote-read-only", expiresAt: "2026-09-30T20:28:40.000Z", checks: {
       intentMatches: true, minimumValid: true, quoteFresh: true, opaqueQuoteId: true,
       configurationVerified: true, runtimeVerified: true, executionEnabled: false,
     } });

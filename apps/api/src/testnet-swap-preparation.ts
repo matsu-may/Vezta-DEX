@@ -1,3 +1,4 @@
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
   inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
@@ -173,7 +174,7 @@ export class TestnetSwapPreparer {
     return { status, reason, chainId: P.chainId, quoteId: request.quoteId, intent: i, approvalKind,
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
-      expiresAt: new Date(Date.parse(quote.observedAt) + 30000).toISOString(), source: "base-sepolia-rpc" as const,
+      expiresAt: testnetQuoteExpiresAt(quote), source: "base-sepolia-rpc" as const,
       minimumAmountOut: quote.minimumAmountOut, priceImpactBps, accountNonce: nonce.toString(),
       inputBalance: input.toString(), nativeBalance: eth.toString(), currentAllowance: allowance.toString(),
       funding, simulation, gas, transaction, runtimeVerified: true as const, executionEnabled: false as const };

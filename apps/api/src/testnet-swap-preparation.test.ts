@@ -53,7 +53,7 @@ it.each([false, true])("simulates the original unsigned swap without weakening m
   const tx = { chainId: prepared.chainId, from: prepared.from, to: prepared.to, data: prepared.data, value: prepared.value };
   inspectTestnetSwapTransaction(tx, quoted.quote, TESTNET_NOW);
   const outer = decodeFunctionData({ abi: parseAbi(["function multicall(uint256 deadline,bytes[] data) payable returns (bytes[] results)"]), data: tx.data });
-  expect(outer.args?.[0]).toBe(1790800030n);
+  expect(outer.args?.[0]).toBe(1790800120n);
   expect(simulate.mock.calls[0][1]).toBe(123n);
   expect(quotes.store.read(request.quoteId, request.intent).minimumAmountOut).toBe(quoted.quote.minimumAmountOut);
 });
@@ -88,7 +88,7 @@ it("rejects malformed/forged/changed/expired intents before RPC creation", async
     { ...request, quoteId: "x" }, { ...request, intent: { ...request.intent, amountIn: "100000" } }]) {
     await expect(preparer.read(value)).rejects.toThrow();
   }
-  setNow(TESTNET_NOW + 28000);
+  setNow(TESTNET_NOW + 118000);
   await expect(preparer.read(request)).rejects.toMatchObject({ code: "TESTNET_QUOTE_UNAVAILABLE" });
   expect(create).not.toHaveBeenCalled();
 });
@@ -147,7 +147,7 @@ it("accepts a better fresh output while keeping the reviewed minimum and origina
   const result = await preparer.read(request);
   expect(result.minimumAmountOut).toBe(quoted.quote.minimumAmountOut);
   expect(result.simulation?.amountOut).toBe(improved.toString());
-  expect(result.expiresAt).toBe("2026-09-30T20:27:10.000Z");
+  expect(result.expiresAt).toBe("2026-09-30T20:28:40.000Z");
 });
 
 it("rejects reverted, malformed, extra or mismatched simulation output without provider details", async () => {
@@ -170,9 +170,9 @@ it("bounds swap gas and rejects expiry during simulation or fee reads", async ()
     await expect(preparer.read(request)).rejects.toMatchObject({ code: "TESTNET_SWAP_GAS_INVALID" });
   }
   source.estimateTestnetSwapGas = async () => 150001n;
-  source.getAdditionalFees = async () => { setNow(TESTNET_NOW + 28000); return { l1FeeUpperBound: 1n, operatorFeeUpperBound: 0n, fork: "jovian" }; };
+  source.getAdditionalFees = async () => { setNow(TESTNET_NOW + 118000); return { l1FeeUpperBound: 1n, operatorFeeUpperBound: 0n, fork: "jovian" }; };
   await expect(preparer.read(request)).rejects.toMatchObject({ code: "TESTNET_QUOTE_UNAVAILABLE" });
-  setNow(TESTNET_NOW); source.simulateTestnetSwap = async () => { setNow(TESTNET_NOW + 28000); return resultData(BigInt(quoted.quote.amountOut)); };
+  setNow(TESTNET_NOW); source.simulateTestnetSwap = async () => { setNow(TESTNET_NOW + 118000); return resultData(BigInt(quoted.quote.amountOut)); };
   await expect(preparer.read(request)).rejects.toMatchObject({ code: "TESTNET_QUOTE_UNAVAILABLE" });
 });
 
@@ -186,4 +186,16 @@ it("aborts busy/hung preparation and ignores late completion while allowing a ne
   resolve(84532); await vi.advanceTimersByTimeAsync(0);
   source.getChainId = async () => 84532;
   expect((await preparer.read(request)).status).toBe("unsigned-prepared");
+});
+
+it("reviews an allowance-ready quote after 35 seconds using a fresh block and the original minimum", async () => {
+  const { preparer, source, request, setNow } = await setup();
+  setNow(TESTNET_NOW + 35000);
+  source.getLatestBlock = async () => ({ number: 124n, timestamp: 1790800035n, hash: TESTNET_HASH });
+  const result = await preparer.read(request);
+  expect(result).toMatchObject({ status: "unsigned-prepared", blockNumber: "124", minimumAmountOut: "396607597000000" });
+  const decoded = decodeFunctionData({ abi: parseAbi(["function multicall(uint256 deadline,bytes[] data) payable returns (bytes[] results)"]), data: result.transaction!.data });
+  expect(decoded.args?.[0]).toBe(1790800120n);
+  source.getLatestBlock = async () => ({ number: 124n, timestamp: 1790800000n, hash: TESTNET_HASH });
+  await expect(preparer.read(request)).rejects.toThrow();
 });

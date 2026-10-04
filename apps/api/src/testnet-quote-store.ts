@@ -1,5 +1,6 @@
+import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { randomBytes } from "node:crypto";
-import { parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY,
+import { parseTestnetSwapIntent, parseTestnetSwapQuote,
   type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
 
 function binding(value: unknown): string {
@@ -26,7 +27,7 @@ export class TestnetQuoteStore {
     const intent = parseTestnetSwapIntent({ chainId: quote.chainId, wallet: quote.wallet,
       tokenIn: quote.tokenIn, tokenOut: quote.tokenOut, amountIn: quote.amountIn, slippageBps: quote.slippageBps });
     this.entries.set(id, { quote, binding: binding(intent),
-      expires: Date.parse(quote.observedAt) + TESTNET_SWAP_POLICY.quoteTtlSeconds * 1000 });
+      expires: Date.parse(testnetQuoteExpiresAt(quote)) });
     return id;
   }
   read(id: string, value: unknown): TestnetSwapQuote {

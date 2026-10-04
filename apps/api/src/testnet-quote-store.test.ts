@@ -31,7 +31,21 @@ it("expires at the original deadline, bounds capacity and rejects malformed quot
   expect(() => store.read(a.quoteId, testnetIntent())).toThrow();
   expect(() => store.read("../secret", testnetIntent())).toThrow();
   expect(() => store.save({ ...c.quote, minimumAmountOut: "1" })).toThrow();
-  now += 28000;
+  now += 118000;
   expect(() => store.read(b.quoteId, testnetIntent())).toThrow();
   expect(store.size).toBe(0);
+});
+
+it("issues demo quotes for 120 seconds and never extends legacy quotes or reuses consumed IDs", async () => {
+  let now = TESTNET_NOW;
+  const store = new TestnetQuoteStore(() => now);
+  const issued = await new TestnetSwapQuoteReader(() => testnetQuoteSource(), store, () => now).read(testnetIntent());
+  const legacy = { ...issued.quote }; delete (legacy as Record<string, unknown>).quoteTtlSeconds;
+  const legacyId = store.save(legacy);
+  now += 35000;
+  expect(() => store.read(legacyId, testnetIntent())).toThrow();
+  expect(store.read(issued.quoteId, testnetIntent()).minimumAmountOut).toBe("396607597000000");
+  now = TESTNET_NOW + 117999;
+  store.consume(issued.quoteId, testnetIntent());
+  expect(() => store.consume(issued.quoteId, testnetIntent())).toThrow();
 });
