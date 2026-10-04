@@ -1,3 +1,4 @@
+import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { z } from "zod";
 import { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpRequest } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
@@ -17,27 +18,21 @@ export function createTestnetLpProxy(env: Record<string, string | undefined> = p
   let active = false; let starts: number[] = [];
   return async (request: Request) => {
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
-    const url = new URL(request.url); const host = request.headers.get("host") ?? url.host;
+    const url = new URL(request.url);
     if (url.search) return json({ error: "Query unsupported" }, 400);
-    if (host !== "127.0.0.1:3020" || request.headers.get("origin") !== "http://127.0.0.1:3020"
-      || request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
-      || (request.headers.has("x-forwarded-host") && request.headers.get("x-forwarded-host") !== host)
-      || (request.headers.has("x-forwarded-proto") && request.headers.get("x-forwarded-proto") !== "http")
-      || (request.headers.has("x-forwarded-for") && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.headers.get("x-forwarded-for")!))
-      || request.headers.has("forwarded")) return json({ error: "Local same-origin JSON required" }, 403);
+    if (!testnetBrowserAllowed(request, env)) return json({ error: "Local same-origin JSON required" }, 403);
     let body: TestnetLpRequest;
     try { body = testnetLpRequestSchema.parse(await boundedJson(new Response(request.body), 4096)); }
     catch { return json({ error: "Invalid LP request" }, 400); }
-    let api: URL;
-    try { api = new URL(env.DEX_API_URL ?? "http://127.0.0.1:3021");
-      if (api.origin !== "http://127.0.0.1:3021" || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error();
-    } catch { return json({ error: "LP API configuration unavailable" }, 503); }
+    let target: ReturnType<typeof testnetApiTarget>;
+    try { target = testnetApiTarget(env); }
+    catch { return json({ error: "LP API configuration unavailable" }, 503); }
     const time = now(); starts = starts.filter(t => time - t < 60000);
     if (active || starts.length >= 12) return json({ error: "LP read budget busy", code: "TESTNET_LP_BUSY" }, 429);
     active = true; starts.push(time);
     try {
-      const response = await fetcher(new URL("/api/v1/testnet/base-sepolia/lp/positions", api).href, {
-        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(body),
+      const response = await fetcher(new URL("/api/v1/testnet/base-sepolia/lp/positions", target.url).href, {
+        method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers }, body: JSON.stringify(body),
         cache: "no-store", redirect: "error", signal: AbortSignal.timeout(28000) });
       const raw = await boundedJson(response, response.ok ? 65536 : 4096);
       if (!response.ok) {

@@ -1,3 +1,4 @@
+import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { historicalTestnetApprovalRequestSchema, parseHistoricalTestnetApprovalResponse } from "./testnet-wallet-historical";
 import { z } from "zod";
 import { parseTestnetSwapIntent } from "@vezta-dex/core";
@@ -15,14 +16,11 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
   return async (request: Request, action: string): Promise<Response> => {
     if (!["quote", "recheck", "receipt", "historical-approval"].includes(action)) return json({ error: "Not found" }, 404);
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
-    const url = new URL(request.url); const host = request.headers.get("host") ?? url.host;
+    const url = new URL(request.url);
     if (url.search) return json({ error: "Query parameters are not supported" }, 400);
-    if (host !== "127.0.0.1:3020" || request.headers.get("origin") !== "http://127.0.0.1:3020"
-      || request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json"
-      || (request.headers.has("x-forwarded-host") && request.headers.get("x-forwarded-host") !== host)
-      || (request.headers.has("x-forwarded-proto") && request.headers.get("x-forwarded-proto") !== "http")
-      || (request.headers.has("x-forwarded-for") && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.headers.get("x-forwarded-for")!))
-      || request.headers.has("forwarded")) return json({ error: "Local same-origin JSON required", code: "TESTNET_BROWSER_ORIGIN" }, 403);
+    if (!testnetBrowserAllowed(request, env)) return json({ error: "Local same-origin JSON required", code: "TESTNET_BROWSER_ORIGIN" }, 403);
+    if (env.DEX_HOSTED_MODE === "1" && action === "recheck" && !testnetDemoEnabled(env))
+      return json({ error: "Hosted testnet writes are disabled", code: "TESTNET_BROWSER_UNAVAILABLE" }, 403);
     let body: unknown;
     try {
       const raw = await boundedJson(new Response(request.body), 4096);
@@ -31,16 +29,14 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
       else if (action === "historical-approval") body = historicalTestnetApprovalRequestSchema.parse(raw);
       else body = receipt.parse(raw);
     } catch (error) { return json({ error: "Invalid testnet request", code: "TESTNET_INTENT_INVALID" }, error instanceof Error && error.message === "Response too large" ? 413 : 400); }
-    let api: URL;
-    try {
-      api = new URL(env.DEX_API_URL ?? "http://127.0.0.1:3021");
-      if (api.origin !== "http://127.0.0.1:3021" || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error();
-    } catch { return json({ error: "Testnet API configuration unavailable", code: "TESTNET_BROWSER_CONFIG" }, 503); }
+    let target: ReturnType<typeof testnetApiTarget>;
+    try { target = testnetApiTarget(env); }
+    catch { return json({ error: "Testnet API configuration unavailable", code: "TESTNET_BROWSER_CONFIG" }, 503); }
     const time = now(); starts = starts.filter(t => time - t < 60000);
     if (active || starts.length >= 24) return json({ error: "Testnet read budget busy. Try an explicit fresh action later.", code: "TESTNET_BROWSER_BUSY" }, 429);
     active = true; starts.push(time);
     try {
-      const upstream = await fetcher(new URL(`/api/v1/testnet/base-sepolia/${action}`, api).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json" },
+      const upstream = await fetcher(new URL(`/api/v1/testnet/base-sepolia/${action}`, target.url).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers },
         body: JSON.stringify(body), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(28000) });
       const raw = await boundedJson(upstream, upstream.ok ? 65536 : 4096);
       if (!upstream.ok) return json({ error: "Testnet action unavailable", code: safeTestnetCode(typeof raw === "object" && raw !== null && "code" in raw ? raw.code : undefined) }, [400, 409, 410, 413, 415, 429, 503].includes(upstream.status) ? upstream.status : 503);

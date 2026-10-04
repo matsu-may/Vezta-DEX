@@ -1,3 +1,4 @@
+import { testnetApiTarget } from "./hosted-boundary";
 import { z } from "zod";
 import { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
@@ -19,16 +20,13 @@ export function createTestnetDepthProxy(env: Record<string, string | undefined> 
   return async (request: Request): Promise<Response> => {
     if (request.method !== "GET") return json({ error: "Method not allowed" }, 405);
     if (new URL(request.url).search) return json({ error: "Query parameters are not supported" }, 400);
-    let api: URL;
-    try {
-      api = new URL(env.DEX_API_URL ?? "http://127.0.0.1:3021");
-      if (api.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(api.hostname)
-        || api.port !== "3021" || api.username || api.password || api.pathname !== "/" || api.search || api.hash) throw new Error();
-    } catch { return json({ error: "Testnet pool data unavailable", code: "TESTNET_API_CONFIG_INVALID" }, 503); }
+    let target: ReturnType<typeof testnetApiTarget>;
+    try { target = testnetApiTarget(env, true); }
+    catch { return json({ error: "Testnet pool data unavailable", code: "TESTNET_API_CONFIG_INVALID" }, 503); }
     let response: Response;
     try {
-      response = await fetcher(new URL("/api/v1/testnet/base-sepolia/depth", api).href, {
-        method: "GET", headers: { Accept: "application/json" }, cache: "no-store", redirect: "error",
+      response = await fetcher(new URL("/api/v1/testnet/base-sepolia/depth", target.url).href, {
+        method: "GET", headers: { Accept: "application/json", ...target.headers }, cache: "no-store", redirect: "error",
         signal: AbortSignal.timeout(50000),
       });
     } catch (error) {
