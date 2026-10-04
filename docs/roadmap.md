@@ -1,5 +1,9 @@
 # Vezta DEX Roadmap
 
+The Vietnamese [mechanism & demo report](reports/2026-10-04-vezta-dex-mechanism-report.md)
+summarizes the current architecture, protocol math, wallet/LP flows, mock UI
+screenshots and the distinction between local acceptance and hosted readiness.
+
 **Current checkpoint, 2026-10-04:** the owner reports every desktop acceptance
 check passed, including both swaps, the LP lifecycle and failure/recovery cases.
 This is owner-reported acceptance; new individual LP hashes were not supplied.
