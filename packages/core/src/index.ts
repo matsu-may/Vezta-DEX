@@ -124,3 +124,4 @@ export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type T
 export * from "./testnet-lp-wallet";
 export * from "./testnet-transaction-fees";
 export * from "./testnet-metamask";
+export * from "./hosted-config";
