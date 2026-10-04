@@ -1,4 +1,5 @@
 "use client";
+import Image from "next/image";
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { TestnetWallet } from "../lib/testnet-wallet-controller";
@@ -120,7 +121,7 @@ function DemoWalletHeaderControl() {
       <p id={descriptionId}>Connect with MetaMask on Base Sepolia. Test tokens only.</p>
       {currentAccount && <div className="wallet-account"><span>Connected account</span><p className="mono">{currentAccount}</p></div>}
       <button className="wallet-option" disabled={busy || blocked} onClick={() => void connect()}>
-        <span className="wallet-option-icon" aria-hidden="true">M</span><span><strong>MetaMask</strong><small>{connecting ? "Waiting for wallet…" : currentAccount ? "Reconnect or select another account" : "Browser extension"}</small></span><span aria-hidden="true">↗</span>
+        <span className="wallet-option-icon" aria-hidden="true"><Image src="/wallets/metamask.svg" alt="" width={32} height={32} unoptimized /></span><span><strong>MetaMask</strong><small>{connecting ? "Waiting for wallet…" : currentAccount ? "Reconnect or select another account" : "Browser extension"}</small></span><span aria-hidden="true">↗</span>
       </button>
       {error && <p className="wallet-dialog-message" role="status">{error}</p>}
       <button className="wallet-network-switch" disabled={busy || blocked} onClick={() => void switchChain()}>{switching ? "Switching network…" : "Switch to Base Sepolia"}</button>

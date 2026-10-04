@@ -6,6 +6,7 @@ import { TestnetWalletController, type TestnetWallet, type TestnetWalletSnapshot
 import { createTestnetWalletClient } from "../lib/testnet-wallet-client";
 import { TestnetWalletReview } from "./testnet-wallet-review";
 import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
+import { DemoSwapActions } from "./demo-swap-actions";
 import { DemoSwapInputs } from "./demo-swap-inputs";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amounts = { forward: ["100000", "1000000", "5000000"], reverse: ["10000000000000", "100000000000000", "1000000000000000"] };
@@ -66,7 +67,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   }
   function changeAmount(next: number) { controller.current?.invalidateInput(); setAmount(next); }
   return <div className={`testnet-demo-grid ${presentation === "demo" ? "recording-grid" : ""}`}>
-    <aside className="section-card testnet-explore" aria-label="Demo pool">
+    {presentation !== "demo" && <aside className="section-card testnet-explore" aria-label="Demo pool">
       <span className="eyebrow">EXPLORE · BASE SEPOLIA</span><h2>USDC / WETH</h2>
       <p>Uniswap v3 · 0.3% fee pool</p><span className="badge badge-fresh">Test tokens only</span>
       <dl className="demo-preview"><div><dt>Chain</dt><dd>Base Sepolia · 84532</dd></div>
@@ -75,10 +76,9 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
         {state?.quote && <div><dt>Block</dt><dd>{state.quote.quote.blockNumber}</dd></div>}
       </dl>{state?.quote && <details className="quote-provenance"><summary>Block provenance</summary><p className="mono">{state.quote.quote.blockHash}</p></details>}<p className="form-help">Testnet prices have no monetary value. This demo uses one pool; it does not aggregate best prices or display inferred APR.</p>
       <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer">Get test USDC ↗</a>
-    </aside>
+    </aside>}
     <section className="section-card testnet-wallet" aria-label="Testnet wallet swap">
-      <span className="eyebrow">SWAP · TESTNET</span><h2>{presentation === "demo" ? "Swap tokens" : "Review a small testnet swap"}</h2>
-      {presentation === "demo" && <ol className="recording-steps" aria-label="Swap steps"><li>01 Connect</li><li>02 Review</li><li>03 Confirm</li></ol>}
+      {presentation !== "demo" && <span className="eyebrow">SWAP · TESTNET</span>}<h2>{presentation === "demo" ? "Swap tokens" : "Review a small testnet swap"}</h2>
       <p className="testnet-mode">{presentation === "demo" ? executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled" : executionEnabled ? "Local testnet acceptance enabled · MetaMask signs every transaction" : "Read-only preview · run pnpm dev:testnet for wallet acceptance"}</p>
       {startup && <p role="status">{startup}</p>}
       {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to request a quote.</p>}
@@ -93,14 +93,15 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
               <option value="forward">USDC → WETH</option><option value="reverse">WETH → USDC</option></select></div>
             <div><label className="form-label" htmlFor="testnet-amount">Input amount</label><select className="field" id="testnet-amount" value={amount} disabled={busy} onChange={e => { controller.current!.invalidateInput(); setAmount(Number(e.target.value)); }}>
               {labels[direction].map((label, i) => <option value={i} key={label}>{label}</option>)}</select></div></div>}
-          <button className="button testnet-quote-button" disabled={busy || !state.account} onClick={() => void quote()}>Get wallet quote</button>
+          {presentation !== "demo" && <button className="button testnet-quote-button" disabled={busy || !state.account} onClick={() => void quote()}>Get wallet quote</button>}
           <TestnetWalletReview state={state} compact={presentation === "demo"} />
           {state.quote && <><p className="form-help" role="status">{fresh ? `Quote expires in ${Math.max(0, Math.ceil((expiry - now) / 1000))}s. Review and confirm before expiry.` : "Quote expired. Request a fresh quote before continuing."}</p>
-            <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
-              <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div></>}
+            {presentation !== "demo" && <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
+              <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div>}</>}
           {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer.</p>
             {!reviewFresh && <p role="status">Review expired. Request a fresh quote and review before continuing.</p>}
-            <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button></>}
+            {presentation !== "demo" && <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button>}</>}
+          {presentation === "demo" && <DemoSwapActions state={state} busy={busy} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onQuote={() => void quote()} onReview={kind => void controller.current!.review(kind)} onSubmit={() => void controller.current!.submit()} />}
         </>}
         {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
         {state.message && <p role="alert" className="form-error">{state.message}</p>}

@@ -29,7 +29,7 @@ export function DemoSwapInputs({ direction, amount, disabled, amountOut, onDirec
     <div className="swap-token-block swap-output-block"><span className="swap-block-label">You receive</span>
       <div className="swap-token-line"><output className="swap-output" aria-label="Quoted token output">{amountOut ? formatUnits(BigInt(amountOut), direction === "forward" ? 18 : 6) : "—"}</output>
         <span className="swap-token-name"><TokenIcon token={output} />{output}</span></div>
-      <span className="swap-block-caption">{amountOut ? "Estimated output · review the minimum below" : "Get a quote to see the estimated output"}</span>
+      <span className="swap-block-caption">{amountOut ? "Estimated received · minimum shown below" : "Get a quote to see the estimated output"}</span>
     </div>
   </div>;
 }

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { TestnetLpWalletPanel } from "./testnet-lp-wallet-panel";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); window.localStorage.clear(); });
 it("never prompts on load and shows all independent LP choices in read-only development", async () => {
@@ -43,4 +43,22 @@ it("shows delegated LP gas payer and observed L2 cost without claiming total fee
   fireEvent.click(await screen.findByRole("button",{name:"Connect Base Sepolia wallet"}));await screen.findByText(`Connected: ${f.intent.wallet}`);fireEvent.click(screen.getByRole("button",{name:"Study LP action"}));await screen.findByRole("heading",{name:"Review approve USDC"});
   fireEvent.click(screen.getByRole("button",{name:"Submit reviewed LP transaction"}));fireEvent.click(await screen.findByRole("button",{name:"Check original LP transaction"}));await screen.findByText("Original action verified with two confirmations.");
   expect(screen.getByText("Gas payer")).toBeTruthy();expect(screen.getByText("Observed outer L2 cost")).toBeTruthy();expect(screen.getByText("L1/operator charged fees not yet qualified")).toBeTruthy();expect(screen.getByRole("button",{name:"Acknowledge verified LP result"})).toBeTruthy();
+});
+it("opens LP controls only after Create position and returns without requesting a wallet or sending", async () => {
+  const request = vi.fn(async () => []); vi.stubGlobal('ethereum', { isMetaMask: true, request });
+  render(<TestnetLpWalletPanel executionEnabled={false} presentation="demo" />);
+  await screen.findByRole('button', { name: 'Create position' });
+  expect(screen.queryByLabelText('LP action')).toBeNull();
+  await waitFor(() => expect(screen.getByRole('button', { name: 'Create position' }).hasAttribute('disabled')).toBe(false));
+  fireEvent.click(screen.getByRole('button', { name: 'Create position' }));
+  await screen.findByLabelText('LP action'); expect(request).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole('button', { name: 'Back to positions' })); expect(screen.queryByLabelText('LP action')).toBeNull();
+});
+it("keeps storage initialization guidance visible before selecting an LP action", async () => {
+  vi.stubGlobal("ethereum", { isMetaMask: true, request: vi.fn() });
+  vi.spyOn(window, "localStorage", "get").mockImplementation(() => { throw new Error("Storage blocked"); });
+  render(<TestnetLpWalletPanel executionEnabled={false} presentation="demo" />);
+  await screen.findByText("Local recovery storage is unavailable. Enable site storage before submitting.");
+  expect(screen.queryByLabelText("LP action")).toBeNull();
+  expect(screen.getByRole("button", { name: "Create position" }).hasAttribute("disabled")).toBe(true);
 });

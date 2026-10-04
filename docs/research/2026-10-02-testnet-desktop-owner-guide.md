@@ -13,6 +13,19 @@ Opening the popup does not prompt the extension. Recovery keeps the original
 hash and locks reconnection until its result is resolved. The technical `/testnet`
 page retains its existing direct connection controls.
 
+**Compact UI update:** navigation is now **Swap / Explore / Positions**. Swap uses
+one primary button: **Get wallet quote → Review swap → Submit reviewed testnet
+transaction**. When allowance is insufficient, it changes to **Review approval**;
+review and submit that approval separately, verify/acknowledge its original result,
+then request a fresh quote. To check allowance manually before swap, expand
+**More review options → Check token approval**. Minimum received stays visible;
+block, nonce and gas components are expandable.
+
+Positions opens with the ownership list. Select **Create position** or a position
+action to open its form. **Back to positions** discards an unsent study, so reopening
+requires another review. A submitted transaction always keeps its original
+recovery panel visible. Explore's source and block are under **Source and block**.
+
 1. In `vezta-dex`, configure `BASE_SEPOLIA_RPC_URL` in `apps/api/.env`; keep it private. The read-only API does not need a Trading API key for this direct-v3 testnet adapter.
 2. Stop your previous `pnpm dev` launcher with Ctrl-C, then run `pnpm dev:testnet`. Do not start both launchers together. Keep this terminal open.
 3. Open `http://127.0.0.1:3020/demo/3` using the same hostname throughout. `localhost` and `127.0.0.1` have different origins and recovery storage.
@@ -55,7 +68,7 @@ Simulation and fee studies still require a block less than **30 seconds old**. S
 For the earlier step **3C** (`TESTNET_QUOTE_UNAVAILABLE` after allowance-ready):
 
 1. With no pending hash, reload `/demo/1` to load the update and click **Get wallet quote**. If your server has not loaded the changes, restart your launcher with `pnpm dev:testnet`. Preserve recovery storage.
-2. Click **Review approval** if checking allowance. When it says **Allowance is ready. Review swap next.**, click **Review swap**; do not submit another approval.
+2. Click **Review swap**, or expand **More review options → Check token approval** to check allowance first. When it says **Allowance is ready. Review swap next.**, click **Review swap**; do not submit another approval.
 3. Review **Simulated swap**, input, minimum received and complete fee budget. Click **Submit reviewed testnet transaction** while the simulation review is fresh, then confirm the same operation in MetaMask before the quote deadline.
 4. Keep the returned hash, click **Check original transaction** until the original execution verifies, compare **Verified executed output** with that quote's minimum, and click **Acknowledge verified result**.
 5. If there is already a hash, continue tracking that hash instead of requesting another submission. If still unavailable, report the safe Network response code and endpoint.
@@ -84,7 +97,7 @@ Public acceptance with your installed MetaMask is still required. Local mocks an
 
 Use small test amounts that fit the displayed balances. Mint uses the demo's full tick range; increase preserves the NFT's original range. This is a demonstration, not a recommended investment range.
 
-1. **Mint:** review and confirm each necessary reset/exact cap approval separately. After each confirmed approval, acknowledge it and request a fresh study. Approvals target the NFT manager, not the swap router. Then review and confirm mint; copy the resulting NFT ID and original transaction hash.
+1. **Mint:** click **Create position** to open the form. Review and confirm each necessary reset/exact cap approval separately. After each confirmed approval, acknowledge it and request a fresh study. Approvals target the NFT manager, not the swap router. Then review and confirm mint; copy the resulting NFT ID and original transaction hash.
 2. **Increase:** select that NFT ID, review another small deposit, complete any required approvals, then increase. Confirm the position's liquidity increases.
 3. **Partial decrease:** choose 25% or 50%, review the minimums and submit. Liquidity should decrease, and amounts become owed by the position; this step does not transfer them to the wallet.
 4. **Full decrease:** remove 100% of remaining liquidity. The position should have zero liquidity and owed amounts.

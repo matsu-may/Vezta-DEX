@@ -24,7 +24,7 @@ async page => {
   const read = async () => { await page.getByRole("button", { name: "Read LP positions", exact: true }).click(); };
   await page.setViewportSize({ width: 1440, height: 1080 });
   await page.goto("http://127.0.0.1:3020/demo/2");
-  await page.getByRole("heading", { name: "Liquidity positions" }).waitFor();
+  await page.getByRole("heading", { name: "Your positions" }).waitFor();
   check(calls.length === 0, "No API read on page load");
   check((await page.evaluate(() => window.__lpMock.walletCalls)).length === 0, "No wallet prompt on page load");
   await page.getByLabel("Position owner address").fill("bad");
@@ -33,11 +33,11 @@ async page => {
   await read(); await page.getByRole("heading", { name: "Position #42" }).waitFor();
   check(await page.getByText("Current principal", { exact: true }).count() === 1, "Principal is labelled separately");
   check(await page.getByText("Stored owed · mixed", { exact: true }).count() === 1, "Stored fees and withdrawn principal are not labelled profit");
-  check(await page.getByRole("button", { name: "Study LP action", exact: true }).isDisabled(), "Position reads do not grant wallet execution");
+  check(await page.getByRole("button", { name: "Study LP action", exact: true }).count() === 0, "Position reads do not open wallet action controls");
   await page.screenshot({ path: ".playwright-cli/demo-02-desktop.png", fullPage: true });
   mode = "empty"; await read(); await page.getByText("No positions owned", { exact: true }).waitFor();
   check(true, "Verified empty scan is distinct from failure");
-  mode = "error"; await read(); await page.getByRole("alert").waitFor();
+  mode = "error"; await read(); await page.getByRole("region", { name: "Base Sepolia LP positions" }).getByRole("alert").waitFor();
   check(await page.getByText("No positions owned", { exact: true }).count() === 0, "RPC failure never displays empty ownership");
   mode = "pages"; await read(); await page.getByRole("heading", { name: "Position #42" }).waitFor();
   await page.getByRole("button", { name: "Scan next NFT" }).click();

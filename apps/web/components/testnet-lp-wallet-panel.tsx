@@ -11,9 +11,12 @@ import { TestnetLpPanel } from "./testnet-lp-panel";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amount = (value: string, decimals: number) => formatUnits(BigInt(value), decimals);
 const names = { mint: "Create full-range position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
-export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: boolean }) {
+export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "demo" | "technical" }) {
   const c = useRef<TestnetLpWalletController | null>(null); const provider = useRef<TestnetWallet | null>(null);
   const [mutationKey, setMutationKey] = useState<string | null>(null);
+  const [actionOpen, setActionOpen] = useState(false);
+  const origin = useRef<HTMLElement | null>(null); const heading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => { if (actionOpen) heading.current?.focus(); }, [actionOpen]);
   const [state, setState] = useState<TestnetLpWalletSnapshot | null>(null); const [startup, setStartup] = useState("Loading wallet interface…");
   const [kind, setKind] = useState<TestnetLpIntent["kind"]>("mint"); const [tokenId, setTokenId] = useState("");
   const [amount0, setAmount0] = useState("1000000"); const [amount1, setAmount1] = useState("1000000000000000");
@@ -49,10 +52,11 @@ export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: b
   const intent = testnetLpIntentSchema.safeParse({ chainId: 84532, wallet: state?.account, kind,
     ...(kind !== "mint" ? { tokenId } : {}), ...(kind === "mint" || kind === "increase" ? { amount0Cap: amount0, amount1Cap: amount1 } : {}), ...(kind === "decrease" ? { percentage } : {}) });
   const edit = () => c.current?.invalidateInput();
-  const select = (next: TestnetLpIntent["kind"], id: string) => { edit(); setKind(next); setTokenId(id); };
+  const select = (next: TestnetLpIntent["kind"], id: string) => { if (busy || recovering) return; origin.current = document.activeElement as HTMLElement; edit(); setKind(next); setTokenId(id); setActionOpen(true); };
+  const closeAction = () => { if (busy || recovering) return; edit(); setActionOpen(false); origin.current?.focus(); };
   const controls = <section aria-label="Testnet LP wallet">
-    <span className="eyebrow">POSITION ACTION</span><h2>Manage liquidity</h2>
-    <ol className="recording-steps" aria-label="LP steps"><li>01 Connect</li><li>02 Review</li><li>03 Confirm</li></ol>
+    {presentation === "demo" && !recovering && <button className="text-action lp-back-action" disabled={busy} onClick={closeAction}>Back to positions</button>}
+    <h2 ref={heading} tabIndex={-1}>{presentation === "demo" ? names[kind] : "Manage liquidity"}</h2>
     <p className="testnet-mode">{executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled"}</p>
     {startup && <p role="status">{startup}</p>}
     {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to review a position action.</p>}
@@ -102,5 +106,9 @@ export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: b
       {state.message && <p role="alert" className="form-error">{state.message}</p>}
     </>}
   </section>;
-  return <TestnetLpPanel walletControls={controls} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />;
+  const showControls = presentation !== "demo" || actionOpen || recovering;
+  return <>
+    {!showControls && startup && <p role="status" className="form-help">{startup}</p>}
+    <TestnetLpPanel walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
+  </>;
 }

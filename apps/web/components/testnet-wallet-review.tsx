@@ -16,9 +16,9 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
     <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div></>;
   return <>
     {q && <section className="testnet-review" aria-label="Wallet quote">
-      <h3>Quote · Base Sepolia</h3><dl className="demo-preview">
-        <div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
-        <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div>
+      {!compact && <h3>Quote · Base Sepolia</h3>}<dl className="demo-preview">
+        {!compact && <><div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
+        <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div></>}
         <div><dt>Minimum received</dt><dd>{testnetAmount(q.minimumAmountOut, q.tokenOut)}</dd></div>
         <div><dt>Slippage</dt><dd>0.5%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
         <div><dt>Block</dt><dd>{q.blockNumber}</dd></div></>}

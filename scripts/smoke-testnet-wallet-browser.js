@@ -69,7 +69,9 @@ async page => {
     await page.getByText("Minimum received", { exact: true }).waitFor();
   }
   async function reviewed() {
-    await quoted(); await page.getByRole("button", { name: selected.checked.action.kind === "swap" ? "Review swap" : "Review approval", exact: true }).click();
+    await quoted();
+    if (selected.checked.action.kind !== "swap") await page.getByText("More review options", { exact: true }).click();
+    await page.getByRole("button", { name: selected.checked.action.kind === "swap" ? "Review swap" : "Check token approval", exact: true }).click();
     await page.getByText("Complete snapshot fee budget", { exact: true }).waitFor();
   }
   await page.setViewportSize({ width: 1440, height: 1100 });
@@ -99,7 +101,8 @@ async page => {
   await page.getByRole("region", { name: "Testnet wallet swap" }).getByRole("alert").waitFor();
   check(await page.evaluate(() => localStorage.getItem("vezta-dex:base-sepolia-submission:v1") === null), "Definitive rejection clears marker without continuation");
   await fresh(); await reviewed(); await page.evaluate(() => { window.__testnetMock.now += 30000; });
-  await page.waitForFunction(() => [...document.querySelectorAll("button")].find(b => b.textContent === "Submit reviewed testnet transaction")?.disabled);
+  await page.getByRole("button", { name: "Get wallet quote", exact: true }).waitFor();
+  check(await page.getByRole("button", { name: "Submit reviewed testnet transaction" }).count() === 0, "Expired review requires a new quote");
   check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Expired quote cannot send");
   await fresh(); await quoted(); failed = true; await page.getByRole("button", { name: "Review swap" }).click(); await page.getByRole("region", { name: "Testnet wallet swap" }).getByRole("alert").waitFor();
   check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Unavailable recheck cannot send");

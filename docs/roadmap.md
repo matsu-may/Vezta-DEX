@@ -5,8 +5,9 @@ check passed, including both swaps, the LP lifecycle and failure/recovery cases.
 This is owner-reported acceptance; new individual LP hashes were not supplied.
 The launchpad-style `/demo/1`–`/demo/4` UI refresh and Vercel preparation are recorded
 in the [UI session report](research/2026-10-04-demo-ui-refresh.md).
-The header wallet chooser and proposed simplification of Swap/Explore/Positions
-are recorded in the [wallet UI follow-up](research/2026-10-04-demo-wallet-header.md).
+The owner also confirmed header wallet connection. The approved compact
+Swap/Explore/Positions layout and official MetaMask icon are implemented in the
+[compact UI follow-up](research/2026-10-04-compact-demo-ui.md).
 Public hosting is the next separate step: current proxies, execution permissions
 and recovery storage are local-only. See [Vercel readiness](research/2026-10-04-vercel-readiness.md).
 

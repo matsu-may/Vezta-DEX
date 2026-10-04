@@ -74,12 +74,14 @@ export function DemoPoolDiscovery({ detail = false }: { detail?: boolean }) {
         <h2>{detail ? "Pool overview" : "Available pool"}</h2>
         <p>{detail ? "Inspect the pinned 0.3% pool before opening your wallet workflow." : "USDC / WETH on Base Sepolia. The 0.3% pool is the demo’s supported swap and liquidity path."}</p>
       </div><button className="button button-primary" onClick={refresh} disabled={pending}>{pending ? "Refreshing…" : "Refresh pool data"}</button></div>
-      <dl className="discovery-metrics"><div><dt>Network</dt><dd>Base Sepolia</dd></div><div><dt>Protocol</dt><dd>Uniswap v3</dd></div><div><dt>Pool fee</dt><dd>0.3%</dd></div><div><dt>USD TVL / APR</dt><dd className="metric-unavailable">Unavailable on testnet</dd></div></dl>
-      <div className="discovery-pair-row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span>
-        <div><strong>USDC / WETH</strong><span>Uniswap v3 · 0.3% fee · Test tokens</span></div></div>
-        <span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span>
-        {!detail && <Link className="discovery-detail-link" href="/demo/4">View pool detail</Link>}
-      </div>
+      {detail ? <>
+        <dl className="discovery-metrics"><div><dt>Network</dt><dd>Base Sepolia</dd></div><div><dt>Protocol</dt><dd>Uniswap v3</dd></div><div><dt>Pool fee</dt><dd>0.3%</dd></div></dl>
+        <div className="discovery-pair-row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span><div><strong>USDC / WETH</strong><span>Test tokens · fixed demo pool</span></div></div><span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span></div>
+      </> : <div className="table-wrap"><table className="data-table discovery-pool-table" aria-label="Supported pools"><thead><tr><th scope="col">Pool</th><th scope="col">Protocol</th><th scope="col">Fee</th><th scope="col">Status</th><th scope="col"><span className="sr-only">Pool details</span></th></tr></thead><tbody><tr>
+        <th scope="row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span><div><strong>USDC / WETH</strong><span>Base Sepolia · Test tokens</span></div></div></th>
+        <td>Uniswap v3</td><td className="mono">0.3%</td><td><span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span></td><td><Link className="discovery-detail-link" href="/demo/4">View pool detail</Link></td>
+      </tr></tbody></table></div>}
+      <p className="form-help">USD TVL and APR are unavailable on testnet.</p>
       {error && <p className="form-error" role="alert">Pool data unavailable. Check the Base Sepolia read service and refresh.</p>}
       <p className="discovery-help">{pending ? "Reading a pinned block and bounded quote samples. This can take up to 45 seconds."
         : !report ? "No data is read until you refresh. No wallet connection is needed."
@@ -88,18 +90,16 @@ export function DemoPoolDiscovery({ detail = false }: { detail?: boolean }) {
         : !qualified ? "The current quote samples did not pass the depth screen. Refresh later to check again."
         : "The sample depth screen passed. Each wallet action still requires its own fresh study, simulation and review."}</p>
       {qualified && <div className="discovery-actions"><Link className="button button-primary" href="/demo/1">Swap USDC / WETH</Link><Link className="button demo-reset" href="/demo/2">Manage liquidity</Link></div>}
-      {report && <section className="discovery-provenance" aria-label="Snapshot provenance">
+      {report && <details className="discovery-source-details"><summary>Source and block</summary><section className="discovery-provenance" aria-label="Snapshot provenance">
         <h3>Snapshot provenance</h3><dl>
           <div><dt>Source</dt><dd className="mono">{report.source}</dd></div>
           <div><dt>Observed block time</dt><dd><time dateTime={report.observedAt}>{report.observedAt}</time></dd></div>
           <div><dt>Block</dt><dd className="mono">{report.blockNumber}</dd></div>
         </dl>
         <details><summary>Block hash</summary><code>{report.blockHash}</code></details>
-      </section>}
+      </section></details>}
       {detail && pool && <QuoteSamples pool={pool} />}
     </section>
-    {detail ? <PoolIdentity /> : <section className="discovery-note"><span className="eyebrow">A SMALL, BOUNDED TESTNET</span>
-      <p>Explore the curated pool, swap test tokens, then open your liquidity positions. Pool data is a moment in time; refresh when you return.</p>
-      <Link href="/demo/4">Inspect pool and token addresses ↗</Link></section>}
+    {detail && <PoolIdentity />}
   </div>;
 }

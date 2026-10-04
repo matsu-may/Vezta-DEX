@@ -24,6 +24,7 @@ async page => {
   async function fresh(key="mint"){
     selected=fixtures[key];receiptStatus="confirmed";failRecheck=false;await page.goto(origin+"/demo/2");
     await page.evaluate(()=>{localStorage.clear();});await page.reload();await page.getByRole("button",{name:"Connect wallet",exact:true}).waitFor();
+    await page.getByRole("button",{name:"Create position",exact:true}).click();
     await page.getByLabel("LP action",{exact:true}).selectOption(selected.intent.kind);
     if(selected.intent.kind!=="mint")await page.getByLabel("Position NFT ID",{exact:true}).fill("42");
     if(selected.intent.kind==="decrease")await page.getByLabel("Remove percentage",{exact:true}).selectOption(String(selected.intent.percentage));

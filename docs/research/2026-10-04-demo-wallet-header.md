@@ -22,7 +22,12 @@ Only an identified injected MetaMask provider is selected; multiple-wallet
 injection uses the MetaMask entry. WalletConnect/other wallet options are not
 advertised. No new wallet SDK or transaction API was introduced.
 
-## Proposed next UI pass (not implemented)
+## Follow-up UI pass (approved and implemented)
+
+The owner approved this pass after confirming wallet connection works. See the
+[compact UI report](2026-10-04-compact-demo-ui.md) for the implementation,
+official MetaMask asset and current verification. The list below records the
+original proposals; the report describes their concrete presentation.
 
 1. **Navigation:** use a compact Swap / Explore / Positions top navigation for
    the recording pages, with network and wallet at the right. Move technical

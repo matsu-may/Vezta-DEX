@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
 import { DemoWalletWorkspace } from "../components/demo-wallet-workspace";
+import { DemoNavigation } from "../components/demo-navigation";
 import { DemoWalletHeader } from "../components/demo-wallet-header";
 
 const displayFont = localFont({ src: "../public/fonts/SpaceGrotesk[wght].ttf", variable: "--font-display", weight: "300 700", display: "swap", preload: false });
@@ -26,6 +27,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <span className="brand-mark">V</span>
                 <span>VEZTA <em>DEX</em></span>
               </Link>
+              <DemoNavigation />
               <nav aria-label="Main navigation" className="main-nav">
                 <Link href="/demo">Demo</Link>
                 <Link href="/testnet">Testnet</Link>
@@ -39,7 +41,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             </header>
             <main>{children}</main>
             <footer className="site-footer">
-              <span>Vezta DEX · Independent preview</span>
+              <span>Vezta DEX · Independent preview</span><Link className="demo-technical-link" href="/testnet">Technical workspace ↗</Link>
               <span>Chain-sourced pool discovery · Independent development app</span>
             </footer>
           </div>

@@ -29,7 +29,7 @@ async page => {
   await page.evaluate(() => window.__headerMock.change()); await trigger.waitFor();
   check(true, 'Account change clears discovery connection');
   for (const route of ['/demo/1?no-wallet', '/demo/2?no-wallet']) {
-    await page.goto(origin + route); await page.getByText(/Install MetaMask/).waitFor();
+    await page.goto(origin + route); await page.getByRole("button", { name: "Connect wallet", exact: true }).waitFor();
     await page.getByRole('button', { name: 'Connect wallet', exact: true }).click();
     await page.getByRole('button', { name: /MetaMask/ }).click();
     await page.getByRole('dialog').getByText(/Install MetaMask/).waitFor();
