@@ -15,6 +15,12 @@ Swap/Explore/Positions layout and official MetaMask icon are implemented in the
 Public hosting is the next separate step: current proxies, execution permissions
 and recovery storage are local-only. See [Vercel readiness](research/2026-10-04-vercel-readiness.md).
 
+**Hosting follow-up, 2026-10-04:** code is published on GitHub, `main` is the
+local/default branch and initial remote CI passed. Follow the
+[six-phase Vercel deployment plan](superpowers/plans/2026-10-04-hosted-testnet-vercel.md)
+for hosted origins/auth, HTTPS reads, persistent API packaging, guarded wallet
+actions, staging and hosted acceptance. No hosting deployment is claimed yet.
+
 **Current delivery order — testnet first (2026-10-01):** use the [consolidated standalone testnet completion roadmap](superpowers/plans/2026-10-01-standalone-testnet-completion.md) for the owner's present goal. It tracks six demo phases with actual evidence, owner checks and later mobile/mainnet/multi-chain/integration milestones. The Polygon milestones below remain historical/product scope; they do not require mainnet funding before the Base Sepolia demo.
 
 **Delivery priority, 2026-10-02:** ship the [early testnet demo milestone](superpowers/plans/2026-10-02-early-testnet-demo.md): one verified Base Sepolia pool, concise Explore/discovery, explicit wallet swaps and original receipt tracking. Then resume the full testnet roadmap for remaining wallet acceptance, v3 LP, assembled desktop product and handoff. No demo gate is marked complete merely by saving this plan.
@@ -23,7 +29,7 @@ and recovery storage are local-only. See [Vercel readiness](research/2026-10-04-
 
 **Phase-2 runtime evidence:** all five runtimes were independently rebuilt at block 47551649; owner fresh inventory and both guarded quotes passed with identical code hashes. Wallet quotes enforce those hashes at each fresh canonical block. See the [accepted runtime gate](research/2026-10-02-testnet-runtime-quote-gate.md); its earlier host handoff is complete.
 
-**Current open gates:** Owner-reported local desktop wallet acceptance is complete. Visual acceptance of the refreshed UI, remote CI and hosted deployment acceptance remain separate. Actual complete public-testnet fees remain unqualified; the interface continues to distinguish snapshot budgets from observed L2 cost. Keep accepted fork/runtime/probe evidence and avoid repeating it without a concrete regression. Mainnet, complete mobile polish, broader multi-chain execution and Vezta integration remain separate milestones.
+**Current open gates:** Owner-reported local desktop wallet acceptance is complete. Initial remote CI passed. Visual acceptance of the refreshed UI and hosted deployment acceptance remain separate. Actual complete public-testnet fees remain unqualified; the interface continues to distinguish snapshot budgets from observed L2 cost. Keep accepted fork/runtime/probe evidence and avoid repeating it without a concrete regression. Mainnet, complete mobile polish, broader multi-chain execution and Vezta integration remain separate milestones.
 
 ## Goal and boundaries
 

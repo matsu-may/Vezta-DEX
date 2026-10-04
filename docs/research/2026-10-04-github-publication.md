@@ -5,7 +5,15 @@
 The standalone repository is `matsu-may/Vezta-DEX`. The owner authorized repository
 preparation, connection and initial publication. It was empty and public;
 visibility was set to private before publishing the development history.
-The publication branch is `codex/hook-free-routing`.
+The initial publication branch was `codex/hook-free-routing`.
+
+**Follow-up, 2026-10-04:** the owner requested renaming it to `main`. GitHub and
+local branch names now match, with `main` as default and `origin/main` as upstream.
+The previous local `main` at `d3fe23b` remains under
+`archive/main-before-2026-10-04`; no history was rewritten. Repository visibility
+at this follow-up check is public; the rename did not change visibility.
+The initial [GitHub CI run](https://github.com/matsu-may/Vezta-DEX/actions/runs/37201103370)
+passed frozen install, tests, typecheck, lint and build at `f4a27cc`.
 
 This publishes code and documentation. Public web hosting remains a separate
 milestone described in [Vercel readiness](2026-10-04-vercel-readiness.md).

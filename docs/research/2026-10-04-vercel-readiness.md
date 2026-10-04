@@ -4,6 +4,11 @@
 was created, connected or deployed in this session. This is the next deployment
 plan, not a claim that the current local demo already works on a public domain.
 
+The actionable [six-phase hosted testnet plan](../superpowers/plans/2026-10-04-hosted-testnet-vercel.md)
+records dependencies, packaging/recovery gates, Vercel settings and owner
+decisions. The local and GitHub default branch are now `main`; the earlier local
+`main` is preserved as `archive/main-before-2026-10-04`.
+
 ## Recommended deployment shape
 
 Host `apps/web` on Vercel and keep `apps/api` as one separately hosted Node

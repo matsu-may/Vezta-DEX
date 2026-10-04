@@ -4,6 +4,14 @@ Standalone development project for Vezta's Uniswap spot trading and liquidity ex
 
 Read the Vezta DEX mechanism & demo report in [English](docs/reports/2026-10-04-vezta-dex-mechanism-report.en.md) or [Vietnamese](docs/reports/2026-10-04-vezta-dex-mechanism-report.md) for architecture, AMM/CLMM/DLMM concepts, swap/LP flows, desktop screenshots and current delivery status. The owner reports the local desktop wallet checklist passed; compact UI visual acceptance and public hosting remain separate. Dated acceptance notes below preserve earlier checkpoints; use the report and [current roadmap](docs/roadmap.md) for present status.
 
+## Vercel deployment plan
+
+`main` is the current local and GitHub default branch. Follow the
+[six-phase hosted testnet plan](docs/superpowers/plans/2026-10-04-hosted-testnet-vercel.md)
+to prepare the web app on Vercel and a separate Node API with persistent recovery
+storage. Current production proxies and submission permissions require hosted
+configuration work; the functional online demo has not been deployed yet.
+
 ## Wallet-free demo
 
 Run `pnpm install` and `pnpm --filter @vezta-dex/web dev`, then open [http://127.0.0.1:3020/demo](http://127.0.0.1:3020/demo). This page needs no wallet, USDC, API key or RPC. It starts with virtual USDC/WETH, demonstrates a simulated swap and a separate LP create → increase → decrease → collect → close lifecycle, and resets on reload. Every amount, fee and receipt on `/demo` is illustrative; it does not execute Uniswap transactions or prove testnet/mainnet readiness. See the [demo handoff](docs/research/2026-10-01-standalone-demo-handoff.md) for exact checks and remaining gates.
