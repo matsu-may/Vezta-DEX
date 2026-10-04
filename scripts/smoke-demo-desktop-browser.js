@@ -17,7 +17,7 @@ async page => {
   await page.context().addInitScript(now => {
     window.__desktopMock = { now, walletCalls: [] };
     Date.now = () => window.__desktopMock.now;
-    window.ethereum = { request: async args => { window.__desktopMock.walletCalls.push(args.method); throw new Error("Read flow cannot prompt a wallet"); } };
+    window.ethereum = { isMetaMask: true, request: async args => { window.__desktopMock.walletCalls.push(args.method); throw new Error("Read flow cannot prompt a wallet"); } };
   }, now);
   await page.route("**/api/**", async route => {
     const pathname = route.request().url().split("/api/")[1]?.split("?")[0];

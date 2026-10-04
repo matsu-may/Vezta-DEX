@@ -1,12 +1,13 @@
 "use client";
 import { testnetQuoteExpiresAt } from "@vezta-dex/core";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent } from "@vezta-dex/core";
 import { TestnetWalletController, type TestnetWallet, type TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
 import { createTestnetWalletClient } from "../lib/testnet-wallet-client";
 import { TestnetWalletReview } from "./testnet-wallet-review";
 import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
 import { DemoSwapInputs } from "./demo-swap-inputs";
+import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amounts = { forward: ["100000", "1000000", "5000000"], reverse: ["10000000000000", "100000000000000", "1000000000000000"] };
 const labels = { forward: ["0.1 USDC", "1 USDC", "5 USDC"], reverse: ["0.00001 WETH", "0.0001 WETH", "0.001 WETH"] };
 export function TestnetWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "technical" | "demo" }) {
@@ -20,7 +21,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   useEffect(() => {
     let alive = true;
     const startupMessage = (message: string) => queueMicrotask(() => { if (alive) setStartup(message); });
-    const provider = (window as unknown as { ethereum?: TestnetWallet }).ethereum;
+    const provider = injectedDemoWallet();
     if (!provider) { startupMessage("Install MetaMask in this browser to connect a Base Sepolia wallet."); return () => { alive = false; }; }
     try {
       const c = new TestnetWalletController(provider, createTestnetWalletClient(), window.localStorage, Date.now, undefined, () => executionEnabled);
@@ -38,6 +39,13 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   const fresh = !!state?.quote && now < expiry;
   const busy = !state || state.busy || switching;
   const recovering = !!state?.submission || state?.stage === "recovery-blocked";
+  const connect = useCallback(async () => {
+    setStartup(""); const c = controller.current;
+    if (!c) return { account: null, error: "Install MetaMask and enable site storage, then reload this page." };
+    await c.connect(); const snapshot = c.snapshot();
+    return { account: snapshot.stage === "connected" ? snapshot.account : null, error: snapshot.message };
+  }, []);
+  const headerWallet = useDemoWalletBinding({ account: state?.account ?? null, busy: !!state?.busy || switching, blocked: recovering, connect }, presentation === "demo");
   const reviewFresh = !!state?.review && now < Date.parse(state.review.observedAt) + 30000;
   const canSubmit = executionEnabled && reviewFresh && fresh && state?.quote?.executionEnabled && state.action?.executionEnabled;
   async function switchChain() {
@@ -73,12 +81,13 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
       {presentation === "demo" && <ol className="recording-steps" aria-label="Swap steps"><li>01 Connect</li><li>02 Review</li><li>03 Confirm</li></ol>}
       <p className="testnet-mode">{presentation === "demo" ? executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled" : executionEnabled ? "Local testnet acceptance enabled · MetaMask signs every transaction" : "Read-only preview · run pnpm dev:testnet for wallet acceptance"}</p>
       {startup && <p role="status">{startup}</p>}
+      {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to request a quote.</p>}
       {!state && presentation === "demo" && <DemoSwapInputs direction={direction} amount={amount} disabled onDirection={changeDirection} onAmount={changeAmount} />}
       {state && <>
-        {state.account && <p className="mono testnet-connected">Connected: {state.account}</p>}
+        {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
         {!recovering && <>
-          <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => { setStartup(""); void controller.current!.connect(); }}>Connect Base Sepolia wallet</button>
-            <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to Base Sepolia</button></div>
+          {!headerWallet && <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void connect()}>Connect Base Sepolia wallet</button>
+            <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to Base Sepolia</button></div>}
           {presentation === "demo" ? <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} onDirection={changeDirection} onAmount={changeAmount} /> : <div className="testnet-fields"><div><label className="form-label" htmlFor="testnet-direction">Direction</label>
             <select className="field" id="testnet-direction" disabled={busy} value={direction} onChange={e => { controller.current!.invalidateInput(); setDirection(e.target.value as "forward" | "reverse"); setAmount(1); }}>
               <option value="forward">USDC → WETH</option><option value="reverse">WETH → USDC</option></select></div>

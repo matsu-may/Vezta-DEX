@@ -6,7 +6,7 @@ async page => {
   await page.context().addInitScript(now => {
     window.__lpMock = { now, walletCalls: [] };
     Date.now = () => window.__lpMock.now;
-    window.ethereum = { request: async args => { window.__lpMock.walletCalls.push(args.method); throw new Error("LP reads must never prompt a wallet"); } };
+    window.ethereum = { isMetaMask: true, request: async args => { window.__lpMock.walletCalls.push(args.method); throw new Error("LP reads must never prompt a wallet"); } };
   }, Date.parse(fixture.snapshot.observedAt) + 2000);
   await page.route("**/api/testnet-lp/positions", async route => {
     const body = route.request().postDataJSON(); calls.push(body);

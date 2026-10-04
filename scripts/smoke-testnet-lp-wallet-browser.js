@@ -8,7 +8,7 @@ async page => {
   await page.route("**/demo/2",async route=>{const response=await route.fetch();let html=await response.text();html=html.replaceAll('\\"executionEnabled\\":false','\\"executionEnabled\\":true').replaceAll('Read-only preview · wallet submission is disabled','Test tokens only · every transaction is signed in your wallet');await route.fulfill({response,body:html});});
   await page.context().addInitScript(f=>{
     const listeners=new Map();const mock={now:f.now,methods:[],account:f.intent.wallet,chain:"0x14a34",reject:false,uncertain:false};window.__lpWalletMock=mock;Date.now=()=>mock.now;
-    window.ethereum={async request({method}){mock.methods.push(method);if(method==="eth_accounts"||method==="eth_requestAccounts")return[mock.account];if(method==="eth_chainId")return mock.chain;if(method==="eth_getCode")return"0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b";
+    window.ethereum={isMetaMask:true,async request({method}){mock.methods.push(method);if(method==="eth_accounts"||method==="eth_requestAccounts")return[mock.account];if(method==="eth_chainId")return mock.chain;if(method==="eth_getCode")return"0xef010063c0c19a282a1b52b07dd5a65b58948a07dae32b";
       if(method==="eth_sendTransaction"){if(!localStorage.getItem("vezta-dex:base-sepolia-lp-submission:v1"))throw Error("No prior marker");if(mock.reject)throw{code:4001};if(mock.uncertain)throw Error("Unknown mock outcome");return"0x"+"11".repeat(32);}throw Error("Unexpected mocked method");},
       on(e,fn){if(!listeners.has(e))listeners.set(e,new Set());listeners.get(e).add(fn);},removeListener(e,fn){listeners.get(e)?.delete(fn);}};
     mock.change=()=>{mock.account="0x1111111111111111111111111111111111111111";for(const fn of listeners.get("accountsChanged")||[])fn([mock.account]);};
@@ -23,12 +23,18 @@ async page => {
   const check=(v,label)=>{if(!v)throw Error(label);checks.push(label);};
   async function fresh(key="mint"){
     selected=fixtures[key];receiptStatus="confirmed";failRecheck=false;await page.goto(origin+"/demo/2");
-    await page.evaluate(()=>{localStorage.clear();});await page.reload();await page.getByRole("button",{name:"Connect Base Sepolia wallet",exact:true}).waitFor();
+    await page.evaluate(()=>{localStorage.clear();});await page.reload();await page.getByRole("button",{name:"Connect wallet",exact:true}).waitFor();
     await page.getByLabel("LP action",{exact:true}).selectOption(selected.intent.kind);
     if(selected.intent.kind!=="mint")await page.getByLabel("Position NFT ID",{exact:true}).fill("42");
     if(selected.intent.kind==="decrease")await page.getByLabel("Remove percentage",{exact:true}).selectOption(String(selected.intent.percentage));
   }
-  async function review(){await page.getByRole("button",{name:"Connect Base Sepolia wallet",exact:true}).click();await page.getByRole("button",{name:"Study LP action",exact:true}).click();await page.getByRole("heading",{name:`Review ${selected.study.actionKind}${selected.study.approvalToken?" "+selected.study.approvalToken:""}`,exact:true}).waitFor();}
+  async function connectWallet(){
+    await page.getByRole("button",{name:"Connect wallet",exact:true}).click();
+    await page.getByRole("button",{name:/MetaMask/}).click();
+    await page.waitForFunction(()=>!document.querySelector(".wallet-option")?.disabled);
+    if(await page.getByRole("dialog").isVisible())await page.getByRole("button",{name:"Close wallet dialog"}).click();
+  }
+  async function review(){await connectWallet();await page.getByRole("button",{name:"Study LP action",exact:true}).click();await page.getByRole("heading",{name:`Review ${selected.study.actionKind}${selected.study.approvalToken?" "+selected.study.approvalToken:""}`,exact:true}).waitFor();}
   await page.setViewportSize({width:1440,height:1100});await fresh();check(apiCalls.length===0&&(await page.evaluate(()=>window.__lpWalletMock.methods)).length===0,"No API or wallet prompt on load");
   for(const key of ["reset","approve","mint","increase","decrease","decrease50","decrease100","collect","burn"]){await fresh(key);await review();check(!(await page.evaluate(()=>window.__lpWalletMock.methods)).includes("eth_sendTransaction"),"Explicit review before send: "+key);
     if(key==="mint")await page.screenshot({path:".playwright-cli/demo-02-lp-review-desktop.png",fullPage:true});
@@ -45,6 +51,6 @@ async page => {
   await fresh();await review();await page.getByRole("button",{name:"Submit reviewed LP transaction",exact:true}).click();receiptStatus="pending";await page.getByRole("button",{name:"Check original LP transaction",exact:true}).click();await page.getByText("Original transaction remains unresolved. Preserve its hash and check again.",{exact:true}).waitFor();check(await page.getByRole("button",{name:"Acknowledge verified LP result",exact:true}).count()===0,"Pending never enables acknowledge");
   const callsPending=apiCalls.length;await page.reload();await page.getByRole("heading",{name:"Original LP transaction",exact:true}).waitFor();check(apiCalls.length===callsPending&&(await page.evaluate(()=>window.__lpWalletMock.methods)).length===0,"Pending reload does not reconnect or resend");await page.screenshot({path:".playwright-cli/demo-02-lp-recovery-desktop.png",fullPage:true});
   for(const status of ["reorged","unverified"]){receiptStatus=status;await page.getByRole("button",{name:"Check original LP transaction",exact:true}).click();check(await page.getByRole("button",{name:"Acknowledge verified LP result",exact:true}).count()===0,status+" preserves unresolved original");}
-  await fresh();await page.evaluate(()=>localStorage.setItem("vezta-dex:base-sepolia-submission:v1","bad"));await page.getByRole("button",{name:"Connect Base Sepolia wallet",exact:true}).click();await page.getByText(/Open Swap and check its original hash/).waitFor();check((await page.evaluate(()=>window.__lpWalletMock.methods)).length===0,"Corrupt active swap blocks LP wallet prompt");
+  await fresh();await page.evaluate(()=>localStorage.setItem("vezta-dex:base-sepolia-submission:v1","bad"));await connectWallet();await page.getByRole("region", { name: "Testnet LP wallet" }).getByText(/Open Swap and check its original hash/).waitFor();check((await page.evaluate(()=>window.__lpWalletMock.methods)).length===0,"Corrupt active swap blocks LP wallet prompt");
   await page.evaluate(()=>localStorage.clear());return{mockOnly:true,checks,apiCalls:apiCalls.length};
 }

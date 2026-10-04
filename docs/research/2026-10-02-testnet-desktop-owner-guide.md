@@ -4,6 +4,15 @@ Scope: Base Sepolia 84532, Uniswap v3 test USDC/WETH 0.3% pool. This guide cover
 
 ## Start once
 
+**Wallet UI update, 2026-10-04:** on `/demo/1`–`/demo/4`, use **Connect wallet**
+in the top-right header, then select **MetaMask** in the popup. If needed, use
+the popup's explicit **Switch to Base Sepolia** button and select MetaMask again.
+The connected header shows a shortened address; click it to inspect the full
+address. Swap/LP require connection through their own guarded page controller.
+Opening the popup does not prompt the extension. Recovery keeps the original
+hash and locks reconnection until its result is resolved. The technical `/testnet`
+page retains its existing direct connection controls.
+
 1. In `vezta-dex`, configure `BASE_SEPOLIA_RPC_URL` in `apps/api/.env`; keep it private. The read-only API does not need a Trading API key for this direct-v3 testnet adapter.
 2. Stop your previous `pnpm dev` launcher with Ctrl-C, then run `pnpm dev:testnet`. Do not start both launchers together. Keep this terminal open.
 3. Open `http://127.0.0.1:3020/demo/3` using the same hostname throughout. `localhost` and `127.0.0.1` have different origins and recovery storage.

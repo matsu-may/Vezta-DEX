@@ -16,7 +16,7 @@ async page => {
     const listeners = new Map();
     const mock = { sessionId: Math.random(), now: f.now, account: f.intent.wallet, methods: [], reject: false, uncertain: false, code: "0x" };
     window.__testnetMock = mock; Date.now = () => mock.now;
-    window.ethereum = {
+    window.ethereum = { isMetaMask: true,
       async request({ method }) {
         mock.methods.push(method);
         if (method === "eth_chainId") return "0x14a34";
@@ -54,11 +54,17 @@ async page => {
     selected = fixtures[key]; failed = false; unverified = false; lostContext = false;
     await page.goto(origin + "/demo/1");
     await page.evaluate(() => { localStorage.removeItem("vezta-dex:base-sepolia-submission:v1"); localStorage.removeItem("vezta-dex:base-sepolia-manual-review:v1"); localStorage.removeItem("vezta-dex:base-sepolia-historical-approval-ack:v1"); });
-    await page.reload(); await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).waitFor();
+    await page.reload(); await page.getByRole("button", { name: "Connect wallet" }).waitFor();
     if (key.startsWith("reverse")) { await page.getByLabel("Direction", { exact: true }).selectOption("reverse"); await page.getByLabel("Input amount", { exact: true }).selectOption("2"); }
   }
+  async function connectWallet() {
+    await page.getByRole("button", { name: "Connect wallet" }).click();
+    await page.getByRole("button", { name: /MetaMask/ }).click();
+    await page.waitForFunction(() => !document.querySelector(".wallet-option")?.disabled);
+    if (await page.getByRole("dialog").isVisible()) await page.getByRole("button", { name: "Close wallet dialog" }).click();
+  }
   async function quoted() {
-    await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click();
+    await connectWallet();
     await page.getByRole("button", { name: "Get wallet quote" }).click();
     await page.getByText("Minimum received", { exact: true }).waitFor();
   }
@@ -68,6 +74,13 @@ async page => {
   }
   await page.setViewportSize({ width: 1440, height: 1100 });
   await fresh(); check(apiCalls.length === 0 && (await page.evaluate(() => window.__testnetMock.methods)).length === 0, "No wallet prompt or automatic API on load");
+  const walletTrigger = page.getByRole("button", { name: "Connect wallet" });
+  const bounds = await walletTrigger.boundingBox(); check(bounds && bounds.y < 72 && bounds.x > 1100, "Wallet entry is in the top-right header");
+  await walletTrigger.click(); await page.getByRole("dialog", { name: "Connect wallet" }).waitFor();
+  check((await page.evaluate(() => window.__testnetMock.methods)).length === 0, "Opening chooser never requests wallet permission");
+  await page.screenshot({ path: ".playwright-cli/demo-wallet-popup-desktop.png" });
+  await page.keyboard.press("Escape");
+  check(await page.getByRole("dialog").count() === 0 && await walletTrigger.evaluate(el => el === document.activeElement), "Escape closes chooser and restores trigger focus");
   for (const key of ["forward-swap", "reverse-swap", "forward-reset", "forward-approve"]) {
     await fresh(key); await reviewed();
     check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Review before explicit send: " + key);
@@ -111,15 +124,15 @@ async page => {
   await page.getByRole("checkbox").check(); await archive.click();
   await page.getByText(/Original approval archived for manual review/).waitFor();
   check(await page.evaluate(() => JSON.parse(localStorage.getItem("vezta-dex:base-sepolia-manual-review:v1")).length === 1), "Original unresolved approval remains archived");
-  await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click();
-  await page.getByText(/unresolved archived approval/).waitFor();
+  await connectWallet();
+  await page.getByRole("region", { name: "Testnet wallet swap" }).getByText(/unresolved archived approval/).waitFor();
   check(await page.getByRole("button", { name: "Get wallet quote" }).isDisabled(), "Archived original wallet cannot continue");
   await page.evaluate(() => { window.__testnetMock.change(); });
-  await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click();
-  await page.getByText("Connected: 0x1111111111111111111111111111111111111111", { exact: true }).waitFor();
+  await connectWallet();
+  await page.getByRole("button", { name: "Wallet 0x1111…1111", exact: true }).waitFor();
   check(!(await page.getByRole("button", { name: "Get wallet quote" }).isDisabled()), "Different standard account can connect after archival");
   await fresh(); await page.evaluate(() => { window.__testnetMock.code = "0xef01001111111111111111111111111111111111111111"; });
-  await page.getByRole("button", { name: "Connect Base Sepolia wallet" }).click(); await page.getByText(/unsupported contract/).waitFor();
+  await connectWallet(); await page.getByRole("region", { name: "Testnet wallet swap" }).getByText(/unsupported contract/).waitFor();
   check(!(await page.evaluate(() => window.__testnetMock.methods)).includes("eth_sendTransaction"), "Unknown delegate blocked before send");
   await fresh("forward-approve"); await reviewed();
   await page.getByRole("button", { name: "Submit reviewed testnet transaction" }).click(); lostContext = true;
@@ -142,8 +155,8 @@ async page => {
   await page.getByRole("button",{name:"Acknowledge historical approval"}).click();
   await page.getByText(/Historical approval acknowledged. Original hash retained/).waitFor();
   check(await page.evaluate(()=>localStorage.getItem("vezta-dex:base-sepolia-submission:v1")===null&&JSON.parse(localStorage.getItem("vezta-dex:base-sepolia-manual-review:v1")).length===1),"Explicit historical acknowledgment retains original hash");
-  await page.reload(); await page.getByRole("button",{name:"Connect Base Sepolia wallet"}).click();
-  await page.getByText("Connected: " + selected.intent.wallet,{exact:true}).waitFor();
+  await page.reload(); await connectWallet();
+  await page.getByRole("button", { name: "Wallet " + selected.intent.wallet.slice(0, 6) + "…" + selected.intent.wallet.slice(-4), exact: true }).waitFor();
   check(await page.getByRole("button",{name:"Get wallet quote"}).isEnabled(),"Reconciled original wallet reconnects after reload");
   return { mockOnly: true, checks, apiCalls: apiCalls.length };
 }

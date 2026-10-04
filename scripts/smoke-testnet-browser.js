@@ -6,7 +6,7 @@ async page => {
   const check = (ok, name) => { if (!ok) throw new Error(name); checks.push(name); };
   await page.context().addInitScript(() => {
     window.__dexTestnetWalletCalls = [];
-    window.ethereum = { request: async ({ method }) => {
+    window.ethereum = { isMetaMask: true, request: async ({ method }) => {
       window.__dexTestnetWalletCalls.push(method);
       throw new Error("Wallet access forbidden in read-only test");
     } };

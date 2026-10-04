@@ -1,6 +1,6 @@
 "use client";
 import { TestnetFeeReview } from "./testnet-fee-review";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, testnetLpIntentSchema, type TestnetLpIntent } from "@vezta-dex/core";
 import { testnetLpMessage } from "../lib/testnet-lp-wallet-errors";
@@ -8,6 +8,7 @@ import { TestnetLpWalletController, type TestnetLpWalletSnapshot } from "../lib/
 import { createTestnetLpWalletClient } from "../lib/testnet-lp-wallet-client";
 import type { TestnetWallet } from "../lib/testnet-wallet-controller";
 import { TestnetLpPanel } from "./testnet-lp-panel";
+import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amount = (value: string, decimals: number) => formatUnits(BigInt(value), decimals);
 const names = { mint: "Create full-range position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
 export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: boolean }) {
@@ -18,7 +19,7 @@ export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: b
   const [amount0, setAmount0] = useState("1000000"); const [amount1, setAmount1] = useState("1000000000000000");
   const [percentage, setPercentage] = useState<25 | 50 | 100>(25); const [hash, setHash] = useState(""); const [now, setNow] = useState(0);
   useEffect(() => {
-    let alive = true; const wallet = (window as unknown as { ethereum?: TestnetWallet }).ethereum;
+    let alive = true; const wallet = injectedDemoWallet();
     const updateStartup = (message: string) => queueMicrotask(() => { if (alive) setStartup(message); });
     if (!wallet) { updateStartup("Install MetaMask to connect a Base Sepolia wallet. Position reads remain available below."); return () => { alive = false; }; }
     try {
@@ -37,6 +38,13 @@ export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: b
   }, [executionEnabled]);
   useEffect(() => { if (!state?.study) return; const timer = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(timer); }, [state?.study]);
   const busy = !state || state.busy; const recovering = !!state?.submission || state?.stage === "recovery-blocked";
+  const connect = useCallback(async () => {
+    const controller = c.current;
+    if (!controller) return { account: null, error: "Install MetaMask and enable site storage, then reload this page." };
+    await controller.connect(); const snapshot = controller.snapshot();
+    return { account: snapshot.stage === "connected" ? snapshot.account : null, error: snapshot.message };
+  }, []);
+  const headerWallet = useDemoWalletBinding({ account: state?.account ?? null, busy: !!state?.busy, blocked: recovering, connect });
   const s = state?.study; const fresh = !!s && now < Date.parse(s.expiresAt); const o = state?.observation; const rec = state?.submission;
   const intent = testnetLpIntentSchema.safeParse({ chainId: 84532, wallet: state?.account, kind,
     ...(kind !== "mint" ? { tokenId } : {}), ...(kind === "mint" || kind === "increase" ? { amount0Cap: amount0, amount1Cap: amount1 } : {}), ...(kind === "decrease" ? { percentage } : {}) });
@@ -47,10 +55,11 @@ export function TestnetLpWalletPanel({ executionEnabled }: { executionEnabled: b
     <ol className="recording-steps" aria-label="LP steps"><li>01 Connect</li><li>02 Review</li><li>03 Confirm</li></ol>
     <p className="testnet-mode">{executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled"}</p>
     {startup && <p role="status">{startup}</p>}
+    {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to review a position action.</p>}
     {state && <>
-      {state.account && <p className="mono testnet-connected">Connected: {state.account}</p>}
+      {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
       {!recovering && <>
-        <button className="button" disabled={busy} onClick={() => void c.current!.connect()}>Connect Base Sepolia wallet</button>
+        {!headerWallet && <button className="button" disabled={busy} onClick={() => void connect()}>Connect Base Sepolia wallet</button>}
         <div className="testnet-fields"><div><label className="form-label" htmlFor="lp-action">LP action</label><select id="lp-action" className="field" value={kind} disabled={busy} onChange={e => { edit(); setKind(e.target.value as TestnetLpIntent["kind"]); }}>
           {Object.entries(names).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div>
           {kind !== "mint" && <div><label className="form-label" htmlFor="lp-token-id">Position NFT ID</label><input id="lp-token-id" className="field mono" value={tokenId} disabled={busy} inputMode="numeric" onChange={e => { edit(); setTokenId(e.target.value); }} /></div>}

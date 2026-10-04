@@ -2,12 +2,13 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import fixtures from "../lib/fixtures/testnet-wallet-browser.json";
+import { DemoWalletHeader, DemoWalletProvider } from "./demo-wallet-header";
 import { TestnetWalletPanel } from "./testnet-wallet-panel";
 afterEach(() => { cleanup(); localStorage.clear(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 async function fixture(enabled: boolean) {
   const f = fixtures["forward-swap"]; vi.spyOn(Date, "now").mockReturnValue(f.now);
   const methods: string[] = [];
-  vi.stubGlobal("ethereum", { async request({ method }: { method: string }) { methods.push(method); return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? "0x14a34" : [f.intent.wallet]; } });
+  vi.stubGlobal("ethereum", { isMetaMask: true, async request({ method }: { method: string }) { methods.push(method); return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? "0x14a34" : [f.intent.wallet]; } });
   Object.defineProperty(navigator, "locks", { configurable: true, value: { async request(_key: string, _options: unknown, fn: (lock: object) => Promise<void>) { await fn({}); } } });
   const fetcher = vi.fn(async (_url, init) => { const body = JSON.parse(init!.body as string);
     return Response.json(body.kind ? { ...f.checked, study: { ...f.checked.study, executionEnabled: enabled }, action: { ...f.checked.action, executionEnabled: enabled } }
@@ -31,9 +32,16 @@ it("shows estimate, minimum and full budget before any send; input edits discard
   expect(screen.getByRole("button", { name: "Get wallet quote" }).hasAttribute("disabled")).toBe(false);
 });
 it("reverses the demo pair explicitly and invalidates the old quote and transaction review", async () => {
-  const f = await fixture(true); render(<TestnetWalletPanel executionEnabled presentation="demo" />);
-  fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" }));
-  await screen.findByText(/Connected:/);
+  const f = await fixture(true);
+  HTMLDialogElement.prototype.showModal ??= function() {}; HTMLDialogElement.prototype.close ??= function() {};
+  vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function(this: HTMLDialogElement) { this.setAttribute("open", ""); });
+  vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function(this: HTMLDialogElement) { this.removeAttribute("open"); });
+  render(<DemoWalletProvider><DemoWalletHeader /><TestnetWalletPanel executionEnabled presentation="demo" /></DemoWalletProvider>);
+  fireEvent.click(await screen.findByRole("button", { name: "Connect wallet" }));
+  expect(f.methods).toEqual([]);
+  expect(screen.queryByRole("button", { name: "Connect Base Sepolia wallet" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /MetaMask/ }));
+  await screen.findByRole("button", { name: /^Wallet 0x/ });
   fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" }));
   await screen.findByText("Minimum received");
   fireEvent.click(screen.getByRole("button", { name: "Review swap" }));
@@ -55,7 +63,7 @@ it("keeps normal preview gated even if API metadata permits execution", async ()
 it("clears a rejected network switch notice after explicit successful connection", async () => {
   await fixture(true); let reject = true;
   const f = fixtures["forward-swap"];
-  vi.stubGlobal("ethereum", { async request({ method }: { method: string }) {
+  vi.stubGlobal("ethereum", { isMetaMask: true, async request({ method }: { method: string }) {
     if (method === "wallet_switchEthereumChain" && reject) throw { code: 4001 };
     return method === "eth_getCode" ? "0x" : method === "eth_chainId" ? "0x14a34" : [f.intent.wallet];
   } });
