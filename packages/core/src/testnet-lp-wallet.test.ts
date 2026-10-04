@@ -49,3 +49,18 @@ it("validates coupled LP fee descriptors and independently binds the gas budget 
     expect(testnetLpStudySchema.safeParse(bad).success).toBe(false);
   }
 });
+
+it("binds optional custom mint ranges and preserves legacy full-range intents", () => {
+  const f = study(); const range = { tickLower: 199920, tickUpper: 202980 };
+  expect(testnetLpIntentSchema.safeParse({ ...f.intent, range }).success).toBe(true);
+  Object.assign(f.intent, { range }); Object.assign(f.plan, range);
+  expect(() => inspectTestnetLpTransaction(f, now)).not.toThrow();
+  f.plan.tickUpper += 60;
+  expect(() => inspectTestnetLpTransaction(f, now)).toThrow("Invalid mint range");
+  for (const range of [{ tickLower: 0, tickUpper: 0 }, { tickLower: 60, tickUpper: 0 },
+    { tickLower: 1, tickUpper: 60 }, { tickLower: 0, tickUpper: 30 }, { tickLower: -887280, tickUpper: 60 }, { tickLower: 0, tickUpper: 887280 }]) {
+    expect(testnetLpIntentSchema.safeParse({ ...study().intent, range }).success).toBe(false);
+  }
+  const legacy = study(); legacy.plan.tickLower = 0;
+  expect(() => inspectTestnetLpTransaction(legacy, now)).toThrow("Invalid mint range");
+});

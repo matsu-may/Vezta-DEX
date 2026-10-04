@@ -11,6 +11,17 @@ function setup() {
 }
 
 describe("wallet-bound pinned testnet quotes", () => {
+  it("quotes custom amounts and calculates minimum with the intent's selected slippage", async () => {
+    for (const reverse of [false, true]) {
+      const { reader } = setup();
+      const intent = { ...testnetIntent(reverse), amountIn: reverse ? "123456789012345" : "1234567", slippageBps: 100 };
+      const result = await reader.read(intent);
+      expect(result.quote.amountIn).toBe(intent.amountIn);
+      expect(result.quote.slippageBps).toBe(100);
+      expect(BigInt(result.quote.minimumAmountOut)).toBe(BigInt(result.quote.amountOut) * 9900n / 10000n);
+      expect(() => reader.store.read(result.quoteId, { ...intent, slippageBps: 50 })).toThrow();
+    }
+  });
   it.each([false, true])("qualifies either direction at one block without funds or signing (%s)", async reverse => {
     const { source, reader } = setup();
     const code = vi.spyOn(source, "getCode");
@@ -33,8 +44,8 @@ describe("wallet-bound pinned testnet quotes", () => {
   it("rejects malformed intent before any RPC work", async () => {
     const source = testnetQuoteSource(); const create = vi.fn(() => source);
     const reader = new TestnetSwapQuoteReader(create, undefined, () => TESTNET_NOW);
-    for (const patch of [{ chainId: 137 }, { amountIn: "2" }, { wallet: P.router },
-      { slippageBps: 100 }, { secret: "injected" }]) {
+    for (const patch of [{ chainId: 137 }, { amountIn: "5000001" }, { wallet: P.router },
+      { slippageBps: 101 }, { secret: "injected" }]) {
       await expect(reader.read({ ...testnetIntent(), ...patch })).rejects.toMatchObject({ code: "TESTNET_INTENT_INVALID" });
     }
     expect(create).not.toHaveBeenCalled();

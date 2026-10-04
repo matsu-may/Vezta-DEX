@@ -1,13 +1,14 @@
 import { encodeFunctionData, getAddress, isAddress, parseAbi, type Address, type Hex } from "viem";
 import { z } from "zod";
 import { BASE_SEPOLIA_CANDIDATE as C } from "./testnet";
-import { TESTNET_DEPTH_INPUTS } from "./testnet-depth";
 
 // Separate direct-v3 testnet adapter. This is not the Polygon Universal Router/Permit2 policy.
 export const TESTNET_SWAP_POLICY = Object.freeze({
   chainId: 84532, router: "0x94cC0AaC535CCDB3C01d6787D6413C739ae12bc4",
   pool: "0x46880b404CD35c165EDdefF7421019F8dD25F4Ad", feeTier: 3000,
-  slippageBps: 50, quoteTtlSeconds: 30, demoQuoteTtlSeconds: 120,
+  slippageBps: 50, minimumSlippageBps: 5, maximumSlippageBps: 100,
+  maximumUsdcInput: "5000000", maximumWethInput: "1000000000000000",
+  quoteTtlSeconds: 30, demoQuoteTtlSeconds: 120,
 } as const);
 
 const swapAbi = parseAbi([
@@ -28,13 +29,13 @@ const intentShape = {
   chainId: z.literal(TESTNET_SWAP_POLICY.chainId),
   wallet: address.refine(value => !reservedWallets.has(value.toLowerCase())),
   tokenIn: address, tokenOut: address, amountIn: uint,
-  slippageBps: z.literal(TESTNET_SWAP_POLICY.slippageBps),
+  slippageBps: z.number().int().min(TESTNET_SWAP_POLICY.minimumSlippageBps).max(TESTNET_SWAP_POLICY.maximumSlippageBps),
 };
 function supportedIntent(i: { tokenIn: Address; tokenOut: Address; amountIn: string }): boolean {
   const forward = i.tokenIn === getAddress(C.USDC.address) && i.tokenOut === getAddress(C.WETH.address);
   const reverse = i.tokenIn === getAddress(C.WETH.address) && i.tokenOut === getAddress(C.USDC.address);
-  return (forward || reverse) && TESTNET_DEPTH_INPUTS.slice(forward ? 0 : 3, forward ? 3 : 6)
-    .some(amount => amount === i.amountIn);
+  return (forward || reverse) && BigInt(i.amountIn) <= BigInt(forward
+    ? TESTNET_SWAP_POLICY.maximumUsdcInput : TESTNET_SWAP_POLICY.maximumWethInput);
 }
 const intentSchema = z.object(intentShape).strict().refine(supportedIntent);
 const quoteSchema = z.object({
@@ -78,7 +79,7 @@ function reviewedQuote(value: unknown, nowMs: number): { quote: TestnetSwapQuote
   const deadline = Math.floor(expiresMs / 1000);
   if (observedMs > nowMs + 10000 || nowMs >= expiresMs
     || Math.floor(nowMs / 1000) >= deadline) throw new Error("Expired or future testnet quote");
-  const minimum = BigInt(quote.amountOut) * 9950n / 10000n;
+  const minimum = BigInt(quote.amountOut) * BigInt(10000 - quote.slippageBps) / 10000n;
   if (minimum === 0n || minimum !== BigInt(quote.minimumAmountOut)) throw new Error("Invalid testnet minimum output");
   return { quote, deadline: BigInt(deadline) };
 }

@@ -125,3 +125,5 @@ export * from "./testnet-lp-wallet";
 export * from "./testnet-transaction-fees";
 export * from "./testnet-metamask";
 export * from "./hosted-config";
+export * from "./testnet-inputs";
+export * from "./testnet-lp-range";

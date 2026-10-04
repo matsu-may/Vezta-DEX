@@ -1,3 +1,4 @@
+import { saveTestnetActivity } from "./testnet-activity";
 import { getAddress, toHex, type Address } from "viem";
 import { classifyTestnetWalletCode, testnetRpcFeeFields, testnetLpIntentSchema, parseTestnetLpStudy, type TestnetLpIntent, type TestnetLpStudy, type TestnetLpReceipt } from "@vezta-dex/core";
 import { TestnetBrowserError } from "./testnet-wallet-client";
@@ -99,9 +100,17 @@ export class TestnetLpWalletController {
     } catch (e) { if (e && typeof e === "object" && "code" in e && e.code === 4001) { clearTestnetLpSubmission(this.storage, marker); this.publish({ submission: null }); } throw e; }
     const sent = { ...marker, hash: walletHash.parse(result) }; this.publish({ submission: sent, stage: "pending" });
     try { writeTestnetLpSubmission(this.storage, sent, marker); } catch { this.publish({ message: "Copy the original hash now. Recovery storage could not be updated." }); }
+    saveTestnetActivity(this.storage, { chainId: 84532, account: sent.study.intent.wallet, flow: "lp", kind: sent.study.actionKind, hash: sent.hash, status: "pending", observedAt: new Date(this.now()).toISOString() });
   }); }
   private tracked() { const rec = this.state.submission; bound(rec); if (this.now() - rec!.attemptedAt >= 86400000) throw new TestnetBrowserError(410, "TESTNET_CONTEXT_UNAVAILABLE"); return rec!; }
-  private apply(o: TestnetLpReceipt) { this.publish({ observation: o, stage: o.status === "unknown" ? "uncertain" : o.status }); }
+  private apply(o: TestnetLpReceipt) {
+    const r = this.state.submission;
+    if (r?.hash && same(r.hash, o.hash)) saveTestnetActivity(this.storage, {
+      chainId: 84532, account: r.study.intent.wallet, flow: "lp", kind: r.study.actionKind, hash: r.hash, status: o.status, observedAt: o.observedAt,
+      ...(o.verified ? { amount0: o.amount0, amount1: o.amount1, tokenId: o.tokenId ?? undefined,
+        l2GasCost: o.l2GasCost, gasPayer: o.gasPayer ?? r.study.intent.wallet } : {}),
+    });
+    this.publish({ observation: o, stage: o.status === "unknown" ? "uncertain" : o.status }); }
   async observe() { return this.run(async () => { const rec = this.tracked(); bound(rec.hash); this.publish({ observation: null });
     const raw = await this.api.call("receipt", { contextId: rec.study.contextId, hash: rec.hash }); this.apply(parseTestnetLpObservation(raw, rec, this.now()));
   }); }

@@ -5,6 +5,7 @@ import { TESTNET_LP_SUBMISSION_KEY } from "./testnet-cross-flow";
 import { TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
 import { memoryStorage } from "./testnet-wallet.test-helper";
 import { TestnetBrowserError } from "./testnet-wallet-client";
+import { readTestnetActivity, TESTNET_ACTIVITY_KEY } from "./testnet-activity";
 async function setup(kind: Parameters<typeof lpWalletFixture>[0] = "mint", percentage: 25|50|100 = 25, gate = true) {
   const f = lpWalletFixture(kind, percentage); const storage = memoryStorage(); const methods: string[] = []; const sends: unknown[][] = []; const events = new Map<string,(v: unknown)=>void>();
   let now = LP_NOW; let reject = false; let lose = false; let code = "0x"; let chain = "0x14a34"; let owner = f.intent.wallet; let receiptFailure = false;
@@ -26,6 +27,20 @@ it("explicitly studies, rechecks unchanged legacy calls and observes every opera
     expect(s.methods).not.toContain("eth_sendTransaction"); await s.controller.submit(); expect(s.controller.snapshot().stage).toBe("pending");
     await s.controller.observe(); expect(s.controller.snapshot().stage).toBe("confirmed"); await s.controller.acknowledge(); expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
   }
+});
+it("persists LP recovery hash before optional activity and retains history after acknowledgment", async () => {
+  const s = await setup(); const write = s.storage.setItem; let historyWritten = false;
+  s.storage.setItem = (key, value) => {
+    if (key === TESTNET_ACTIVITY_KEY) historyWritten = true;
+    if (key === TESTNET_LP_SUBMISSION_KEY && historyWritten) throw new Error("quota consumed by activity");
+    write(key, value);
+  };
+  await s.reviewed(); await s.controller.submit();
+  expect(JSON.parse(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)!).hash).toBe(LP_HASH);
+  s.storage.setItem = write;
+  await s.controller.observe(); await s.controller.acknowledge();
+  expect(readTestnetActivity(s.storage, s.f.intent.wallet).entries[0]).toMatchObject({ hash: LP_HASH, status: "confirmed" });
+  expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
 });
 it("blocks gate, expired review, wrong chain, smart account, changed account and recheck transaction drift", async () => {
   for (const failure of ["gate","expiry","chain","smart","account","tx","context","intent"] as const) {

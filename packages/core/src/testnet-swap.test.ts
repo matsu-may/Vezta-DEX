@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { decodeFunctionData, encodeFunctionData, parseAbi } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C } from "./testnet";
 import { buildTestnetSwapTransaction, inspectTestnetSwapTransaction, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY } from "./testnet-swap";
+  TESTNET_SWAP_POLICY, parseTestnetSwapIntent } from "./testnet-swap";
 
 const wallet = "0xb4f286aeb57ab61af848f7c1619ff98144aed44e";
 const now = Date.parse("2026-10-01T10:00:00.000Z");
@@ -27,6 +27,26 @@ function intent(reverse = false) {
 }
 
 describe("Base Sepolia unsigned swap calldata", () => {
+  it("accepts exact custom integer amounts within existing caps and binds selected slippage into calldata", () => {
+    for (const reverse of [false, true]) for (const slippageBps of [5, 25, 50, 100]) {
+      const q = { ...quote(reverse), amountIn: reverse ? "123456789012345" : "1234567", slippageBps };
+      q.minimumAmountOut = (BigInt(q.amountOut) * BigInt(10000 - slippageBps) / 10000n).toString();
+      expect(parseTestnetSwapIntent({ ...intent(reverse), amountIn: q.amountIn, slippageBps }).amountIn).toBe(q.amountIn);
+      const tx = buildTestnetSwapTransaction(q, now);
+      const outer = decodeFunctionData({ abi, data: tx.data });
+      if (outer.functionName !== "multicall") throw new Error();
+      const inner = decodeFunctionData({ abi, data: outer.args[1][0] });
+      if (inner.functionName !== "exactInputSingle") throw new Error();
+      expect(inner.args[0].amountIn).toBe(BigInt(q.amountIn));
+      expect(inner.args[0].amountOutMinimum).toBe(BigInt(q.minimumAmountOut));
+      expect(() => inspectTestnetSwapTransaction(tx, { ...q, slippageBps: slippageBps === 50 ? 100 : 50 }, now)).toThrow();
+    }
+  });
+  it("rejects oversized, noncanonical amounts and invalid slippage without extending demo caps", () => {
+    for (const amountIn of ["0", "5000001", "01", "1.5", "1e6", "-1"]) expect(() => parseTestnetSwapIntent({ ...intent(), amountIn })).toThrow();
+    expect(() => parseTestnetSwapIntent({ ...intent(true), amountIn: "1000000000000001" })).toThrow();
+    for (const slippageBps of [0, 4, 101, 5.5, "50", NaN]) expect(() => parseTestnetSwapIntent({ ...intent(), slippageBps })).toThrow();
+  });
   it("builds both directions with exactly one deadline-wrapped ERC20 swap to the pinned router", () => {
     for (const reverse of [false, true]) {
       const q = quote(reverse); const tx = buildTestnetSwapTransaction(q, now);
@@ -54,7 +74,7 @@ describe("Base Sepolia unsigned swap calldata", () => {
 
   it("rejects wrong intent/provenance, unsupported amounts, zero/overflow output and inconsistent minimum", () => {
     for (const change of [
-      { chainId: 137 }, { tokenOut: C.USDC.address }, { amountIn: "1000001" }, { slippageBps: 300 },
+      { chainId: 137 }, { tokenOut: C.USDC.address }, { amountIn: "5000001" }, { slippageBps: 300 },
       { pool: C.v3Factory }, { feeTier: 500 }, { protocol: "v4" }, { source: "uniswap-trading-api" },
       { amountOut: "0" }, { amountOut: (2n ** 256n).toString() }, { amountOut: "1", minimumAmountOut: "1" },
       { minimumAmountOut: "6309417777551187" }, { blockNumber: "0" }, { blockHash: "0xab" },

@@ -2,15 +2,17 @@
 import { TestnetFeeReview } from "./testnet-fee-review";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, testnetLpIntentSchema, type TestnetLpIntent } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, testnetLpIntentSchema, TESTNET_LP_FULL_RANGE, lpRangeFromPrices, lpRangePrices, type TestnetLpRange, type TestnetLpIntent } from "@vezta-dex/core";
 import { testnetLpMessage } from "../lib/testnet-lp-wallet-errors";
 import { TestnetLpWalletController, type TestnetLpWalletSnapshot } from "../lib/testnet-lp-wallet-controller";
 import { createTestnetLpWalletClient } from "../lib/testnet-lp-wallet-client";
 import type { TestnetWallet } from "../lib/testnet-wallet-controller";
+import { TestnetActivity } from "./testnet-activity";
+import { TestnetLpRangeFields } from "./testnet-lp-range-fields";
 import { TestnetLpPanel } from "./testnet-lp-panel";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amount = (value: string, decimals: number) => formatUnits(BigInt(value), decimals);
-const names = { mint: "Create full-range position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
+const names = { mint: "Create position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
 export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "demo" | "technical" }) {
   const c = useRef<TestnetLpWalletController | null>(null); const provider = useRef<TestnetWallet | null>(null);
   const [mutationKey, setMutationKey] = useState<string | null>(null);
@@ -20,6 +22,13 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   const [state, setState] = useState<TestnetLpWalletSnapshot | null>(null); const [startup, setStartup] = useState("Loading wallet interface…");
   const [kind, setKind] = useState<TestnetLpIntent["kind"]>("mint"); const [tokenId, setTokenId] = useState("");
   const [amount0, setAmount0] = useState("1000000"); const [amount1, setAmount1] = useState("1000000000000000");
+  const [rangeMode, setRangeMode] = useState<"full" | "custom">("full");
+  const [lowerPrice, setLowerPrice] = useState(""), [upperPrice, setUpperPrice] = useState("");
+  let selectedRange: TestnetLpRange | null = TESTNET_LP_FULL_RANGE, rangeError: string | null = null;
+  if (rangeMode === "custom") {
+    try { selectedRange = lpRangeFromPrices(lowerPrice, upperPrice); }
+    catch (error) { selectedRange = null; rangeError = error instanceof Error ? error.message : "Invalid price range"; }
+  }
   const [percentage, setPercentage] = useState<25 | 50 | 100>(25); const [hash, setHash] = useState(""); const [now, setNow] = useState(0);
   useEffect(() => {
     let alive = true; const wallet = injectedDemoWallet();
@@ -50,7 +59,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   const headerWallet = useDemoWalletBinding({ account: state?.account ?? null, busy: !!state?.busy, blocked: recovering, connect });
   const s = state?.study; const fresh = !!s && now < Date.parse(s.expiresAt); const o = state?.observation; const rec = state?.submission;
   const intent = testnetLpIntentSchema.safeParse({ chainId: 84532, wallet: state?.account, kind,
-    ...(kind !== "mint" ? { tokenId } : {}), ...(kind === "mint" || kind === "increase" ? { amount0Cap: amount0, amount1Cap: amount1 } : {}), ...(kind === "decrease" ? { percentage } : {}) });
+    ...(kind !== "mint" ? { tokenId } : {}), ...(kind === "mint" && rangeMode === "custom" ? { range: selectedRange } : {}), ...(kind === "mint" || kind === "increase" ? { amount0Cap: amount0, amount1Cap: amount1 } : {}), ...(kind === "decrease" ? { percentage } : {}) });
   const edit = () => c.current?.invalidateInput();
   const select = (next: TestnetLpIntent["kind"], id: string) => { if (busy || recovering) return; origin.current = document.activeElement as HTMLElement; edit(); setKind(next); setTokenId(id); setActionOpen(true); };
   const closeAction = () => { if (busy || recovering) return; edit(); setActionOpen(false); origin.current?.focus(); };
@@ -69,8 +78,8 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
           {kind !== "mint" && <div><label className="form-label" htmlFor="lp-token-id">Position NFT ID</label><input id="lp-token-id" className="field mono" value={tokenId} disabled={busy} inputMode="numeric" onChange={e => { edit(); setTokenId(e.target.value); }} /></div>}
           {kind === "decrease" && <div><label className="form-label" htmlFor="lp-percentage">Remove percentage</label><select id="lp-percentage" className="field" value={percentage} disabled={busy} onChange={e => { edit(); setPercentage(Number(e.target.value) as 25 | 50 | 100); }}>{[25,50,100].map(v => <option key={v} value={v}>{v}%</option>)}</select></div>}
         </div>
-        {(kind === "mint" || kind === "increase") && <><div className="testnet-fields"><div><label className="form-label" htmlFor="lp-usdc-cap">Maximum USDC authorization</label><select id="lp-usdc-cap" className="field" value={amount0} disabled={busy} onChange={e => { edit(); setAmount0(e.target.value); }}>{["100000", "1000000", "5000000"].map(v => <option value={v} key={v}>{amount(v,6)} USDC</option>)}</select></div>
-          <div><label className="form-label" htmlFor="lp-weth-cap">Maximum WETH authorization</label><select id="lp-weth-cap" className="field" value={amount1} disabled={busy} onChange={e => { edit(); setAmount1(e.target.value); }}>{["100000000000000", "1000000000000000", "10000000000000000", "50000000000000000"].map(v => <option value={v} key={v}>{amount(v,18)} WETH</option>)}</select></div></div><p className="form-help">Mint uses the full range. Adding uses the existing position range. Approvals authorize these caps; the planned deposit may use less. Any unused allowance can remain after execution.</p></>}
+        {(kind === "mint" || kind === "increase") && <>{kind === "mint" && <TestnetLpRangeFields mode={rangeMode} lower={lowerPrice} upper={upperPrice} range={selectedRange} error={rangeError} disabled={busy} onMode={value=>{edit();setRangeMode(value);}} onLower={value=>{edit();setLowerPrice(value);}} onUpper={value=>{edit();setUpperPrice(value);}} />}<div className="testnet-fields"><div><label className="form-label" htmlFor="lp-usdc-cap">Maximum USDC authorization</label><select id="lp-usdc-cap" className="field" value={amount0} disabled={busy} onChange={e => { edit(); setAmount0(e.target.value); }}>{["0", "100000", "1000000", "5000000"].map(v => <option value={v} key={v}>{amount(v,6)} USDC</option>)}</select></div>
+          <div><label className="form-label" htmlFor="lp-weth-cap">Maximum WETH authorization</label><select id="lp-weth-cap" className="field" value={amount1} disabled={busy} onChange={e => { edit(); setAmount1(e.target.value); }}>{["0", "100000000000000", "1000000000000000", "10000000000000000", "50000000000000000"].map(v => <option value={v} key={v}>{amount(v,18)} WETH</option>)}</select></div></div><p className="form-help">Adding uses the existing position range. A zero cap permits no deposit or authorization for that token. Approvals authorize these caps; the planned deposit may use less. Any unused allowance can remain after execution.</p></>}
         {kind === "decrease" && <p className="form-help">Removing liquidity records owed tokens in the NFT. Collect is a separate reviewed action to transfer them to your wallet.</p>}
         {kind === "collect" && <p className="form-help">Collect transfers available owed tokens, which can include withdrawn principal and fees. It is not a profit measure.</p>}
         {kind === "burn" && <p className="form-help">Close only an empty NFT after all liquidity is removed and all owed tokens are collected.</p>}
@@ -83,7 +92,9 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
             {(s.intent.kind === "mint" || s.intent.kind === "increase") && <><div><dt>Maximum authorization</dt><dd>{amount(s.intent.amount0Cap,6)} USDC / {amount(s.intent.amount1Cap,18)} WETH</dd></div><div><dt>Planned deposit</dt><dd>{amount(s.plan.amount0Desired,6)} USDC / {amount(s.plan.amount1Desired,18)} WETH</dd></div><div><dt>Minimum deposit</dt><dd>{amount(s.plan.amount0Minimum,6)} USDC / {amount(s.plan.amount1Minimum,18)} WETH</dd></div></>}
             {s.intent.kind === "decrease" && <><div><dt>Liquidity removed</dt><dd>{s.intent.percentage}% · {s.plan.liquidity} units</dd></div><div><dt>Minimum added to NFT owed</dt><dd>{amount(s.plan.amount0Minimum,6)} USDC / {amount(s.plan.amount1Minimum,18)} WETH</dd></div></>}
             {s.intent.kind === "collect" && <div><dt>Stored owed before collect</dt><dd>{amount(s.plan.storedOwed0,6)} USDC / {amount(s.plan.storedOwed1,18)} WETH</dd></div>}
-            <div><dt>Range</dt><dd>{s.plan.tickLower} → {s.plan.tickUpper}</dd></div>
+            <div><dt>Range ticks</dt><dd>{s.plan.tickLower} → {s.plan.tickUpper}</dd></div>
+            <div><dt>Range price · USDC per WETH</dt><dd>{s.plan.tickLower === TESTNET_LP_FULL_RANGE.tickLower && s.plan.tickUpper === TESTNET_LP_FULL_RANGE.tickUpper ? "Full usable range" : <>≈{lpRangePrices(s.plan).lower} → ≈{lpRangePrices(s.plan).upper}</>}</dd></div>
+            {(s.intent.kind === "mint" || s.intent.kind === "increase") && s.plan.liquidity !== "0" && (s.plan.amount0Desired === "0" || s.plan.amount1Desired === "0") && <div><dt>Single-sided deposit</dt><dd>{s.plan.amount0Desired === "0" ? "WETH only · planned USDC deposit is zero" : "USDC only · planned WETH deposit is zero"}</dd></div>}
             {s.gas && <div><dt>Complete snapshot fee budget</dt><dd>{amount(s.gas.totalFeeBudget,18)} test ETH</dd></div>}
             <div><dt>Native gas balance</dt><dd>{amount(s.balances.ETH,18)} test ETH</dd></div><div><dt>Wallet balance</dt><dd>{amount(s.balances.USDC,6)} USDC / {amount(s.balances.WETH,18)} WETH</dd></div></dl>
           <p role="status" className="form-help">{fresh ? `Review expires in ${Math.max(0,Math.ceil((Date.parse(s.expiresAt)-now)/1000))}s.` : "Review expired. Request a fresh study."} Each approval and LP operation requires its own review.</p>
@@ -110,5 +121,6 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   return <>
     {!showControls && startup && <p role="status" className="form-help">{startup}</p>}
     <TestnetLpPanel walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
+    <TestnetActivity account={state?.account ?? state?.submission?.study.intent.wallet ?? null} />
   </>;
 }

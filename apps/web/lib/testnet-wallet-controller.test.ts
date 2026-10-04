@@ -3,6 +3,7 @@ import { getAddress } from "viem";
 import { reviewedFixture, memoryStorage } from "./testnet-wallet.test-helper";
 import { TestnetWalletController, type TestnetWalletApi } from "./testnet-wallet-controller";
 import { TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
+import { readTestnetActivity, TESTNET_ACTIVITY_KEY } from "./testnet-activity";
 
 const hash = `0x${"11".repeat(32)}`;
 async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, enabled = true) {
@@ -60,6 +61,28 @@ it("uses explicit mocked actions for swap/reset/exact approval and never prompts
     expect(s.controller.snapshot().stage).toBe("confirmed"); await s.controller.acknowledge();
     expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBeNull();
   }
+});
+it("records the original lifecycle independently of recovery and survives optional history failure", async () => {
+  const s = await setup(); await s.reviewed(); await s.controller.submit();
+  expect(readTestnetActivity(s.storage, s.f.request.intent.wallet).entries[0]).toMatchObject({ hash, status: "pending" });
+  await s.controller.observe(); await s.controller.acknowledge();
+  expect(readTestnetActivity(s.storage, s.f.request.intent.wallet).entries[0]).toMatchObject({ hash, status: "confirmed", l2GasCost: "123", amountIn: s.f.request.intent.amountIn });
+  expect(s.storage.getItem(TESTNET_SUBMISSION_KEY)).toBeNull();
+  const b = await setup(); const write = b.storage.setItem;
+  b.storage.setItem = (key, value) => { if (key === TESTNET_ACTIVITY_KEY) throw new Error("history quota"); write(key, value); };
+  await b.reviewed(); await b.controller.submit(); await b.controller.observe();
+  expect(b.controller.snapshot().stage).toBe("confirmed");
+  expect(b.storage.getItem(TESTNET_SUBMISSION_KEY)).not.toBeNull();
+});
+it("persists the returned recovery hash before optional activity consumes storage quota", async () => {
+  const s = await setup(); const write = s.storage.setItem; let historyWritten = false;
+  s.storage.setItem = (key, value) => {
+    if (key === TESTNET_ACTIVITY_KEY) historyWritten = true;
+    if (key === TESTNET_SUBMISSION_KEY && historyWritten) throw new Error("quota consumed by activity");
+    write(key, value);
+  };
+  await s.reviewed(); await s.controller.submit();
+  expect(JSON.parse(s.storage.getItem(TESTNET_SUBMISSION_KEY)!).hash).toBe(hash);
 });
 
 it("blocks both execution gates, expiry, changed wallet and malformed responses before any send", async () => {

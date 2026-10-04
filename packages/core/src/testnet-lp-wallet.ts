@@ -12,9 +12,11 @@ const id = z.string().regex(/^[a-f0-9]{48}$/);
 const wallet = address.refine(v => ![C.v3Factory,C.v3PositionManager,C.v3QuoterV2,C.USDC.address,C.WETH.address,P.pool,P.router,
   "0x0000000000000000000000000000000000000000", "0x0000000000000000000000000000000000000001", "0x0000000000000000000000000000000000000002"].some(a => a.toLowerCase() === v.toLowerCase()));
 const base = { chainId: z.literal(84532), wallet };
+const tick = z.number().int().min(-887220).max(887220).refine(v => v % 60 === 0);
+export const testnetLpRangeSchema = z.object({ tickLower: tick, tickUpper: tick }).strict().refine(v => v.tickLower < v.tickUpper);
 const caps = { amount0Cap: uint.refine(v => BigInt(v) <= 5000000n), amount1Cap: uint.refine(v => BigInt(v) <= 50000000000000000n) };
 export const testnetLpIntentSchema = z.discriminatedUnion("kind", [
-  z.object({ ...base, kind: z.literal("mint"), ...caps }).strict(),
+  z.object({ ...base, kind: z.literal("mint"), ...caps, range: testnetLpRangeSchema.optional() }).strict(),
   z.object({ ...base, kind: z.literal("increase"), ...caps, tokenId: positive }).strict(),
   z.object({ ...base, kind: z.literal("decrease"), tokenId: positive, percentage: z.union([z.literal(25),z.literal(50),z.literal(100)]) }).strict(),
   z.object({ ...base, kind: z.literal("collect"), tokenId: positive }).strict(),
@@ -23,7 +25,6 @@ export const testnetLpIntentSchema = z.discriminatedUnion("kind", [
 export const testnetLpStudyRequestSchema = z.object({ intent: testnetLpIntentSchema }).strict();
 export const testnetLpRecheckRequestSchema = z.object({ contextId: id }).strict();
 export const testnetLpReceiptRequestSchema = z.object({ contextId: id, hash }).strict();
-const tick = z.number().int().min(-887220).max(887220).refine(v => v % 60 === 0);
 export const testnetLpPlanSchema = z.object({ amount0Cap: uint, amount1Cap: uint, amount0Desired: uint, amount1Desired: uint, amount0Minimum: uint, amount1Minimum: uint,
   liquidity: uint.refine(v => BigInt(v) < 2n ** 128n), positionLiquidity: uint.refine(v => BigInt(v) < 2n ** 128n),
   storedOwed0: uint.refine(v => BigInt(v) < 2n ** 128n), storedOwed1: uint.refine(v => BigInt(v) < 2n ** 128n),
@@ -94,7 +95,7 @@ export function inspectTestnetLpTransaction(value: unknown, now = Date.now()): v
   if (!Number.isSafeInteger(now) || observed > now + 10000 || now >= until || until <= observed || until - observed > 120000) throw new Error("Expired LP review");
   const n = (v: string) => BigInt(v);
   if (p.deadline !== null && (n(p.deadline) !== BigInt(Math.floor(until/1000)) || n(p.deadline) <= BigInt(Math.floor(now/1000)))) throw new Error("Invalid LP deadline");
-  if (i.kind === "mint" && (p.tickLower !== -887220 || p.tickUpper !== 887220 || p.positionLiquidity !== "0")) throw new Error("Invalid mint range");
+  if (i.kind === "mint" && (p.tickLower !== (i.range?.tickLower ?? -887220) || p.tickUpper !== (i.range?.tickUpper ?? 887220) || p.positionLiquidity !== "0")) throw new Error("Invalid mint range");
   if (i.kind === "mint" || i.kind === "increase") {
     if (p.amount0Cap !== i.amount0Cap || p.amount1Cap !== i.amount1Cap || n(p.amount0Desired) > n(i.amount0Cap) || n(p.amount1Desired) > n(i.amount1Cap) || n(p.liquidity) === 0n
       || n(p.amount0Minimum) > n(p.amount0Desired) || n(p.amount1Minimum) > n(p.amount1Desired) || p.deadline === null) throw new Error("Invalid LP amounts");

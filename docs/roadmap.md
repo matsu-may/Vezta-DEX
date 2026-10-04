@@ -1,5 +1,14 @@
 # Vezta DEX Roadmap
 
+**Active scope, 2026-10-04:** the owner confirmed the refreshed desktop UI and
+frontend-only Vercel visual check. Backend hosting is deferred. The approved
+[testnet product completion plan](superpowers/plans/2026-10-04-testnet-product-completion.md)
+adds bounded custom amounts/slippage, custom v3 ranges, multi-pool discovery,
+local activity/fee reporting and release handoff before routing/second-chain work.
+Earlier dated paragraphs preserve historical evidence; the latest checkpoint
+supersedes their old pending owner/CI statements. Actual complete fees, hosted API
+acceptance and broader chain execution remain separate open gates.
+
 The Vietnamese [mechanism & demo report](reports/2026-10-04-vezta-dex-mechanism-report.md)
 summarizes the current architecture, protocol math, wallet/LP flows, mock UI
 screenshots and the distinction between local acceptance and hosted readiness.

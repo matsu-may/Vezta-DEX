@@ -1,5 +1,13 @@
 # Standalone Testnet DEX Completion Roadmap
 
+**Current scope update, 2026-10-04:** the owner accepted the compact desktop UI
+and Vercel frontend visual check. Public backend hosting is deferred; wallet
+execution continues locally. Initial remote CI has passed. Follow the approved
+[product completion roadmap](2026-10-04-testnet-product-completion.md) for custom
+amount/slippage, concentrated ranges, Explore, activity/fees and final handoff.
+Older dated pending checks below are historical; new functionality needs delta
+acceptance. Existing wallet acceptance is owner-reported, not a new hash inventory.
+
 **Status:** Consolidated roadmap, 2026-10-01. Current update, 2026-10-04: the owner reports all desktop acceptance steps passed; launchpad-style UI refinement is locally qualified. Hosted deployment is a separate follow-up. Earlier status paragraphs below retain their dated implementation evidence. This is the current delivery order for the owner's testnet-first goal. Older Polygon plans retain their historical evidence and open mainnet gates.
 
 **Early demo milestone, 2026-10-02:** follow the [short Explore → wallet swap → receipt roadmap](2026-10-02-early-testnet-demo.md) first. It narrows the first demo to one Base Sepolia pool and bidirectional swaps, then resumes this full six-phase roadmap. Map demo evidence onto Phases 1–3; LP and all remaining acceptance requirements stay open until actually verified. This adds an intermediate milestone, not a replacement plan.

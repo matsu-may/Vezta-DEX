@@ -8,7 +8,7 @@ it("never prompts on load and shows all independent LP choices in read-only deve
   render(<TestnetLpWalletPanel executionEnabled={false} />);
   await screen.findByRole("button", { name: "Connect Base Sepolia wallet" }); expect(request).not.toHaveBeenCalled();
   expect(screen.getByText(/Read-only preview/)).toBeTruthy();
-  for (const label of ["Create full-range position", "Add liquidity", "Remove liquidity", "Collect tokens", "Close empty position"]) expect(screen.getByRole("option", { name: label })).toBeTruthy();
+  for (const label of ["Create position", "Add liquidity", "Remove liquidity", "Collect tokens", "Close empty position"]) expect(screen.getByRole("option", { name: label })).toBeTruthy();
   fireEvent.change(screen.getByLabelText("LP action"), { target: { value: "decrease" } });
   expect(screen.getByLabelText("Remove percentage")).toBeTruthy(); expect(screen.getByLabelText("Position NFT ID")).toBeTruthy();
   expect(screen.getByRole("button", { name: "Study LP action" }).hasAttribute("disabled")).toBe(true);
@@ -61,4 +61,30 @@ it("keeps storage initialization guidance visible before selecting an LP action"
   await screen.findByText("Local recovery storage is unavailable. Enable site storage before submitting.");
   expect(screen.queryByLabelText("LP action")).toBeNull();
   expect(screen.getByRole("button", { name: "Create position" }).hasAttribute("disabled")).toBe(true);
+});
+it("previews actual custom price bounds, binds them to study and invalidates review on edit", async () => {
+  const { lpWalletFixture, LP_NOW } = await import("../lib/testnet-lp-wallet.test-helper");
+  const { lpRangeFromPrices } = await import("@vezta-dex/core");
+  const f = lpWalletFixture("approve"), range = lpRangeFromPrices("2000", "4000");
+  Object.assign(f.study.intent,{range}); Object.assign(f.study.plan,range);
+  vi.spyOn(Date,"now").mockReturnValue(LP_NOW);
+  Object.defineProperty(window,"ethereum",{configurable:true,value:{isMetaMask:true,async request({method}:{method:string}) {
+    if(method==="eth_accounts"||method==="eth_requestAccounts")return[f.intent.wallet];
+    if(method==="eth_chainId")return"0x14a34";if(method==="eth_getCode")return"0x";throw Error("unexpected");
+  }}});
+  vi.stubGlobal("navigator",{locks:{request:async(_key:unknown,_options:unknown,fn:(lock:unknown)=>Promise<void>)=>fn({})}});
+  const fetcher=vi.fn<(url:string,options:RequestInit)=>Promise<Response>>(async()=>Response.json({study:f.study}));vi.stubGlobal("fetch",fetcher);
+  render(<TestnetLpWalletPanel executionEnabled={true}/>);
+  fireEvent.click(await screen.findByRole("button",{name:"Connect Base Sepolia wallet"}));await screen.findByText(`Connected: ${f.intent.wallet}`);
+  fireEvent.change(screen.getByLabelText("Position range"),{target:{value:"custom"}});
+  fireEvent.change(screen.getByLabelText("Lower price · USDC per WETH"),{target:{value:"2000"}});
+  fireEvent.change(screen.getByLabelText("Upper price · USDC per WETH"),{target:{value:"4000"}});
+  expect(screen.getByText(/Actual snapped bounds/)).toBeTruthy();
+  fireEvent.click(screen.getByRole("button",{name:"Study LP action"}));await screen.findByRole("heading",{name:"Review approve USDC"});
+  const body=JSON.parse((fetcher.mock.calls[0] as unknown as [string,RequestInit])[1].body as string);
+  expect(body.intent.range).toEqual(range); expect(screen.getByText("Range price · USDC per WETH")).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("Lower price · USDC per WETH"),{target:{value:"4100"}});
+  expect(screen.queryByRole("heading",{name:"Review approve USDC"})).toBeNull();
+  expect(screen.getByRole("button",{name:"Study LP action"}).hasAttribute("disabled")).toBe(true);
+  expect(screen.getByText("Lower price must be below upper price")).toBeTruthy();
 });

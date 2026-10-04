@@ -1,9 +1,10 @@
+import { saveTestnetActivity } from "./testnet-activity";
 import { parseHistoricalTestnetApproval, type HistoricalTestnetApproval } from "./testnet-wallet-historical";
 import { OtherTestnetSubmissionError, requireNoOtherTestnetSubmission } from "./testnet-cross-flow";
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
-import { classifyTestnetWalletCode, testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, type TestnetSwapIntent } from "@vezta-dex/core";
+import { classifyTestnetWalletCode, testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, BASE_SEPOLIA_CANDIDATE as C, type TestnetSwapIntent } from "@vezta-dex/core";
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
   type TestnetWalletQuote, type TestnetWalletAction, type TestnetSubmission } from "./testnet-wallet-contracts";
 import { TESTNET_SUBMISSION_KEY, readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission,
@@ -174,11 +175,21 @@ export class TestnetWalletController {
     const sent = { ...original, hash: walletHash.parse(raw) }; this.publish({ submission: sent, stage: "pending" });
     try { writeTestnetSubmission(this.storage, sent, original); }
     catch { this.publish({ message: "Copy the original hash now. Recovery storage could not be updated." }); }
+    saveTestnetActivity(this.storage, { chainId: P.chainId, account: sent.intent.wallet, flow: "swap", kind: sent.action.kind, hash: sent.hash, status: "pending", observedAt: new Date(this.now()).toISOString() });
   }); }
   private tracked() { const record = this.state.submission; require(record);
     if (this.now() >= Date.parse(record!.action.trackingExpiresAt)) throw new TestnetBrowserError(410, "TESTNET_CONTEXT_UNAVAILABLE");
     return record!; }
-  private applyObservation(o: Observation) { this.publish({ observation: o, contextUnavailable: false, stage: o.status === "unknown-original" ? "uncertain" : o.status }); }
+  private applyObservation(o: Observation) {
+    const r = this.state.submission;
+    if (r?.hash && same(r.hash, o.hash)) saveTestnetActivity(this.storage, {
+      chainId: P.chainId, account: r.intent.wallet, flow: "swap", kind: r.action.kind, hash: r.hash, status: o.status, observedAt: o.observedAt,
+      ...(o.execution ? { amountIn: o.execution.amountIn, amountOut: o.execution.amountOut,
+        tokenIn: r.intent.tokenIn.toLowerCase() === C.USDC.address.toLowerCase() ? "USDC" : "WETH",
+        tokenOut: r.intent.tokenOut.toLowerCase() === C.USDC.address.toLowerCase() ? "USDC" : "WETH",
+        l2GasCost: o.execution.l2GasCost, gasPayer: o.gasPayer ?? r.intent.wallet } : {}),
+    });
+    this.publish({ observation: o, contextUnavailable: false, stage: o.status === "unknown-original" ? "uncertain" : o.status }); }
   async observe() { return this.run(async () => {
     const original = this.tracked(); require(original.hash);
     const raw = await this.api.call("receipt", { contextId: original.action.contextId, hash: original.hash });

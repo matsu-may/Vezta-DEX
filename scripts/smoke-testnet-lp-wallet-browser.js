@@ -43,6 +43,18 @@ async page => {
     check(await page.getByText("Gas payer",{exact:true}).count()===1,"Delegated gas payer displayed: "+key);check(await page.getByText("Observed outer L2 cost",{exact:true}).count()===1,"Observed outer L2 cost displayed: "+key);
     await page.getByRole("button",{name:"Acknowledge verified LP result",exact:true}).click();await page.waitForFunction(()=>localStorage.getItem("vezta-dex:base-sepolia-lp-submission:v1")===null);check(await page.evaluate(()=>localStorage.getItem("vezta-dex:base-sepolia-lp-submission:v1")===null),"Verified acknowledgment: "+key);
   }
+  await fresh("approve"); selected=JSON.parse(JSON.stringify(fixtures.approve));
+  const customRange={tickLower:193320,tickUpper:200340}; selected.study.intent.range=customRange; Object.assign(selected.study.plan,customRange);
+  await page.getByLabel("Position range",{exact:true}).selectOption("custom");
+  await page.getByLabel("Lower price · USDC per WETH",{exact:true}).fill("2000");
+  await page.getByLabel("Upper price · USDC per WETH",{exact:true}).fill("4000");
+  check(await page.getByText(/Actual snapped bounds.*1994.248864.*4023.82270531/).count()===1,"Outward snapped custom price preview");
+  await review();check(await page.getByText("Range price · USDC per WETH",{exact:true}).count()===1,"Custom range reviewed before any send");
+  check(await page.getByText("193320 → 200340",{exact:true}).count()===1,"Custom mint intent ticks reflected in review");
+  await page.getByLabel("Lower price · USDC per WETH",{exact:true}).fill("4100");
+  check(await page.getByRole("heading",{name:"Review approve USDC",exact:true}).count()===0,"Range edit invalidates prepared review");
+  check(await page.getByRole("button",{name:"Study LP action",exact:true}).isDisabled(),"Reversed custom price range blocks study");
+  check(!(await page.evaluate(()=>window.__lpWalletMock.methods)).includes("eth_sendTransaction"),"Range validation never sends");
   await fresh();await review();await page.evaluate(()=>{window.__lpWalletMock.reject=true;});await page.getByRole("button",{name:"Submit reviewed LP transaction",exact:true}).click();await page.getByText(/Wallet request rejected/).waitFor();check(await page.evaluate(()=>localStorage.getItem("vezta-dex:base-sepolia-lp-submission:v1")===null),"Definitive rejection clears marker");
   await fresh();await review();await page.evaluate(()=>{window.__lpWalletMock.now+=120000;});await page.waitForFunction(()=>[...document.querySelectorAll("button")].find(b=>b.textContent==="Submit reviewed LP transaction")?.disabled);check(!(await page.evaluate(()=>window.__lpWalletMock.methods)).includes("eth_sendTransaction"),"Expired study cannot prompt");
   await fresh();await review();failRecheck=true;await page.getByRole("button",{name:"Submit reviewed LP transaction",exact:true}).click();await page.getByText(/Your wallet nonce changed/).waitFor();check(!(await page.evaluate(()=>window.__lpWalletMock.methods)).includes("eth_sendTransaction"),"Nonce drift recheck cannot prompt");

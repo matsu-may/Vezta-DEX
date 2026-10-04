@@ -1,12 +1,11 @@
 import { formatUnits } from "viem";
 
 type Direction = "forward" | "reverse";
-const choices = { forward: ["0.1", "1", "5"], reverse: ["0.00001", "0.0001", "0.001"] };
 
 /** Presentation only. The parent invalidates the controller before changing any input. */
 export function DemoSwapInputs({ direction, amount, disabled, amountOut, onDirection, onAmount }: {
-  direction: Direction; amount: number; disabled: boolean; amountOut?: string;
-  onDirection: (direction: Direction) => void; onAmount: (amount: number) => void;
+  direction: Direction; amount: string; disabled: boolean; amountOut?: string;
+  onDirection: (direction: Direction) => void; onAmount: (amount: string) => void;
 }) {
   const input = direction === "forward" ? "USDC" : "WETH";
   const output = direction === "forward" ? "WETH" : "USDC";
@@ -18,10 +17,9 @@ export function DemoSwapInputs({ direction, amount, disabled, amountOut, onDirec
     </div>
     <div className="swap-token-block">
       <label className="swap-block-label" htmlFor="testnet-amount">You pay <span className="sr-only">· Input amount</span></label>
-      <div className="swap-token-line"><select id="testnet-amount" aria-label="Input amount" value={amount} disabled={disabled} onChange={e => onAmount(Number(e.target.value))}>
-        {choices[direction].map((label, index) => <option value={index} key={label}>{label}</option>)}
-      </select><span className="swap-token-name"><TokenIcon token={input} />{input}</span></div>
-      <span className="swap-block-caption">Testnet token · select a demo amount</span>
+      <div className="swap-token-line"><input id="testnet-amount" aria-label="Input amount" inputMode="decimal" autoComplete="off" maxLength={80} value={amount} disabled={disabled} onChange={e => onAmount(e.target.value)} />
+        <span className="swap-token-name"><TokenIcon token={input} />{input}</span></div>
+      <span className="swap-block-caption">Testnet token · maximum {direction === "forward" ? "5 USDC" : "0.001 WETH"}</span>
     </div>
     <div className="swap-reverse-row"><button type="button" className="swap-reverse" aria-label="Reverse token pair" disabled={disabled} onClick={() => onDirection(direction === "forward" ? "reverse" : "forward")}>
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M8 4v16m-4-4 4 4 4-4M16 20V4m-4 4 4-4 4 4" /></svg>

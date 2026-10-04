@@ -284,7 +284,20 @@ body:has(.recording-page) .site-footer { margin-left: 0; background: #000; borde
 .swap-token-block { padding: 18px; background: #191919; border: 1px solid #303030; border-radius: 4px; }
 .swap-block-label { display: block; color: #a3a3a3; font-size: 12px; margin-bottom: 16px; }
 .swap-token-line { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.swap-token-line select { min-width: 0; width: 50%; color: #fff; background: transparent; border: 0; font: 28px var(--font-data), monospace; cursor: pointer; padding: 0; }
+.swap-token-line select, .swap-token-line input { min-width: 0; width: 50%; color: #fff; background: transparent; border: 0; font: 28px var(--font-data), monospace; padding: 0; }
+.swap-token-line input { flex: 1; }
+.swap-token-line input:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+.discovery-filters { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 14px; margin: 20px 0; }
+.discovery-filters label { display: grid; gap: 7px; color: var(--muted); font-size: 12px; }
+.discovery-row-selected { background: #d4ff2b09; }
+.discovery-selection { margin-top: 16px; overflow-wrap: anywhere; }
+.local-activity { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 18px; }
+.local-activity summary { cursor: pointer; font-weight: 600; }
+.local-activity ol { padding: 0; list-style: none; }
+.local-activity li { border: 1px solid var(--line); border-radius: 12px; margin-top: 12px; padding: 14px; font-size: 12px; overflow-wrap: anywhere; }
+.local-activity li > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.local-activity time { display: block; color: var(--muted); margin-bottom: 8px; }
+.local-activity a { color: var(--accent); }
 .swap-token-line select option { background: #191919; color: #ededed; font-size: 18px; }
 .swap-token-name { display: inline-flex; gap: 8px; align-items: center; font-size: 15px; font-weight: 600; white-space: nowrap; padding: 6px 9px; background: #252525; border: 1px solid #3b3b3b; border-radius: 3px; }
 .swap-token-icon { display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #2775ca; color: #fff; font-size: 17px; }

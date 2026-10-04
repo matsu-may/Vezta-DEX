@@ -90,7 +90,7 @@ export class TestnetLpWallet {
       const plan:TestnetLpPlan={amount0Cap:"amount0Cap" in i ? i.amount0Cap:"0",amount1Cap:"amount1Cap" in i ? i.amount1Cap:"0",
         amount0Desired:"0",amount1Desired:"0",amount0Minimum:"0",amount1Minimum:"0",liquidity:"0",positionLiquidity:position?.liquidity.toString()??"0",
         storedOwed0:position?.tokensOwed0.toString()??"0",storedOwed1:position?.tokensOwed1.toString()??"0",
-        tickLower:position?.tickLower??-887220,tickUpper:position?.tickUpper??887220,deadline:(i.kind==="collect"||i.kind==="burn")?null:deadline};
+        tickLower:position?.tickLower??(i.kind==="mint"?i.range?.tickLower:undefined)??-887220,tickUpper:position?.tickUpper??(i.kind==="mint"?i.range?.tickUpper:undefined)??887220,deadline:(i.kind==="collect"||i.kind==="burn")?null:deadline};
       let reason:string|null=null;
       if(i.kind==="burn" && (position!.liquidity!==0n||position!.tokensOwed0!==0n||position!.tokensOwed1!==0n)) reason="TESTNET_LP_BURN_BLOCKED";
       if(i.kind==="decrease" && liquidity==="0") reason="TESTNET_LP_LIQUIDITY_LOW";
@@ -99,7 +99,7 @@ export class TestnetLpWallet {
         transaction:null,gas:null,balances,allowances,blockNumber:b.number.toString(),blockHash:b.hash,
         observedAt:new Date(Number(b.timestamp)*1000).toISOString(),expiresAt:new Date(Number(b.timestamp+120n)*1000).toISOString(),source:"base-sepolia-rpc",runtimeVerified:true,executionEnabled:false};
       if(reason) return parseTestnetLpStudy(base,this.now());
-      const internal={kind:i.kind,wallet:i.wallet,...(i.kind==="mint"?{amount0Cap:i.amount0Cap,amount1Cap:i.amount1Cap,tickLower:-887220,tickUpper:887220,deadline}
+      const internal={kind:i.kind,wallet:i.wallet,...(i.kind==="mint"?{amount0Cap:i.amount0Cap,amount1Cap:i.amount1Cap,tickLower:plan.tickLower,tickUpper:plan.tickUpper,deadline}
         :i.kind==="increase"?{tokenId:i.tokenId,amount0Cap:i.amount0Cap,amount1Cap:i.amount1Cap,deadline}
         :i.kind==="decrease"?{tokenId:i.tokenId,liquidity,deadline}:{tokenId:i.tokenId})};
       const planned=planTestnetLp(internal,{pool,position,actualOwner:i.wallet},Number(b.timestamp),120);

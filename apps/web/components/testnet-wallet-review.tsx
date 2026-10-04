@@ -20,7 +20,7 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
         {!compact && <><div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
         <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div></>}
         <div><dt>Minimum received</dt><dd>{testnetAmount(q.minimumAmountOut, q.tokenOut)}</dd></div>
-        <div><dt>Slippage</dt><dd>0.5%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
+        <div><dt>Slippage</dt><dd>{q.slippageBps / 100}%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
         <div><dt>Block</dt><dd>{q.blockNumber}</dd></div></>}
       </dl>
       {compact && <details className="quote-provenance"><summary>Quote source and block</summary><p>Base Sepolia RPC · block {q.blockNumber}</p><p className="mono">{q.observedAt}</p></details>}

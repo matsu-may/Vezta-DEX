@@ -69,3 +69,48 @@ it("persists bounded mode600 contexts and immutable unknown hash binding across 
     writeFileSync(path,"{broken");expect(()=>new TestnetLpWalletStore(directory,f.clock)).toThrow("TESTNET_LP_STORAGE_UNAVAILABLE");
   }finally{rmSync(directory,{recursive:true,force:true});}
 });
+
+it("propagates custom range to real SDK mint calldata and immutable recheck", async () => {
+  const f = await testnetLpWalletFixture();
+  const range = { tickLower: -120, tickUpper: 180 };
+  const study = await f.api.study({ intent: { ...f.intent, range } });
+  expect(study.plan).toMatchObject(range);
+  const { decodeFunctionData } = await import("viem");
+  const { testnetLpWalletManagerAbi, inspectTestnetLpTransaction } = await import("@vezta-dex/core");
+  const decoded = decodeFunctionData({ abi: testnetLpWalletManagerAbi, data: study.transaction!.data as `0x${string}` });
+  expect(decoded.functionName).toBe("mint"); expect(decoded.args[0]).toMatchObject(range);
+  inspectTestnetLpTransaction(study, f.clock());
+  expect(await f.api.recheck({ contextId: study.contextId })).toEqual(study);
+});
+it.each([{tickLower:0,tickUpper:60,amount0Cap:"1000000",amount1Cap:"0",zero:"amount1Desired"},
+  {tickLower:-60,tickUpper:0,amount0Cap:"0",amount1Cap:"1000000000000000",zero:"amount0Desired"},
+  {tickLower:60,tickUpper:120,amount0Cap:"1000000",amount1Cap:"0",zero:"amount1Desired"},
+  {tickLower:-120,tickUpper:-60,amount0Cap:"0",amount1Cap:"1000000000000000",zero:"amount0Desired"}])(
+  "supports exact zero authorization on the unused side of custom mint: $tickLower", async range => {
+  const f = await testnetLpWalletFixture();
+  const { BASE_SEPOLIA_CANDIDATE: C } = await import("@vezta-dex/core");
+  f.source.getTokenAllowance = async token => BigInt(token.toLowerCase() === C.USDC.address.toLowerCase() ? range.amount0Cap : range.amount1Cap);
+  const study = await f.api.study({ intent: { ...f.intent, amount0Cap:range.amount0Cap,amount1Cap:range.amount1Cap,
+    range:{tickLower:range.tickLower,tickUpper:range.tickUpper} } });
+  expect(study.actionKind).toBe("mint"); expect(study.plan[range.zero as "amount0Desired"|"amount1Desired"]).toBe("0");
+  expect(BigInt(study.plan.liquidity)).toBeGreaterThan(0n);
+});
+
+it("rejects custom mint calldata tick mutation independently of the bound review", async () => {
+  const f = await testnetLpWalletFixture();
+  const study=await f.api.study({intent:{...f.intent,range:{tickLower:-120,tickUpper:180}}});
+  const {decodeFunctionData,encodeFunctionData}=await import("viem");
+  const {testnetLpWalletManagerAbi,inspectTestnetLpTransaction}=await import("@vezta-dex/core");
+  const decoded=decodeFunctionData({abi:testnetLpWalletManagerAbi,data:study.transaction!.data as `0x${string}`});
+  if(decoded.functionName!=="mint") throw Error("Expected mint");
+  study.transaction!.data=encodeFunctionData({abi:testnetLpWalletManagerAbi,functionName:"mint",args:[{...decoded.args[0],tickUpper:240}]});
+  expect(()=>inspectTestnetLpTransaction(study,f.clock())).toThrow("LP calldata mismatch");
+});
+it("increases a custom NFT using its stored range and refuses a replacement range intent", async () => {
+  const f=await testnetLpWalletFixture("increase"), read=f.source.getPosition;
+  f.source.getPosition=async(...args)=>({...await read(...args),tickLower:-180,tickUpper:240});
+  const study=await f.api.study({intent:f.intent});
+  expect(study.plan).toMatchObject({tickLower:-180,tickUpper:240});
+  expect(await f.api.recheck({contextId:study.contextId})).toEqual(study);
+  await expect(f.api.study({intent:{...f.intent,range:{tickLower:-60,tickUpper:60}}})).rejects.toThrow("TESTNET_LP_REQUEST_INVALID");
+});

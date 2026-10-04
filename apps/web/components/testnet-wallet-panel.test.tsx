@@ -48,9 +48,23 @@ it("reverses the demo pair explicitly and invalidates the old quote and transact
   await screen.findByText("Complete snapshot fee budget");
   fireEvent.click(screen.getByRole("button", { name: "Reverse token pair" }));
   expect((screen.getByLabelText("Direction") as HTMLSelectElement).value).toBe("reverse");
-  expect((screen.getByLabelText("Input amount") as HTMLSelectElement).selectedOptions[0].textContent).toBe("0.0001");
+  expect((screen.getByLabelText("Input amount") as HTMLInputElement).value).toBe("0.0001");
   expect(screen.queryByText("Minimum received")).toBeNull();
   expect(screen.queryByRole("button", { name: "Submit reviewed testnet transaction" })).toBeNull();
+  expect(f.methods).not.toContain("eth_sendTransaction");
+});
+it("sends exact custom inputs and rejects excess precision; edits invalidate old review", async () => {
+  const f = await fixture(true); render(<TestnetWalletPanel executionEnabled />);
+  fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" }));
+  await screen.findByText(/Connected:/);
+  fireEvent.change(screen.getByLabelText("Input amount"), { target: { value: "1.234567" } });
+  fireEvent.change(screen.getByLabelText("Slippage tolerance (%)"), { target: { value: "0.25" } });
+  fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" }));
+  await vi.waitFor(() => expect(f.fetcher).toHaveBeenCalled());
+  expect(JSON.parse(f.fetcher.mock.calls[0][1].body)).toMatchObject({ amountIn: "1234567", slippageBps: 25 });
+  fireEvent.change(screen.getByLabelText("Input amount"), { target: { value: "1.0000001" } });
+  expect(screen.getByRole("button", { name: "Get wallet quote" }).hasAttribute("disabled")).toBe(true);
+  expect(screen.queryByText("Minimum received")).toBeNull();
   expect(f.methods).not.toContain("eth_sendTransaction");
 });
 it("keeps normal preview gated even if API metadata permits execution", async () => {
