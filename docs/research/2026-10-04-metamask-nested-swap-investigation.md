@@ -1,5 +1,65 @@
 # MetaMask nested swap receipt investigation
 
+## Resolution — option A implemented
+
+The owner selected A. The supported swap profile now authenticates exactly two
+canonical single-execution layers and both owner signatures. The outer delegation
+is one-use and exact; the inner delegation is self-to-self with exactly the
+observed native/output/input balance guards. Nested LP, approval, extra layers,
+batches, other owners/currencies and unknown enforcers are rejected.
+
+Both new enforcers were independently rebuilt with solc
+`0.8.23+commit.f704f362`, hash-checked metadata-listed sources and original metadata
+compiler settings. Complete bytecode, including metadata, matches RPC code at
+the original receipt block **47660523**; no bytes were masked and neither contract
+has immutables. See [runtime proof](2026-10-04-metamask-balance-runtime-proof.json).
+Sourcify's reconstructed standard input normalizes compiler defaults/remappings;
+compilation therefore uses original metadata settings and verifies the resulting
+metadata as well as runtime. A separate reviewer reproduced both runtimes offline.
+
+The original context/hash was checked through the running receipt API and returned
+HTTP 200, **confirmed**, **verified**, **MetaMask delegation**, with 902 confirmations
+at that observation. Input is `1000000` USDC base units, output
+`6352899849854487` WETH base units, above original minimum `6318049916069547`.
+Normal receipt tracking bound this hash to its original context. No context was
+reconstructed, no review/deadline was extended and no transaction was sent.
+
+### Decisions retained
+
+- Wallet balance floors/caps can be looser than the review. They are validated
+  as signed guardrails, never substituted for the exact router calldata or
+  receipt's exact-input/original-minimum checks.
+- Runtime checks for the two new enforcers run only for this nested swap profile;
+  the existing four runtime gates still apply to every supported wrapper.
+- Receipt proof requires one usage counter plus both ordered redemption events:
+  inner redeemer is the owner, outer redeemer is the relayer. Parent nonce/code,
+  complete canonical block authorizations, effective gas price, token economics
+  and recovery checks remain required.
+- Observed outer L2 gas belongs to the relayer. Actual complete L1/operator fees
+  remain unqualified, as before. Public testnet success is not mainnet acceptance.
+
+### Owner next action
+
+In `/demo/1`, preserve the original recovery record, click **Check original
+transaction**, confirm **Verified executed output**, then **Acknowledge verified
+result**. Do not resend this swap. Continue with the reverse WETH→USDC test and
+the [desktop acceptance guide](2026-10-02-testnet-desktop-owner-guide.md).
+If a future wallet produces another unsupported profile, preserve its hash for
+investigation; this bounded update does not accept arbitrary delegation shapes.
+
+### Verification
+
+The new acceptance tests failed before implementation. The completed full run
+passed **132 Vitest files, 992 tests** (one existing skip), plus **85 Node script
+tests**. Typecheck, lint and an isolated webpack production build passed; lint
+retains its existing React-version detection warning. Tests cover both swap
+directions, signed guard/signature changes, extra layers/events, modified runtime,
+nonce/block ambiguity, original minimum/exact input, reorg and hash binding.
+Existing accepted fork runs were not repeated. Installed-wallet reverse swap and
+LP lifecycle acceptance remain separate owner checks.
+
+The sections below record the findings and decision **before** implementation.
+
 ## Owner report
 
 The owner submitted a Base Sepolia swap and received `unverified`, diagnostic `transaction-mismatch`, for transaction `0x3b18344ea7c5d685615a2605d132bc005b16ce54f79d2c8dd3319ce730b2a465`, context `1fed3476d5e599a12202909e6edec4d670be2f11ef550055`.

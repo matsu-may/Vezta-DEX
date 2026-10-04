@@ -12,6 +12,17 @@ Scope: Base Sepolia 84532, Uniswap v3 test USDC/WETH 0.3% pool. This guide cover
 
 ## MetaMask EIP-7702 compatibility (2026-10-03)
 
+**Updated 2026-10-04:** the observed two-level MetaMask **swap** is now supported
+after independent runtime verification of both balance enforcers. It still binds
+the innermost router call to the original review. The existing hash
+`0x3b18344ea7c5d685615a2605d132bc005b16ce54f79d2c8dd3319ce730b2a465`
+returned `confirmed` with verified output when rechecked through the receipt API.
+For this pending browser record, keep the API running and click **Check original
+transaction**, then **Acknowledge verified result** once verified. Do not submit
+again. Continue with the reverse swap and LP checks below. Nested LP balance
+delegations require separate qualification if encountered. See the
+[resolution report](2026-10-04-metamask-nested-swap-investigation.md).
+
 The demo supports the pinned MetaMask v1.3 single-action delegation profile on Base Sepolia: one exact reviewed call, signed one-use and exact-execution caveats, independently rebuilt manager/delegate/enforcer runtimes. Arbitrary Smart Accounts, batches, TRY calls, extra grants and unknown delegates remain unsupported. See the [design](../superpowers/specs/2026-10-03-metamask-eip7702-design.md).
 
 EIP-1559 is the fee model; it does not guarantee that MetaMask will broadcast a direct type-2 transaction. MetaMask may authorize EIP-7702 and relay the reviewed inner call. The relayer has its own outer nonce and pays outer gas. The verified result displays that payer and observed L2 cost; actual charged L1/operator totals remain unqualified. No setting change rewrites an existing hash.

@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "chainId": 84532,
+  "snapshot": {
+    "blockNumber": "47660523",
+    "blockHash": "0xb3e683d7427906d70c19901518cb3f359f1ffdbf194c8de733540578e67d2f7c"
+  },
+  "compiler": {
+    "version": "0.8.23+commit.f704f362.Emscripten.clang",
+    "soljsonSha256": "0x9745559c347ccd7f9334b5e0aa00e884c23913952d943abdc0c6af85220a6b8e"
+  },
+  "method": "Metadata source hashes checked; exact solc/settings compiled; zero immutables and libraries; entire runtime including metadata equals original receipt-block RPC code.",
+  "contracts": [
+    {
+      "role": "native",
+      "name": "NativeBalanceChangeEnforcer",
+      "address": "0xbD7B277507723490Cd50b12EaaFe87C616be6880",
+      "sourceUrl": "https://sourcify.dev/server/v2/contract/84532/0xbD7B277507723490Cd50b12EaaFe87C616be6880?fields=stdJsonInput,metadata,runtimeBytecode",
+      "compilerInputMode": "metadata-listed-reconstruction",
+      "sourceCount": 8,
+      "inputSha256": "0xca2920ed02043d0a0abc8a488a489e9f3b7adcaff3a5bf2db79e8d227d0cbc9f",
+      "sourceMetadataSha256": "0x285e18d74950d25bc14c0eb5d14ff9a656a2c704a6d50e7ca54f5e9c0e614fae",
+      "runtimeHash": "0x61f455a893e4dcb39599bfcd8f59000e438c52639b278b933e469610c7761b76",
+      "runtimeBytes": 2084,
+      "immutableReferences": 0,
+      "independentRuntimeMatch": true,
+      "metadataMatch": true
+    },
+    {
+      "role": "erc20",
+      "name": "ERC20BalanceChangeEnforcer",
+      "address": "0xcdF6aB796408598Cea671d79506d7D48E97a5437",
+      "sourceUrl": "https://sourcify.dev/server/v2/contract/84532/0xcdF6aB796408598Cea671d79506d7D48E97a5437?fields=stdJsonInput,metadata,runtimeBytecode",
+      "compilerInputMode": "metadata-listed-reconstruction",
+      "sourceCount": 9,
+      "inputSha256": "0xb028a7ae4996e8afa374f5c170d56a0aaecad058aa6fce74f18e80baeccf666f",
+      "sourceMetadataSha256": "0x914d94f8ac99f917cbdfb2deb2a4cb88a0500bb74af660d92351b7ae362b0b91",
+      "runtimeHash": "0x7661ade9afeeb057a8189e93979ce5d812bfb3cfba24c5d6be54f19bd02647a3",
+      "runtimeBytes": 2398,
+      "immutableReferences": 0,
+      "independentRuntimeMatch": true,
+      "metadataMatch": true
+    }
+  ],
+  "noMaskedBytes": true,
+  "independentMatch": true
+}

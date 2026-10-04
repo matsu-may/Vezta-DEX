@@ -1,7 +1,7 @@
 import { decodeMetaMaskExecution, classifyTestnetWalletCode, metamaskDelegationAbi, TESTNET_METAMASK as M, type MetaMaskExecution } from "@vezta-dex/core";
 import { encodeAbiParameters, encodeEventTopics, padHex, type Address, type Hex } from "viem";
 import { recoverAuthorizationAddress } from "viem/experimental";
-import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
+import { verifyTestnetMetaMaskRuntime, verifyTestnetMetaMaskBalanceRuntime } from "./testnet-metamask-runtime";
 import type { BaseSepoliaReceiptSource, TestnetObservedReceipt, TestnetObservedTransaction } from "./testnet-receipt";
 const same = (a: string | null | undefined,b:string)=>typeof a==="string"&&a.toLowerCase()===b.toLowerCase();
 const assert = (ok:unknown):void=>{if(!ok)throw new Error("Unsupported MetaMask execution");};
@@ -26,8 +26,17 @@ export function verifyMetaMaskEvents(profile:MetaMaskExecution,tx:TestnetObserve
   const event=metamaskDelegationAbi.find(a=>a.type==="event"&&a.name==="RedeemedDelegation")!;
   const redeemData=encodeAbiParameters(event.inputs.filter(a=>!("indexed" in a && a.indexed)),[profile.delegation]);
   const counters=r.logs.filter(l=>same(l.address,M.limitedCalls));const redeems=r.logs.filter(l=>same(l.address,M.manager));
-  assert(counters.length===1&&redeems.length===1&&matchesLog(counters[0],M.limitedCalls,counterTopics as Hex[],counterData)
-    &&matchesLog(redeems[0],M.manager,redeemTopics as Hex[],redeemData));
+  assert(counters.length===1&&matchesLog(counters[0],M.limitedCalls,counterTopics as Hex[],counterData));
+  if (!profile.inner) {
+    assert(redeems.length===1&&matchesLog(redeems[0],M.manager,redeemTopics as Hex[],redeemData));
+    return;
+  }
+  // Inner execution completes before the outer redemption event. Its caller is
+  // the delegated owner; the outer caller is the transaction's relayer.
+  const innerTopics=encodeEventTopics({abi:metamaskDelegationAbi,eventName:"RedeemedDelegation",args:{rootDelegator:profile.inner.delegation.delegator,redeemer:profile.delegation.delegator}});
+  const innerData=encodeAbiParameters(event.inputs.filter(a=>!("indexed" in a && a.indexed)),[profile.inner.delegation]);
+  assert(redeems.length===2&&matchesLog(redeems[0],M.manager,innerTopics as Hex[],innerData)
+    &&matchesLog(redeems[1],M.manager,redeemTopics as Hex[],redeemData));
 }
 // End-of-block code alone is insufficient: prove parent code/nonce plus the complete canonical block's authorizations.
 export async function verifyMetaMaskExecution(source:Pick<BaseSepoliaReceiptSource,"getCode"|"getAccountNonce"|"getBlockBaseFee"|"getBlockTransactions">,
@@ -42,6 +51,7 @@ export async function verifyMetaMaskExecution(source:Pick<BaseSepoliaReceiptSour
     &&same(r.transactionHash,tx.hash)&&same(r.from,tx.from)&&same(r.to,M.manager)
     &&uint(r.gasUsed)&&r.gasUsed>0n&&r.gasUsed<=tx.gas&&Array.isArray(r.logs)&&r.logs.length<=128);
   const profile=await decodeMetaMaskExecution(tx.input,expected.from as Address,{to:expected.to as Address,data:expected.data,value:expected.value});
+  if (profile.inner) await verifyTestnetMetaMaskBalanceRuntime(source,r.blockNumber);
   const parent=r.blockNumber-1n;
   assert(source.getBlockTransactions&&source.getBlockBaseFee);
   const [parentCode,receiptCode,parentNonce,blockTxs,baseFee]=await Promise.all([
