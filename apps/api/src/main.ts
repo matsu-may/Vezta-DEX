@@ -40,14 +40,17 @@ import { TestnetLpWalletStore } from "./testnet-lp-wallet-store";
 import { TestnetLpWalletReceiptReader } from "./testnet-lp-wallet-receipt";
 import { handleTestnetLpWalletRequest } from "./testnet-lp-wallet-routes";
 import { fileURLToPath } from "node:url";
+import { contextDirectories, createHostedAdmission } from "./hosted-api";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const rpcUrl = process.env.POLYGON_RPC_URL ?? "https://polygon-bor-rpc.publicnode.com";
 const port = Number(process.env.PORT ?? "3021");
-const host = requirePrivateApiHost(process.env.HOST ?? "127.0.0.1");
+const host = requirePrivateApiHost(process.env.HOST ?? "127.0.0.1", process.env);
 if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("Invalid PORT");
+const admit = createHostedAdmission(process.env);
+const directories = contextDirectories(process.env, fileURLToPath(new URL("../../../.local-evidence", import.meta.url)));
 
 const source = createPolygonPoolSource(rpcUrl);
 const reader = new PoolReader(source);
@@ -83,7 +86,7 @@ let testnetReceipts: TestnetReceiptReader | undefined;
 if (testnetRpcUrl && testnetQuotes && testnetApprovals && testnetPreparer) {
   try {
     testnetContexts = new TestnetActionStore(Date.now, 128,
-      fileURLToPath(new URL("../../../.local-evidence/testnet-wallet-contexts", import.meta.url)));
+      directories.swap);
     testnetRechecker = new TestnetRechecker(testnetApprovals, testnetPreparer, testnetQuotes.store, testnetContexts);
     testnetReceipts = new TestnetReceiptReader(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), testnetContexts);
   } catch {
@@ -96,7 +99,7 @@ let testnetLpWalletReceipts: TestnetLpWalletReceiptReader | undefined;
 let testnetLpWalletUnavailable = "TESTNET_LP_RPC_NOT_CONFIGURED";
 if (testnetRpcUrl) {
   try {
-    const lpStore = new TestnetLpWalletStore(fileURLToPath(new URL("../../../.local-evidence/testnet-lp-wallet-contexts", import.meta.url)));
+    const lpStore = new TestnetLpWalletStore(directories.lp);
     testnetLpWallet = new TestnetLpWallet(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), lpStore);
     testnetLpWalletReceipts = new TestnetLpWalletReceiptReader(signal => createBaseSepoliaPreflightSource(testnetRpcUrl, signal), lpStore);
   } catch {
@@ -108,8 +111,28 @@ createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
   let status = 500;
+  let release: (() => void) | undefined;
   try {
     const url = new URL(request.url ?? "/", `http://${request.headers.host ?? "localhost"}`);
+    const reply = async (result: Response) => {
+      status = result.status;
+      response.writeHead(status, { ...Object.fromEntries(result.headers), "X-Request-Id": requestId });
+      response.end(Buffer.from(await result.arrayBuffer()));
+    };
+    if (url.pathname === "/healthz" && request.method === "GET" && !url.search) {
+      await reply(Response.json({ status: "ok" }, { headers: { "Cache-Control": "no-store" } })); return;
+    }
+    const authorization = request.headers.authorization;
+    const admission = admit(new Request(url, { method: request.method,
+      headers: typeof authorization === "string" ? { authorization } : {} }));
+    if (admission instanceof Response) { await reply(admission); return; }
+    release = admission;
+    const storageReady = Boolean(testnetRpcUrl && testnetContexts && testnetLpWallet && testnetLpWalletReceipts);
+    if (url.pathname === "/readyz" && request.method === "GET") {
+      await reply(Response.json({ status: storageReady ? "ready" : "unavailable" },
+        { status: storageReady ? 200 : 503, headers: { "Cache-Control": "no-store" } })); return;
+    }
+    const executionEnabled = storageReady && testnetHttpExecutionEnabled(process.env, host, port);
     let body: string | undefined;
     if (request.method === "POST") {
       const chunks: Buffer[] = [];
@@ -127,7 +150,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetHistoricalApprovalRequest(apiRequest, testnetHistoricalApprovals) ?? await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, testnetHttpExecutionEnabled(process.env, host, port), testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, testnetHttpExecutionEnabled(process.env, host, port))
+    const result = await handleTestnetHistoricalApprovalRequest(apiRequest, testnetHistoricalApprovals) ?? await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, executionEnabled, testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, executionEnabled)
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;
@@ -138,6 +161,7 @@ createServer(async (request, response) => {
     response.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store", "X-Request-Id": requestId });
     response.end(JSON.stringify({ error: "DEX API request failed" }));
   } finally {
+    release?.();
     process.stdout.write(formatRequestLog({ requestId, method: request.method, url: request.url,
       status, durationMs: performance.now() - started }) + "\n");
   }
