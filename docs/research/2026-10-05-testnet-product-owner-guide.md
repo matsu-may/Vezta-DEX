@@ -1,7 +1,7 @@
 # Kiểm tra phần nâng cấp DEX testnet
 
 Các luồng cũ bạn đã xác nhận pass vẫn được ghi nhận. Hướng dẫn này chỉ kiểm tra
-số tiền/slippage tùy chọn, range LP, Explore nhiều pool và lịch sử mới. Chỉ dùng
+số tiền/slippage tùy chọn, range LP, Explore nhiều pool, routing và lịch sử mới. Chỉ dùng
 test token trên **Base Sepolia 84532**. Frontend Vercel hiện tại chưa nhận bản này.
 
 ## 1. Mở bản mới
@@ -16,7 +16,7 @@ Khi không còn giao dịch cần recovery, dừng launcher cũ bằng Ctrl-C, r
 ```bash
 cd /Users/thongtran/Vezta/vezta-dex
 git merge --ff-only codex/testnet-product-completion
-pnpm install --frozen-lockfile
+pnpm install --frozen-lockfile --store-dir /Users/thongtran/Vezta/.pnpm-store
 pnpm dev:testnet
 ```
 
@@ -80,8 +80,9 @@ Mở `/demo/3` → Refresh pool data. Kiểm tra các fee tier quan sát đượ
 address/fee, lọc status và đổi thứ tự fee. Chọn pool khác → View detail:
 `/demo/4?fee=...&pool=...` phải giữ đúng address/fee sau refresh.
 
-Pool 0,3% đã pin mới có đường vào swap/LP khi snapshot đủ điều kiện. Các pool
-khác vẫn read-only dù depth screen pass. Search/filter che pool đang chọn thì
+Bốn pool có fee 0,01% / 0,05% / 0,3% / 1% đã có bằng chứng runtime riêng.
+Khi snapshot đạt điều kiện, nút Swap mở đúng cặp fee/address; quote còn phải
+kiểm tra trạng thái mới, runtime và impact. LP vẫn chỉ dùng pool 0,3%. Search/filter che pool đang chọn thì
 không được còn nút giao dịch cho lựa chọn bị che. Không hiển thị TVL/APR giả.
 
 ## 5. Local activity và recovery
@@ -96,7 +97,34 @@ Phí trước ký là **Complete snapshot fee budget** (ước tính). Lịch s�
 Gas payer có thể là relayer khi dùng MetaMask delegation. Không hiểu L2 cost
 của relayer là toàn bộ số tiền app đã trừ từ ví bạn.
 
-## 6. Báo kết quả và bước kế tiếp
+## 6. Routing mới — kiểm tra sau cũng được
+
+1. Mở `/demo/1`, giữ **Pinned pool · 0.3% (original)** để thấy mặc định cũ.
+2. Trong **Swap settings → Routing preference**, chọn mục so sánh direct pools.
+   Bắt đầu **0,1 USDC**; nếu impact vượt 1%, giảm amount, không tăng slippage
+   để né kiểm tra impact. Quote không cần ví có USDC, nhưng submit cần test token.
+3. Get wallet quote → mở **Selected route**. Kiểm tra nhãn Base Sepolia, fee,
+   address, số pool qualified và output từng pool. Pool thắng phải có output lớn
+   nhất trong các pool qualified. Pool unavailable không được tính là thắng.
+   Đây là output trước gas, không phải báo giá tốt nhất toàn thị trường.
+4. Đổi amount hoặc routing preference: quote/review cũ phải mất hiệu lực.
+5. Với một quote mới đã review, làm approval nếu cần → acknowledge → quote mới
+   → Review swap → submit → Check original transaction → confirmed. Đối chiếu
+   output thực nhận với minimum của **quote dùng để submit**. Acknowledge.
+6. Có thể kết hợp kiểm tra reload ngay sau khi có hash ở bước trên: ghi hash,
+   reload rồi Check original transaction. Phải giữ nguyên hash/pool/fee; không
+   tự gửi hoặc chọn pool khác. Giữ API chạy khi theo dõi hash.
+7. Explore/detail → chọn pool khác → Swap. URL phải chứa đúng cả fee/address,
+   Routing preference phải chọn đúng fee. Quote có thể từ chối nếu depth hiện
+   tại không đạt. Không cần gửi cả bốn pool chỉ để kiểm tra navigation.
+8. WETH → USDC với lượng nhỏ, ví dụ 0,0001 WETH: kiểm tra comparison/minimum.
+   Một receipt ở pool mới là kiểm tra chính của vòng này; public receipt mỗi pool
+   được chọn vẫn là bằng chứng riêng còn cần nếu muốn nghiệm thu tất cả bốn pool.
+
+Không phải chạy lại compiler rebuild/fork chẩn đoán mình đã hoàn tất. Browser
+mock/fork không thay thế xác nhận MetaMask thực tế ở các pool mới.
+
+## 7. Báo kết quả và bước kế tiếp
 
 ```text
 Custom amount/slippage: đạt hoặc lỗi + hash nếu đã gửi
@@ -104,13 +132,15 @@ Custom LP mint: status + NFT ID + hash
 Increase / decrease / collect NFT mới: đạt hoặc lỗi + hash
 Explore/search/filter/detail: đạt hoặc lỗi
 Activity/reload/account isolation: đạt hoặc lỗi
+Direct-pool comparison / selected-pool link: đạt hoặc lỗi
+New-pool swap / reload original hash: status + fee + hash
 UI desktop: điểm cần sửa nếu có
 ```
 
 `unverified`/`reorged`/outcome uncertain: giữ record và hash, không gửi lại.
 `503`: gửi safe code và endpoint trong Network; không gửi key/RPC URL có credentials.
 
-Sau nghiệm thu phần mới mới chốt giai đoạn 6. Giai đoạn 7 sẽ chứng minh runtime
-từng pool trước khi mở routing nhiều pool; giai đoạn 8 cần chọn testnet thứ hai
-và đo deployment/liquidity/faucet/RPC thực tế. Không xem nhiều pool hiển thị hoặc
+Sau nghiệm thu phần mới mới chốt giai đoạn 6. Giai đoạn 7 đã triển khai và kiểm
+tra độc lập, còn nghiệm thu ví thật trên các pool mới. Giai đoạn 8 đã khảo sát
+Ethereum Sepolia và Unichain Sepolia; cần bạn chọn chain trước khi thêm adapter. Không xem nhiều pool hiển thị hoặc
 Polygon read-only là bằng chứng giao dịch nhiều chain.

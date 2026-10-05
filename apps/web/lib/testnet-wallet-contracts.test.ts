@@ -7,6 +7,23 @@ import { parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSu
 import { reviewedFixture, memoryStorage } from "./testnet-wallet.test-helper";
 import { readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission, TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
 
+it("binds compared and selected routes through review and recovery; rejects false comparison winners", async () => {
+  const f = await testnetActionFixture("swap", false, { routing: "best-direct" });
+  const intent = parseTestnetSwapIntent(f.request.intent);
+  const q = parseTestnetWalletQuote(f.quoted, intent, f.clock());
+  expect(q.quote.feeTier).toBe(100);
+  const store = new TestnetActionStore(f.clock);
+  const checked = await new TestnetRechecker(f.approvals, f.preparer, f.quotes.store, store).read({ ...f.request, kind: "swap" });
+  const review = parseTestnetWalletReview(checked, q, "swap", f.clock());
+  const record = { version: 1, intent, quote: q.quote, action: review.action, attemptedAt: f.clock(), hash: `0x${"11".repeat(32)}` };
+  expect(parseTestnetSubmission(record).quote.feeTier).toBe(100);
+  expect(() => parseTestnetSubmission({ ...record, intent: { ...intent, routing: undefined, poolFeeTier: 100 } })).toThrow();
+  const changed = structuredClone(f.quoted);
+  changed.comparison!.candidates[0] = { feeTier: 100, status: "unavailable" };
+  changed.comparison!.qualifiedPoolCount = 3;
+  expect(() => parseTestnetWalletQuote(changed, intent, f.clock())).toThrow();
+});
+
 
 it("binds actual server fixtures to the original quote and exact/reset transactions in both directions", async () => {
   for (const reverse of [false, true]) for (const kind of ["swap", "approve", "reset"] as const) {

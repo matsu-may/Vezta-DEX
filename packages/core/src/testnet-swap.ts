@@ -1,6 +1,7 @@
 import { encodeFunctionData, getAddress, isAddress, parseAbi, type Address, type Hex } from "viem";
 import { z } from "zod";
 import { BASE_SEPOLIA_CANDIDATE as C } from "./testnet";
+import { TESTNET_DIRECT_POOLS, testnetDirectPool } from "./testnet-swap-pools";
 
 // Separate direct-v3 testnet adapter. This is not the Polygon Universal Router/Permit2 policy.
 export const TESTNET_SWAP_POLICY = Object.freeze({
@@ -22,7 +23,7 @@ const reservedWallets = new Set([
   "0x0000000000000000000000000000000000000000",
   "0x0000000000000000000000000000000000000001",
   "0x0000000000000000000000000000000000000002",
-  TESTNET_SWAP_POLICY.router, TESTNET_SWAP_POLICY.pool,
+  TESTNET_SWAP_POLICY.router, ...TESTNET_DIRECT_POOLS.map(p => p.pool),
   C.USDC.address, C.WETH.address, C.v3Factory, C.v3QuoterV2, C.v3PositionManager,
 ].map(value => value.toLowerCase()));
 const intentShape = {
@@ -30,6 +31,8 @@ const intentShape = {
   wallet: address.refine(value => !reservedWallets.has(value.toLowerCase())),
   tokenIn: address, tokenOut: address, amountIn: uint,
   slippageBps: z.number().int().min(TESTNET_SWAP_POLICY.minimumSlippageBps).max(TESTNET_SWAP_POLICY.maximumSlippageBps),
+  routing: z.literal("best-direct").optional(),
+  poolFeeTier: z.union([z.literal(100), z.literal(500), z.literal(3000), z.literal(10000)]).optional(),
 };
 function supportedIntent(i: { tokenIn: Address; tokenOut: Address; amountIn: string }): boolean {
   const forward = i.tokenIn === getAddress(C.USDC.address) && i.tokenOut === getAddress(C.WETH.address);
@@ -37,14 +40,17 @@ function supportedIntent(i: { tokenIn: Address; tokenOut: Address; amountIn: str
   return (forward || reverse) && BigInt(i.amountIn) <= BigInt(forward
     ? TESTNET_SWAP_POLICY.maximumUsdcInput : TESTNET_SWAP_POLICY.maximumWethInput);
 }
-const intentSchema = z.object(intentShape).strict().refine(supportedIntent);
+const preferenceValid = (i: { routing?: string; poolFeeTier?: number }) => !(i.routing && i.poolFeeTier !== undefined);
+const intentSchema = z.object(intentShape).strict().refine(supportedIntent).refine(preferenceValid);
 const quoteSchema = z.object({
-  ...intentShape, protocol: z.literal("v3"), pool: address.refine(value => value === getAddress(TESTNET_SWAP_POLICY.pool)),
-  feeTier: z.literal(TESTNET_SWAP_POLICY.feeTier), amountOut: uint, minimumAmountOut: uint,
+  ...intentShape, protocol: z.literal("v3"), pool: address,
+  feeTier: z.union([z.literal(100), z.literal(500), z.literal(3000), z.literal(10000)]), amountOut: uint, minimumAmountOut: uint,
   blockNumber: uint, blockHash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).refine(value => BigInt(value) !== 0n),
   quoteTtlSeconds: z.literal(TESTNET_SWAP_POLICY.demoQuoteTtlSeconds).optional(),
   observedAt: z.iso.datetime(), source: z.literal("base-sepolia-rpc"),
-}).strict().refine(supportedIntent);
+}).strict().refine(supportedIntent).refine(preferenceValid).refine(q =>
+  q.pool === getAddress(testnetDirectPool(q.feeTier).pool)
+  && (q.routing === "best-direct" || q.feeTier === (q.poolFeeTier ?? TESTNET_SWAP_POLICY.feeTier)));
 
 export type TestnetSwapIntent = z.infer<typeof intentSchema>;
 export type TestnetSwapQuote = z.infer<typeof quoteSchema>;
@@ -58,6 +64,12 @@ export interface TestnetSwapTransaction {
 
 export function parseTestnetSwapIntent(value: unknown): TestnetSwapIntent {
   return intentSchema.parse(value);
+}
+
+export function testnetSwapIntentFromQuote(q: TestnetSwapQuote): TestnetSwapIntent {
+  return parseTestnetSwapIntent({ chainId: q.chainId, wallet: q.wallet, tokenIn: q.tokenIn,
+    tokenOut: q.tokenOut, amountIn: q.amountIn, slippageBps: q.slippageBps,
+    ...(q.routing ? { routing: q.routing } : {}), ...(q.poolFeeTier === undefined ? {} : { poolFeeTier: q.poolFeeTier }) });
 }
 
 export function parseTestnetSwapQuote(value: unknown, nowMs = Date.now()): TestnetSwapQuote {

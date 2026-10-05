@@ -1,11 +1,11 @@
-import { testnetQuoteExpiresAt } from "@vezta-dex/core";
+import { testnetQuoteExpiresAt, testnetSwapIntentFromQuote } from "@vezta-dex/core";
 import { randomBytes } from "node:crypto";
 import { parseTestnetSwapIntent, parseTestnetSwapQuote,
   type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
 
 function binding(value: unknown): string {
   const i: TestnetSwapIntent = parseTestnetSwapIntent(value);
-  return JSON.stringify([i.chainId, i.wallet, i.tokenIn, i.tokenOut, i.amountIn, i.slippageBps]);
+  return JSON.stringify([i.chainId, i.wallet, i.tokenIn, i.tokenOut, i.amountIn, i.slippageBps, i.routing ?? null, i.poolFeeTier ?? null]);
 }
 
 // Single-process demo only: restart invalidates all IDs. Consumption is synchronous and once-only.
@@ -24,8 +24,7 @@ export class TestnetQuoteStore {
     this.prune();
     if (this.entries.size >= this.capacity) this.entries.delete(this.entries.keys().next().value!);
     const id = randomBytes(24).toString("hex");
-    const intent = parseTestnetSwapIntent({ chainId: quote.chainId, wallet: quote.wallet,
-      tokenIn: quote.tokenIn, tokenOut: quote.tokenOut, amountIn: quote.amountIn, slippageBps: quote.slippageBps });
+    const intent = testnetSwapIntentFromQuote(quote);
     this.entries.set(id, { quote, binding: binding(intent),
       expires: Date.parse(testnetQuoteExpiresAt(quote)) });
     return id;

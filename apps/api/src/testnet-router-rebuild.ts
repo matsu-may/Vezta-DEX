@@ -1,5 +1,5 @@
 import { keccak256, stringToHex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_DIRECT_POOLS } from "@vezta-dex/core";
 import { prepareTestnetSourceEvidence } from "./testnet-source-evidence";
 import type { PinnedTestnetArtifact } from "./testnet-artifacts";
 
@@ -32,7 +32,7 @@ type ImmutableBinding = { type: string; word: string };
 type RebuildPolicy = { target: string; name: string; optimizerRuns: number; immutables: Record<string, ImmutableBinding>;
   configuration: Record<string, string | number> };
 const addressBinding = (value: string): ImmutableBinding => ({ type: "address", word: value.slice(2).toLowerCase().padStart(64, "0") });
-function policy(role: TestnetSwapDependencyRole): RebuildPolicy {
+function policy(role: TestnetSwapDependencyRole, selectedPool: typeof TESTNET_DIRECT_POOLS[number] = TESTNET_DIRECT_POOLS[2]): RebuildPolicy {
   if (!["router", "quoter", "factory", "pool", "manager"].includes(role)) throw new TestnetRebuildError("REBUILD_INVALID_OPTION");
   if (role === "factory") return {
     target: "contracts/UniswapV3Factory.sol", name: "UniswapV3Factory", optimizerRuns: 800,
@@ -41,18 +41,18 @@ function policy(role: TestnetSwapDependencyRole): RebuildPolicy {
     configuration: { factoryV3: C.v3Factory },
   };
   if (role === "pool") {
-    const pool = "contracts/UniswapV3Pool.sol:UniswapV3Pool"; const tickSpacing = 60;
+    const pool = "contracts/UniswapV3Pool.sol:UniswapV3Pool"; const tickSpacing = selectedPool.tickSpacing;
     // Tick.tickSpacingToMaxLiquidityPerTick: aligned MIN/MAX_TICK (887272), Solidity truncates toward zero.
     const numTicks = BigInt(2 * Math.trunc(887272 / tickSpacing) + 1);
     const maxLiquidity = ((1n << 128n) - 1n) / numTicks;
     const numeric = (type: string, value: bigint): ImmutableBinding => ({ type, word: value.toString(16).padStart(64, "0") });
     return { target: "contracts/UniswapV3Pool.sol", name: "UniswapV3Pool", optimizerRuns: 800,
-      immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": addressBinding(P.pool),
+      immutables: { "contracts/NoDelegateCall.sol:NoDelegateCall:original": addressBinding(selectedPool.pool),
         [`${pool}:factory`]: addressBinding(C.v3Factory), [`${pool}:token0`]: addressBinding(C.USDC.address),
-        [`${pool}:token1`]: addressBinding(C.WETH.address), [`${pool}:fee`]: numeric("uint24", BigInt(P.feeTier)),
+        [`${pool}:token1`]: addressBinding(C.WETH.address), [`${pool}:fee`]: numeric("uint24", BigInt(selectedPool.feeTier)),
         [`${pool}:tickSpacing`]: numeric("int24", BigInt(tickSpacing)), [`${pool}:maxLiquidityPerTick`]: numeric("uint128", maxLiquidity) },
-      configuration: { factoryV3: C.v3Factory, pool: P.pool, token0: C.USDC.address, token1: C.WETH.address,
-        fee: P.feeTier, tickSpacing, maxLiquidityPerTick: maxLiquidity.toString() } };
+      configuration: { factoryV3: C.v3Factory, pool: selectedPool.pool, token0: C.USDC.address, token1: C.WETH.address,
+        fee: selectedPool.feeTier, tickSpacing, maxLiquidityPerTick: maxLiquidity.toString() } };
   }
   if (role === "manager") {
     // Official Base Sepolia TransparentUpgradeableProxy for the token descriptor, not the NFTDescriptor library.
@@ -108,6 +108,22 @@ export function verifyTestnetSwapDependencyRebuild(role: TestnetSwapDependencyRo
   compilerVersion: unknown, bundle: readonly PinnedTestnetArtifact[]) {
   assertTestnetRouterCompiler(compilerVersion, TESTNET_ROUTER_COMPILER_SHA256);
   const selected = policy(role); const prepared = prepareTestnetSwapDependencyRebuild(role, value, snapshot, bundle);
+  return verifyCompiledRuntime(role, selected, prepared, output, compilerVersion, prepared.payload.runtimeBytecode.onchainBytecode);
+}
+
+/** Reuse only a fully verified source/compiler template; bind ALL per-pool immutables. */
+export function verifyTestnetPoolTemplate(value: unknown, snapshot: unknown, output: unknown,
+  compilerVersion: unknown, bundle: readonly PinnedTestnetArtifact[], address: string, code: string) {
+  verifyTestnetSwapDependencyRebuild("pool", value, snapshot, output, compilerVersion, bundle);
+  const selectedPool = TESTNET_DIRECT_POOLS.find(p => p.pool.toLowerCase() === address.toLowerCase());
+  if (!selectedPool || !/^0x(?:[a-fA-F0-9]{2})+$/.test(code) || code.length > 131074)
+    throw new TestnetRebuildError("REBUILD_OUTPUT_INVALID");
+  const prepared = prepareTestnetSwapDependencyRebuild("pool", value, snapshot, bundle);
+  return verifyCompiledRuntime("pool", policy("pool", selectedPool), prepared, output, compilerVersion, code);
+}
+
+function verifyCompiledRuntime(role: TestnetSwapDependencyRole, selected: RebuildPolicy,
+  prepared: ReturnType<typeof prepareTestnetSwapDependencyRebuild>, output: unknown, compilerVersion: unknown, onchainCode: string) {
   try {
     const result = object(output); const errors = result.errors ?? [];
     check(Array.isArray(errors) && errors.length <= 200);
@@ -158,7 +174,7 @@ export function verifyTestnetSwapDependencyRebuild(role: TestnetSwapDependencyRo
         patched = patched.slice(0, begin * 2) + values[id] + patched.slice(end * 2);
       }
     }
-    check(`0x${patched}` === prepared.payload.runtimeBytecode.onchainBytecode.toLowerCase());
+    check(`0x${patched}` === onchainCode.toLowerCase());
     return { ...prepared.summary, status: `testnet-${role}-rebuild-verified`, compilerVersion,
       runtimeHash: keccak256(`0x${patched}`), runtimeBytes: runtime.length / 2,
       immutableVariableCount: seen.size, immutableReferenceCount: ranges.length, warningCount: warnings.length,

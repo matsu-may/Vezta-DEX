@@ -7,8 +7,8 @@ import { nestedReceiptFixture } from "./testnet-metamask-nested.test-helper";
 import { TestnetActionStore } from "./testnet-action";
 import { TestnetReceiptReader, type BaseSepoliaReceiptSource } from "./testnet-receipt";
 
-async function setup(reverse = false) {
-  const f = await testnetActionFixture("swap", reverse);
+async function setup(reverse = false, fee?: 100 | 500 | 10000) {
+  const f = await testnetActionFixture("swap", reverse, fee === undefined ? undefined : { poolFeeTier: fee });
   const owner = metamaskFixtureAccount.address;
   f.input.intent.wallet = owner; f.input.quote.wallet = owner;
   const inner = buildTestnetSwapTransaction(f.input.quote, f.clock());
@@ -31,6 +31,18 @@ async function setup(reverse = false) {
   return { f, w, store, action, source, reader,
     query: { contextId: action.contextId, hash: w.tx.hash } };
 }
+
+it.each([100,500,10000] as const)("confirms nested MetaMask swaps for the exact saved alternate fee %s", async fee => {
+  for (const reverse of [false,true]) {
+    const s = await setup(reverse, fee);
+    expect(await s.reader.observe(s.query)).toMatchObject({ status: "confirmed", executionModel: "metamask-delegation",
+      execution: { status: "verified", amountOut: s.f.input.quote.amountOut } });
+    // A signed wrapper with a different fee still cannot substitute the saved reviewed call.
+    const other = await setup(reverse, fee === 500 ? 100 : 500);
+    s.w.tx.input = other.w.tx.input;
+    expect(await s.reader.observe(s.query)).toMatchObject({ status: "unverified", diagnostic: "transaction-mismatch" });
+  }
+});
 
 it.each([false, true])("confirms the nested swap against original economics and binds only its original hash (reverse=%s)", async reverse => {
   const s = await setup(reverse);

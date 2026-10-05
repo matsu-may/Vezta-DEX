@@ -5,17 +5,19 @@ import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TESTNET_NOW, testnetIntent, testnetQuoteSource } from "./testnet-quote.test-helper";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
 import type { BaseSepoliaPreparationSource } from "./testnet-swap-preparation";
+import { routingSource } from "./testnet-routing.test-helper";
 
-export async function testnetActionFixture(kind: "swap" | "approve" | "reset" = "swap", reverse = false) {
+export async function testnetActionFixture(kind: "swap" | "approve" | "reset" = "swap", reverse = false,
+  preference?: { routing: "best-direct" } | { poolFeeTier: 100 | 500 | 3000 | 10000 }) {
   let now = TESTNET_NOW;
-  const intent = testnetIntent(reverse);
-  const source: BaseSepoliaApprovalSource & BaseSepoliaPreparationSource = { ...testnetQuoteSource(),
+  const intent = { ...testnetIntent(reverse), ...preference };
+  const source: BaseSepoliaApprovalSource & BaseSepoliaPreparationSource = { ...(preference ? routingSource() : testnetQuoteSource()),
     async getTokenBalance() { return 10n ** 18n; }, async getNativeBalance() { return 10n ** 18n; },
     async getTokenAllowance() { return kind === "swap" ? BigInt(intent.amountIn) : kind === "reset" ? 1n : 0n; },
     async getAccountNonce() { return 7n; }, async getPendingNonce() { return 7n; },
     async simulateApproval() { return `0x${"0".repeat(63)}1`; }, async estimateApprovalGas() { return 50001n; },
     async simulateTestnetSwap() {
-      const q = await source.quoteExactInput(intent.tokenIn, intent.tokenOut, BigInt(intent.amountIn), 3000, 123n);
+      const q = await source.quoteExactInput(intent.tokenIn, intent.tokenOut, BigInt(intent.amountIn), quoted.quote.feeTier, 123n);
       return encodeAbiParameters([{ type: "bytes[]" }], [[encodeAbiParameters([{ type: "uint256" }], [q.amountOut])]]);
     },
     async estimateTestnetSwapGas() { return 150001n; }, async getGasPrice() { return 10000000n; },

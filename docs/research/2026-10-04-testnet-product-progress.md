@@ -7,7 +7,8 @@ Base: `ffed15b`. Branch: `codex/testnet-product-completion`.
 
 Owner confirms desktop wallet acceptance (both swaps, complete LP, failure/recovery),
 compact UI and Vercel frontend visual acceptance. Backend hosting was deferred.
-The executable adapter remains the qualified Base Sepolia 0.3% pool. The new
+The default executable adapter remains the qualified Base Sepolia 0.3% pool.
+Phase 7 additionally qualifies four curated direct swap pools under the same router. The new
 implementation adds bounded custom amounts/slippage, custom mint ranges,
 four-fee discovery and local observed activity. The previous acceptance does not
 automatically accept these new behaviors on the public chain.
@@ -21,8 +22,10 @@ automatically accept these new behaviors on the public chain.
 - No remote push: the user's Vercel project may deploy automatically from main.
 - Keep full-range as the default and leave custom price inputs empty; the user
   chooses a range. Exact BigInt math snaps outward; SDK math builds calldata.
-- Retain one qualified execution pool. Alternative pool depth is discovery
-  evidence, not runtime evidence or permission to execute.
+- Keep 0.3% as the default and the only LP execution pool. Four curated swap
+  pools have separate full-runtime proofs; explicit comparison or selection binds
+  the winner into the original quote and never reroutes recovery. Depth alone
+  remains insufficient for execution.
 - Local history retains up to 100 observations, scoped to account/chain. Persist
   the returned recovery hash first, then optional history. Quota/privacy failure
   must not clear or consume active recovery. Unverified/reorg observations replace
@@ -40,8 +43,8 @@ automatically accept these new behaviors on the public chain.
 | 4 | Implemented, local verification passed | Owner browse/filter/detail delta check |
 | 5 | Implemented, local verification passed | Owner activity/reload/account isolation check; complete charged fees separately unqualified |
 | 6 | Local gates/review passed, handoff prepared | Owner delta acceptance; publication is separate |
-| 7 | Dependency analysis prepared | Separate alternative pool proofs and bound routing execution |
-| 8 | Candidate research prepared | Owner choice, real deployment/liquidity/funding qualification and adapter |
+| 7 | Implemented; independent runtime, unit, fork and browser checks passed | Owner comparison/selected-pool wallet delta acceptance; public receipt evidence for newly selected pools |
+| 8 | Read-only feasibility measured on two candidates | Owner chain choice, independent runtime/fee/finality qualification and adapter |
 
 ## Verification
 
@@ -67,32 +70,41 @@ automatically accept these new behaviors on the public chain.
   found `l1Fee`/Jovian DA fields, but no complete operator-charge evidence. Keep
   `actualTotalFeeQualified:false`; no final total is inferred from an upper bound.
 
-## Remaining routing boundary
+## Phase 7 checkpoint
 
-Use the existing SwapRouter02 for direct-pool comparison. Reuse verified pool
-compiler/source/settings only after matching fingerprints. For each new address,
-bind self-address/factory/tokens/fee/tick spacing/derived maxLiquidityPerTick,
-compare the entire patched runtime with pinned-block code and factory mapping,
-and save separate evidence. Then bind pool/fee through intent, quote store,
-minimum math, recheck, calldata, delegation, receipt and legacy recovery. The
-current fixed 3000 fee factor must not be reused for other tiers. Run targeted
-fork/browser checks and obtain a public receipt per newly selectable pool.
-Swap qualification does not automatically qualify LP at that fee/spacing.
+- Four independently rebuilt pool runtimes matched full on-chain bytes. Public
+  hashes, compiler/input/output provenance, historical samples and limits are in
+  [routing evidence](2026-10-05-direct-pool-routing-evidence.md).
+- Same-block direct comparison, explicit pool selection, quote/store/calldata/
+  receipt binding and compatible legacy recovery are implemented. LP remains 0.3%.
+- Live read-only quotes selected different winners by direction. A guarded
+  **0.05% local fork** passed reset/exact approvals, both swaps, context/receipt
+  tracking and residual allowances; snapshot reverted and owned Anvil stopped.
+- Fresh review caught the nested MetaMask decoder's fee-3000 assumption. RED/GREEN
+  tests cover all newly curated fees in both directions and reject substituted
+  signed calldata. No other important findings were reported.
+- Final full checkpoint: **149 Vitest files, 1090 passed/one skipped; 85 Node
+  tests passed**. Typecheck/lint and final production build passed.
+- Final production build passed. Legacy desktop swap mock: **37 checks passed**.
+  Production desktop routing mock: **14 checks passed**, including selected pool
+  URL, visible coverage/winner, review, exact submitted calldata, reload recovery
+  and invalid URL rejection. All browser API/wallet calls were mocked. The initial
+  fixture inconsistently set action execution true and study false; corrected
+  the mock, then awaited acknowledgment storage clearing before navigation.
+  No production safety check was relaxed for browser fixtures.
+- Historical owner acceptance is retained. New public MetaMask receipts and
+  custom-range acceptance remain owner checks. No owner checkout merge or remote
+  publication was performed.
 
 ## Second-chain choice
 
-Unichain Sepolia is a candidate for initial read-only feasibility because official
-Uniswap docs list v3 contracts, WETH and test-token faucet paths. This is an
-engineering inference, not measured pool qualification. Ethereum Sepolia is an
-alternative with a different L1 fee/finality model. Contract availability and a
-faucet do not prove usable USDC/WETH depth. Resolve deployment-address discrepancies
-against the unified deployment feed and on-chain state before pinning a registry.
-No second-chain execution or migration was activated.
-
-Sources: [Uniswap Unichain v3 deployments](https://developers.uniswap.org/docs/protocols/v3/deployments/v3-unichain-deployments),
-[faucets](https://developers.uniswap.org/docs/unichain/tools/faucets),
-[unified deployments](https://developers.uniswap.org/deployments),
-[OP Stack Jovian receipt/operator rules](https://specs.optimism.io/protocol/jovian/exec-engine.html).
+Read-only feasibility was measured for **Ethereum Sepolia (11155111)** and
+**Unichain Sepolia (1301)**. Both 0.3% USDC/WETH pools served all six sampled demo
+sizes within 1% price impact. Neither candidate has independently rebuilt runtime
+or execution qualification in this project yet. Recommend Unichain for OP Stack
+adapter reuse; Ethereum broadens coverage to L1 with a different fee adapter.
+Owner choice is pending; no second chain was activated. Measurements, primary
+sources and next steps: [feasibility report](2026-10-05-second-testnet-feasibility.md).
 
 ## Trust-boundary extensions
 

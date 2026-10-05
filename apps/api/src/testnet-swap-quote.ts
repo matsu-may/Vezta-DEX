@@ -1,5 +1,5 @@
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  parseTestnetSwapQuote, type Address, type TestnetSwapIntent } from "@vezta-dex/core";
+  parseTestnetSwapQuote, TESTNET_DIRECT_POOLS, testnetDirectPool, type Address, type TestnetSwapIntent } from "@vezta-dex/core";
 import type { BaseSepoliaDepthSource } from "./base-sepolia-depth";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -72,20 +72,15 @@ export class TestnetSwapQuoteReader {
     };
     freshness();
     const addresses = [C.USDC.address, C.WETH.address, C.v3Factory, C.v3QuoterV2,
-      C.v3PositionManager, P.router, P.pool];
-    const [codes, usdcDecimals, wethDecimals, pool, state, spacing, deps, walletCode] = await Promise.all([
+      C.v3PositionManager, P.router];
+    const [codes, usdcDecimals, wethDecimals, deps, walletCode] = await Promise.all([
       Promise.all(addresses.map(address => source.getCode(address, block.number))),
       source.getDecimals(C.USDC.address, block.number), source.getDecimals(C.WETH.address, block.number),
-      source.getPool(P.feeTier, block.number), source.getPoolState(P.pool, block.number),
-      source.getTickSpacing(P.pool, block.number), source.getDependencyConfiguration(block.number),
+      source.getDependencyConfiguration(block.number),
       source.getCode(i.wallet, block.number),
     ]);
     freshness();
-    if (!codes.every(hasCode) || usdcDecimals !== 6 || wethDecimals !== 18 || !same(pool, P.pool)
-      || !same(state.token0, C.USDC.address) || !same(state.token1, C.WETH.address)
-      || !same(state.factory, C.v3Factory) || state.fee !== P.feeTier || spacing !== 60
-      || state.liquidity <= 0n || state.liquidity >= 2n ** 128n
-      || state.sqrtPriceX96 <= MIN_SQRT || state.sqrtPriceX96 >= MAX_SQRT
+    if (!codes.every(hasCode) || usdcDecimals !== 6 || wethDecimals !== 18
       || ![deps.router, deps.quoter, deps.manager].every(d => same(d.factory, C.v3Factory) && same(d.weth, C.WETH.address))
       || !same(deps.router.positionManager, C.v3PositionManager)) return fail("TESTNET_CONFIGURATION_INVALID");
     let walletKind: ReturnType<typeof classifyTestnetWalletCode>;
@@ -94,14 +89,26 @@ export class TestnetSwapQuoteReader {
       try { await verifyTestnetMetaMaskRuntime(source, block.number); } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
       freshness();
     }
-    try {
-      verifyTestnetRuntimeCodes(P.chainId, addresses.slice(2).map((address, index) => ({ address, code: codes[index + 2] })));
-    } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
-    const q = await source.quoteExactInput(i.tokenIn, i.tokenOut, BigInt(i.amountIn), P.feeTier, block.number);
+    const candidates = i.routing === "best-direct" ? TESTNET_DIRECT_POOLS : [testnetDirectPool(i.poolFeeTier ?? P.feeTier)];
+    const probePool = async (selected: typeof TESTNET_DIRECT_POOLS[number]) => {
+      const [code, pool, state, spacing] = await Promise.all([
+        source.getCode(selected.pool, block.number), source.getPool(selected.feeTier, block.number),
+        source.getPoolState(selected.pool, block.number), source.getTickSpacing(selected.pool, block.number),
+      ]);
+      freshness();
+      try { verifyTestnetRuntimeCodes(P.chainId, [
+        ...addresses.slice(2).map((address, index) => ({ address, code: codes[index + 2] })),
+        { address: selected.pool, code },
+      ], selected.feeTier); } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
+      if (!same(pool, selected.pool) || !same(state.token0, C.USDC.address) || !same(state.token1, C.WETH.address)
+        || !same(state.factory, C.v3Factory) || state.fee !== selected.feeTier || spacing !== selected.tickSpacing
+        || state.liquidity <= 0n || state.liquidity >= 2n ** 128n
+        || state.sqrtPriceX96 <= MIN_SQRT || state.sqrtPriceX96 >= MAX_SQRT) return fail("TESTNET_CONFIGURATION_INVALID");
+    const q = await source.quoteExactInput(i.tokenIn, i.tokenOut, BigInt(i.amountIn), selected.feeTier, block.number);
     freshness();
     const forward = same(i.tokenIn, C.USDC.address);
     const ratio = state.sqrtPriceX96 ** 2n;
-    const spot = BigInt(i.amountIn) * 997000n * (forward ? ratio : Q192)
+    const spot = BigInt(i.amountIn) * BigInt(1000000 - selected.feeTier) * (forward ? ratio : Q192)
       / (1000000n * (forward ? Q192 : ratio));
     if (spot <= 0n || q.amountOut <= 0n || q.amountOut > spot || q.amountOut >= 2n ** 256n
       || q.gasEstimate <= 0n || q.gasEstimate >= 2n ** 256n
@@ -111,13 +118,28 @@ export class TestnetSwapQuoteReader {
       || q.initializedTicksCrossed > 1774544) return fail("TESTNET_QUOTE_INVALID");
     const impact = Number(((spot - q.amountOut) * 10000n + spot - 1n) / spot);
     if (impact > 100) return fail("TESTNET_IMPACT_EXCEEDED");
+      return { selected, q, impact };
+    };
+    const results = await Promise.allSettled(candidates.map(probePool));
+    freshness();
+    const qualified = results.flatMap(r => r.status === "fulfilled" ? [r.value] : []);
+    if (!qualified.length) {
+      if (candidates.length === 1 && results[0].status === "rejected") throw results[0].reason;
+      return fail("TESTNET_QUOTE_INVALID");
+    }
+    qualified.sort((a,b) => a.q.amountOut > b.q.amountOut ? -1 : a.q.amountOut < b.q.amountOut ? 1 : a.selected.feeTier - b.selected.feeTier);
+    const { selected, q, impact } = qualified[0];
     if (!same(await source.getBlockHash(block.number), block.hash)) return fail("TESTNET_BLOCK_CHANGED");
     freshness();
-    const quote = parseTestnetSwapQuote({ ...i, protocol: "v3", pool: P.pool, feeTier: P.feeTier, quoteTtlSeconds: P.demoQuoteTtlSeconds,
+    const quote = parseTestnetSwapQuote({ ...i, protocol: "v3", pool: selected.pool, feeTier: selected.feeTier, quoteTtlSeconds: P.demoQuoteTtlSeconds,
       amountOut: q.amountOut.toString(), minimumAmountOut: (q.amountOut * BigInt(10000 - i.slippageBps) / 10000n).toString(),
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: "base-sepolia-rpc" }, this.now());
     return { quote, priceImpactBps: impact,
+      ...(i.routing === "best-direct" ? { comparison: { attemptedPoolCount: candidates.length, qualifiedPoolCount: qualified.length,
+        candidates: results.map((r, index) => r.status === "fulfilled"
+          ? { feeTier: candidates[index].feeTier, status: "qualified" as const, amountOut: r.value.q.amountOut.toString(), priceImpactBps: r.value.impact }
+          : { feeTier: candidates[index].feeTier, status: "unavailable" as const }) } } : {}),
       qualification: { configurationVerified: true, runtimeVerified: true, executionEnabled: false } as const };
   }
 }

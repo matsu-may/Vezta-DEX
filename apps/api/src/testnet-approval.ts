@@ -79,7 +79,7 @@ export class TestnetApprovalReader {
       }
     };
     fresh();
-    const dependencies = [P.router, C.v3QuoterV2, C.v3Factory, P.pool, C.v3PositionManager];
+    const dependencies = [P.router, C.v3QuoterV2, C.v3Factory, quote.pool, C.v3PositionManager];
     const [code, codes, tokenCodes, decimals, input, eth, allowance, nonce, pending] = await Promise.all([
       source.getCode(i.wallet, block.number), Promise.all(dependencies.map(a => source.getCode(a, block.number))),
       Promise.all([C.USDC.address, C.WETH.address].map(a => source.getCode(a, block.number))),
@@ -99,7 +99,7 @@ export class TestnetApprovalReader {
     if (!tokenCodes.every(c => /^0x(?:[0-9a-fA-F]{2})+$/.test(c)) || decimals[0] !== 6 || decimals[1] !== 18) {
       return fail("TESTNET_CONFIGURATION_INVALID");
     }
-    try { verifyTestnetRuntimeCodes(P.chainId, dependencies.map((address, n) => ({ address, code: codes[n] }))); }
+    try { verifyTestnetRuntimeCodes(P.chainId, dependencies.map((address, n) => ({ address, code: codes[n] })), quote.feeTier); }
     catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
     if (![input, eth, allowance].every(v => uint(v)) || !uint(nonce, 64) || !uint(pending, 64)) return fail("TESTNET_STATE_INVALID");
     if (nonce !== pending) return fail("TESTNET_NONCE_CHANGED");

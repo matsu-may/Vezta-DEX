@@ -7,5 +7,8 @@ import type { Hex } from "viem";
 const saved = JSON.parse(gunzipSync(readFileSync(new URL("fixtures/base-sepolia-runtime.json.gz", import.meta.url))).toString("utf8")) as {
   contracts: Array<{ role: string; address: string; code: Hex }>;
 };
+const direct = JSON.parse(gunzipSync(readFileSync(new URL("fixtures/base-sepolia-direct-pools.json.gz", import.meta.url))).toString("utf8")) as {
+  contracts: Array<{ address: string; code: Hex }>;
+};
 export const runtimeFixtureCodes = () => structuredClone(saved.contracts);
-export const runtimeFixtureCode = (address: string) => saved.contracts.find(c => c.address.toLowerCase() === address.toLowerCase())?.code;
+export const runtimeFixtureCode = (address: string) => [...saved.contracts, ...direct.contracts].find(c => c.address.toLowerCase() === address.toLowerCase())?.code;

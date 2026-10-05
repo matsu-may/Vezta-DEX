@@ -1,8 +1,28 @@
 import { expect, it } from "vitest";
-import { padHex, toHex, type Hex } from "viem";
+import { padHex, toHex, decodeFunctionData, encodeFunctionData, parseAbi, type Hex } from "viem";
 import { decodeMetaMaskExecution } from "./testnet-metamask";
 import { metamaskExecutionFixture, metamaskFixtureAccount, metamaskFixtureTypes, nestedSwapFixture } from "./testnet-metamask.test-helper";
 import { privateKeyToAccount } from "viem/accounts";
+
+it("authenticates the exact nested reviewed fee for every newly qualified direct pool", async () => {
+  const abi = parseAbi([
+    "function exactInputSingle((address tokenIn,address tokenOut,uint24 fee,address recipient,uint256 amountIn,uint256 amountOutMinimum,uint160 sqrtPriceLimitX96) params) payable returns (uint256)",
+    "function multicall(uint256 deadline,bytes[] data) payable returns (bytes[])",
+  ]);
+  const base = await nestedSwapFixture();
+  const outer = decodeFunctionData({ abi, data: base.expected.data });
+  if (outer.functionName !== "multicall") throw new Error();
+  const inner = decodeFunctionData({ abi, data: outer.args[1][0] });
+  if (inner.functionName !== "exactInputSingle") throw new Error();
+  for (const fee of [100, 500, 10000]) {
+    const data = encodeFunctionData({ abi, functionName: "multicall", args: [outer.args[0], [
+      encodeFunctionData({ abi, functionName: "exactInputSingle", args: [{ ...inner.args[0], fee }] }),
+    ]] });
+    const expected = { ...base.expected, data }; const f = await nestedSwapFixture(false, expected);
+    expect((await decodeMetaMaskExecution(f.input, f.owner, expected)).inner).toBeDefined();
+    await expect(decodeMetaMaskExecution(f.input, f.owner, base.expected)).rejects.toThrow();
+  }
+});
 
 it.each([false, true])("authenticates both owner signatures and the exact inner swap (reverse=%s)", async reverse => {
   const f = await nestedSwapFixture(reverse);

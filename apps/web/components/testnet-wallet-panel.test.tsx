@@ -67,6 +67,19 @@ it("sends exact custom inputs and rejects excess precision; edits invalidate old
   expect(screen.queryByText("Minimum received")).toBeNull();
   expect(f.methods).not.toContain("eth_sendTransaction");
 });
+it("offers explicit direct-pool comparison and invalidates reviewed output when preference changes", async () => {
+  const f = await fixture(true); render(<TestnetWalletPanel executionEnabled />);
+  fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" }));
+  await screen.findByText(/Connected:/);
+  fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" }));
+  await screen.findByText("Minimum received");
+  fireEvent.change(screen.getByLabelText("Routing preference"), { target: { value: "best-direct" } });
+  expect(screen.queryByText("Minimum received")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Get wallet quote" }));
+  await vi.waitFor(() => expect(f.fetcher.mock.calls.length).toBe(2));
+  expect(JSON.parse(f.fetcher.mock.calls[1][1].body)).toMatchObject({ routing: "best-direct" });
+  expect(f.methods).not.toContain("eth_sendTransaction");
+});
 it("keeps normal preview gated even if API metadata permits execution", async () => {
   await fixture(true); render(<TestnetWalletPanel executionEnabled={false} />);
   fireEvent.click(await screen.findByRole("button", { name: "Connect Base Sepolia wallet" })); await screen.findByText(/Connected:/);

@@ -24,6 +24,17 @@ function multiple(now = Date.now()) {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 
 describe("curated desktop discovery", () => {
+  it("links a fresh independently pinned alternate pool to its selected swap, while LP remains pinned", async () => {
+    const report = curated(); report.pools[0].feeTier = 500;
+    report.pools[0].address = "0x94bfc0574FF48E92cE43d495376C477B1d0EEeC0";
+    report.candidateFeeTiers = [500];
+    vi.stubGlobal("fetch", vi.fn(async () => Response.json({ depth: report })));
+    render(<DemoPoolDiscovery detail selection={{ fee: "500", pool: report.pools[0].address }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Refresh pool data" }));
+    await screen.findByText("Depth screen passed");
+    expect(screen.getByRole("link", { name: "Swap USDC / WETH" }).getAttribute("href")).toBe(`/demo/1?fee=500&pool=${report.pools[0].address}`);
+    expect(screen.queryByRole("link", { name: "Manage liquidity" })).toBeNull();
+  });
   it("requires an explicit read and shows the pinned pool with provenance and workflow links", async () => {
     const fetcher = vi.fn(async () => Response.json({ depth: curated() }));
     const wallet = vi.fn(); vi.stubGlobal("fetch", fetcher); vi.stubGlobal("ethereum", { request: wallet });

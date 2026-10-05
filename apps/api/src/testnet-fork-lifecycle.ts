@@ -1,5 +1,6 @@
 import { encodeFunctionData, erc20Abi, parseAbi, toHex, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent, planTestnetTokenApproval } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_DIRECT_POOLS, parseTestnetSwapIntent, planTestnetTokenApproval } from "@vezta-dex/core";
+import type { TestnetForkRouting } from "./testnet-fork-routing";
 import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
 import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TestnetApprovalReader } from "./testnet-approval";
@@ -18,7 +19,8 @@ type Row = Record<string, string | number | boolean>;
 const same = (a: string | null, b: string) => a?.toLowerCase() === b.toLowerCase();
 
 export async function runTestnetForkLifecycle(fork: OwnedFork,
-  upstream: { number: bigint; hash: string; timestamp: bigint }, signal: AbortSignal, report: (row: Row) => void) {
+  upstream: { number: bigint; hash: string; timestamp: bigint }, signal: AbortSignal, report: (row: Row) => void,
+  routing: TestnetForkRouting = {}) {
   const { client, boundary, origin } = fork;
   const mutate = (method: string, params: readonly unknown[], beforeWrite?: () => void) =>
     guardedForkRequest(boundary, origin, method, params, () => { signal.throwIfAborted(); beforeWrite?.(); });
@@ -85,6 +87,15 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       reads.quoteExactInput(C.WETH.address, C.USDC.address, 100000000000000n, P.feeTier, fundedBlock.number),
       reads.getAdditionalFees(warmPlan.transaction, nonce, 60000n, price, fundedBlock.number),
     ]);
+    if (routing.routing || routing.poolFeeTier !== undefined) {
+      // Warm additional candidates without promoting failed warmup reads to qualification.
+      await Promise.allSettled(TESTNET_DIRECT_POOLS.map(async p => Promise.all([
+        reads.getCode(p.pool, fundedBlock.number), reads.getPool(p.feeTier, fundedBlock.number),
+        reads.getPoolState(p.pool, fundedBlock.number), reads.getTickSpacing(p.pool, fundedBlock.number),
+        reads.quoteExactInput(C.USDC.address, C.WETH.address, 10000n, p.feeTier, fundedBlock.number),
+        reads.quoteExactInput(C.WETH.address, C.USDC.address, 100000000000000n, p.feeTier, fundedBlock.number),
+      ])));
+    }
     const snapshotBalances = async (intent: ReturnType<typeof parseTestnetSwapIntent>, block: bigint) => {
       const [input, output, native, allowance] = await Promise.all([
         reads.getTokenBalance(intent.tokenIn, wallet, block), reads.getTokenBalance(intent.tokenOut, wallet, block),
@@ -128,7 +139,7 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       const direction = reverse ? "WETH_TO_USDC" : "USDC_TO_WETH";
       const intent = parseTestnetSwapIntent({ chainId: P.chainId, wallet,
         tokenIn: reverse ? C.WETH.address : C.USDC.address, tokenOut: reverse ? C.USDC.address : C.WETH.address,
-        amountIn: reverse ? "100000000000000" : "1000000", slippageBps: P.slippageBps });
+        amountIn: reverse ? "100000000000000" : routing.poolFeeTier !== undefined ? "10000" : "1000000", slippageBps: P.slippageBps, ...routing });
       let ready = false;
       for (let attempt = 0; attempt < 2; attempt++) {
         await freshMine();
@@ -145,7 +156,7 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       forkAssert(ready, "FORK_APPROVAL_NOT_READY");
       await freshMine();
       const quote = await quotes.read(intent); const request = { intent, quoteId: quote.quoteId };
-      report({ stage: "swap-study", direction, localOnly: true });
+      report({ stage: "swap-study", direction, localOnly: true, feeTier: quote.quote.feeTier, pool: quote.quote.pool });
       const checked = await rechecker.read({ ...request, kind: "swap" });
       forkAssert(checked.action, "FORK_CONTEXT_UNAVAILABLE");
       await execute(request, checked.study, "swap", direction, checked.action.contextId);

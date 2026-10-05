@@ -51,11 +51,11 @@ remain separate. Discovery on another chain does not prove multi-chain execution
 - [x] Phase 1: current-state documentation reconciled; latest checkpoint overrides dated historical pending statements.
 - [x] Phase 2: flexible amounts/slippage implemented; integer/calldata/UI checks pass. New public wallet acceptance pending.
 - [x] Phase 3: custom-range LP implemented; SDK comparison, intent/calldata/boundary/UI checks pass. New custom-range public mint acceptance pending; no new custom-range fork run claimed.
-- [x] Phase 4: multi-pool discovery and eligibility/navigation verified; alternative pools remain read-only.
+- [x] Phase 4: multi-pool discovery and eligibility/navigation verified; separately proven curated swap pools are enabled only through fresh qualification; LP remains 0.3%.
 - [x] Phase 5: local activity and fee presentation verified. L2 actual costs remain distinct from estimated total budgets; complete charged L1/operator fees are still unqualified.
 - [ ] Phase 6: independent review and local quality gates passed; delta acceptance/release handoff must be closed by owner before marking the milestone complete.
-- [ ] Phase 7: separately qualified routing expansion.
-- [ ] Phase 8: second-chain feasibility and explicit choice before execution activation.
+- [x] Phase 7 implementation: four pool runtime proofs, bound direct comparison/selection, fork and browser checks passed. Owner new-pool public receipt acceptance remains pending.
+- [ ] Phase 8: Ethereum/Unichain feasibility measured; explicit owner chain choice and independent execution adapter still required.
 
 ## Owner checkpoints
 
@@ -72,3 +72,7 @@ Phase 7 preparation selected direct qualified pools under the existing router;
 pool source/template reuse does not waive per-address immutable/runtime proofs.
 Phase 8 requires a measured second-chain qualification and the explicit owner choice.
 The old Base Sepolia acceptance remains accepted; test only the changed behaviors.
+
+Phase 7 execution/evidence: `2026-10-05-direct-pool-routing.md` and
+`../../research/2026-10-05-direct-pool-routing-evidence.md`. Phase 8 measured
+options: `../../research/2026-10-05-second-testnet-feasibility.md`.

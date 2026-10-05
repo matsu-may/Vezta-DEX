@@ -20,10 +20,18 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
         {!compact && <><div><dt>Input</dt><dd>{testnetAmount(q.amountIn, q.tokenIn)}</dd></div>
         <div><dt>Estimated received</dt><dd>{testnetAmount(q.amountOut, q.tokenOut)}</dd></div></>}
         <div><dt>Minimum received</dt><dd>{testnetAmount(q.minimumAmountOut, q.tokenOut)}</dd></div>
+        <div><dt>Pool fee</dt><dd>{q.feeTier / 10000}%</dd></div>
         <div><dt>Slippage</dt><dd>{q.slippageBps / 100}%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
         <div><dt>Block</dt><dd>{q.blockNumber}</dd></div></>}
       </dl>
       {compact && <details className="quote-provenance"><summary>Quote source and block</summary><p>Base Sepolia RPC · block {q.blockNumber}</p><p className="mono">{q.observedAt}</p></details>}
+      <details className="quote-provenance"><summary>Selected route{state.quote?.comparison ? ` · ${state.quote.comparison.qualifiedPoolCount}/4 pools qualified` : " · pinned pool"}</summary>
+        <p>Uniswap v3 · Base Sepolia · {q.feeTier / 10000}% fee</p>
+        <a className="mono" href={`https://sepolia.basescan.org/address/${q.pool}`} target="_blank" rel="noreferrer">{q.pool}</a>
+        {state.quote?.comparison && <><p>Greatest quoted output among qualified direct pools at this block, before gas. {state.quote.comparison.qualifiedPoolCount < 4 && "Partial comparison: unavailable candidates were excluded."}</p>
+          <dl className="demo-preview">{state.quote.comparison.candidates.map(c => <div key={c.feeTier}><dt>{c.feeTier / 10000}% pool</dt>
+            <dd>{c.status === "qualified" ? testnetAmount(c.amountOut, q.tokenOut) : "Unavailable / did not qualify"}</dd></div>)}</dl></>}
+      </details>
     </section>}
     {study && <section className="testnet-review" aria-label="Transaction review">
       <h3>{a ? `${a.kind === "reset" ? "Reset allowance to zero" : a.kind === "approve" ? "Exact token approval" : "Simulated swap"}` : "Action needs review"}</h3>

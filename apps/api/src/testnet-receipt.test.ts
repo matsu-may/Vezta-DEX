@@ -10,9 +10,10 @@ afterEach(() => vi.useRealTimers());
 const hash = `0x${"12".repeat(32)}` as Hex;
 const receiptHash = `0x${"cd".repeat(32)}` as Hex;
 const headHash = `0x${"ef".repeat(32)}` as Hex;
-async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, eip1559 = false) {
+async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = false, eip1559 = false,
+  preference?: { poolFeeTier: 100 | 500 | 3000 | 10000 }) {
   const { TestnetReceiptReader } = await import("./testnet-receipt");
-  const f = await testnetActionFixture(kind, reverse); const store = new TestnetActionStore(f.clock);
+  const f = await testnetActionFixture(kind, reverse, preference); const store = new TestnetActionStore(f.clock);
   if (eip1559) Object.assign(f.input.transaction, { feeModel: "eip1559", maxFeePerGas: f.input.transaction.gasPrice, maxPriorityFeePerGas: "1000000" });
   const action = store.issue(f.input, () => f.quotes.store.consume(f.quoted.quoteId, f.request.intent));
   const context = store.read(action.contextId); const tx = context.transaction; const wallet = context.intent.wallet;
@@ -27,8 +28,8 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
     gas: BigInt(tx.gas), gasPrice: BigInt(tx.gasPrice), blockNumber: 124n as bigint | null, blockHash: receiptHash as string | null };
   const receipt = { transactionHash: hash, from: wallet, to: tx.to, blockNumber: 124n, blockHash: receiptHash,
     status: "success" as "success" | "reverted", gasUsed: kind === "swap" ? 100000n : 50000n, effectiveGasPrice: eip1559 ? 6000000n : BigInt(tx.gasPrice),
-    logs: kind === "swap" ? [log(context.intent.tokenIn, "Transfer", wallet, P.pool, BigInt(context.intent.amountIn)),
-      log(context.intent.tokenOut, "Transfer", P.pool, wallet, BigInt(context.quote.amountOut))]
+    logs: kind === "swap" ? [log(context.intent.tokenIn, "Transfer", wallet, context.quote.pool, BigInt(context.intent.amountIn)),
+      log(context.intent.tokenOut, "Transfer", context.quote.pool, wallet, BigInt(context.quote.amountOut))]
       : [log(context.intent.tokenIn, "Approval", wallet, P.router, kind === "reset" ? 0n : BigInt(context.intent.amountIn))] };
   const source: BaseSepoliaReceiptSource = { ...f.source, async getBlockBaseFee(block) { expect(block).toBe(124n); return 5000000n; },
     async getLatestBlock() { return { number: 125n, timestamp: 1790800000n, hash: headHash }; },
@@ -41,6 +42,13 @@ async function setup(kind: "swap" | "approve" | "reset" = "swap", reverse = fals
   const request = { contextId: action.contextId, hash };
   return { f, store, source, transaction, receipt, reader, request, create };
 }
+
+it("verifies a non-default pool's original swap and rejects substituted fee calldata", async () => {
+  const s = await setup("swap", false, false, { poolFeeTier: 500 });
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "confirmed", execution: { status: "verified", amountOut: s.f.quoted.quote.amountOut } });
+  s.transaction.input = s.transaction.input.replace(/00000000000000000000000000000000000000000000000000000000000001f4/, "0000000000000000000000000000000000000000000000000000000000000bb8") as Hex;
+  expect(await s.reader.observe(s.request)).toMatchObject({ status: "unverified", diagnostic: "transaction-mismatch" });
+});
 
 it.each([false, true])("verifies original event economics, not unrelated balance deltas (reverse=%s)", async reverse => {
   const s = await setup("swap", reverse);

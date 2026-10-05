@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as tokens, TESTNET_SWAP_POLICY as policy, type TestnetDepthReport } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as tokens, TESTNET_SWAP_POLICY as policy, TESTNET_DIRECT_POOLS, type TestnetDepthReport } from "@vezta-dex/core";
 import { loadTestnetDepth } from "../lib/testnet-depth";
 
 type Pool = TestnetDepthReport["pools"][number];
 type Selection = { fee?: string; pool?: string };
 const feeLabel = (fee: number) => `${fee / 10000}%`;
 const isPinned = (pool: Pool) => pool.feeTier === policy.feeTier && pool.address.toLowerCase() === policy.pool.toLowerCase();
+const isSwapPinned = (pool: Pool) => TESTNET_DIRECT_POOLS.some(p => p.feeTier === pool.feeTier && p.pool.toLowerCase() === pool.address.toLowerCase());
 const identity = (pool: Pool) => `${pool.feeTier}:${pool.address.toLowerCase()}`;
 function requestedIdentity(selection?: Selection) {
   if (!selection || (selection.fee === undefined && selection.pool === undefined)) return `${policy.feeTier}:${policy.pool.toLowerCase()}`;
@@ -33,7 +34,7 @@ function PoolIdentity({ pool }: { pool: Pool }) {
       <div><dt>WETH · 18 decimals</dt><dd><AddressLink address={tokens.WETH.address} /></dd></div>
       <div><dt>Position manager</dt><dd><AddressLink address={tokens.v3PositionManager} /></dd></div>
     </dl>
-    <p className="data-caveat">{isPinned(pool) ? "This is the pinned execution pool. Wallet workflows still recheck current depth and simulation." : "This pool is read-only. Passing the depth screen does not qualify its execution path."} Test tokens have no reliable dollar value.</p>
+    <p className="data-caveat">{isPinned(pool) ? "This is the pinned execution pool. Wallet workflows still recheck current depth and simulation." : "This pool supports swap only after fresh per-intent checks when its address is curated. LP remains on the 0.3% pool."} Test tokens have no reliable dollar value.</p>
   </section>;
 }
 function QuoteSamples({ pool }: { pool: Pool }) {
@@ -83,7 +84,7 @@ export function DemoPoolDiscovery({ detail = false, selection }: { detail?: bool
   const hasRequestedSelection = selection?.fee !== undefined || selection?.pool !== undefined;
   const pool = report?.pools.find(item => identity(item) === wanted);
   const visibleSelection = detail || pools.some(item => identity(item) === wanted);
-  const qualified = !!pool?.depthQualified && isPinned(pool) && !expired && visibleSelection;
+  const qualified = !!pool?.depthQualified && isSwapPinned(pool) && !expired && visibleSelection;
   const status = pending ? "Checking pool depth…" : expired ? "Snapshot expired · refresh required"
     : !report ? "Awaiting pool check" : !pool ? hasRequestedSelection ? "Selected pool not found" : "Curated pool not found"
       : pool.depthQualified ? "Depth screen passed" : "Outside demo depth policy";
@@ -100,11 +101,11 @@ export function DemoPoolDiscovery({ detail = false, selection }: { detail?: bool
     <section className="section-card discovery-card" aria-label={detail ? "Pool detail" : "Curated pool discovery"} aria-busy={pending}>
       <div className="discovery-toolbar"><div><span className="eyebrow">CURATED PAIR · UNISWAP V3</span>
         <h2>{detail ? "Pool overview" : "Observed pools"}</h2>
-        <p>USDC / WETH on Base Sepolia. Explore observed fee tiers; only the pinned 0.3% pool supports the demo’s wallet workflows.</p>
+        <p>USDC / WETH on Base Sepolia. Explore observed fee tiers; curated pools can support swaps after fresh checks. Liquidity workflows use the pinned 0.3% pool.</p>
       </div><button className="button button-primary" onClick={refresh} disabled={pending}>{pending ? "Refreshing…" : "Refresh pool data"}</button></div>
       {detail ? <>
         <dl className="discovery-metrics"><div><dt>Network</dt><dd>Base Sepolia</dd></div><div><dt>Protocol</dt><dd>Uniswap v3</dd></div><div><dt>Pool fee</dt><dd>{pool ? feeLabel(pool.feeTier) : "Awaiting identity check"}</dd></div></dl>
-        <div className="discovery-pair-row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span><div><strong>USDC / WETH</strong><span>{pool && isPinned(pool) ? "Test tokens · pinned execution pool" : "Test tokens · read-only pool"}</span></div></div><span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span></div>
+        <div className="discovery-pair-row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span><div><strong>USDC / WETH</strong><span>{pool && isSwapPinned(pool) ? "Test tokens · curated swap pool" : "Test tokens · read-only pool"}</span></div></div><span className={`badge ${qualified ? "badge-fresh" : "badge-warning"}`} role="status">{status}</span></div>
       </> : <>
         <div className="discovery-filters" role="group" aria-label="Pool filters">
           <label className="form-label">Search pools<input className="field" type="search" value={search} onChange={event => setSearch(event.target.value)} placeholder="Token, fee or pool address" /></label>
@@ -119,7 +120,7 @@ export function DemoPoolDiscovery({ detail = false, selection }: { detail?: bool
           <th scope="row"><div className="discovery-pair"><span className="discovery-token" aria-hidden="true">$</span><span className="discovery-token discovery-token-eth" aria-hidden="true">Ξ</span><div><strong>USDC / WETH</strong><span>Uniswap v3 · {feeLabel(item.feeTier)}</span><span className="mono">{item.address.slice(0, 6)}…{item.address.slice(-4)}</span></div></div></th>
           <td><span className={`badge ${item.depthQualified && !expired ? "badge-fresh" : "badge-warning"}`}>{item.depthQualified ? "Depth screen passed" : "Outside demo depth policy"}</span></td>
           <td>{expired ? "Historical" : "Fresh"} · block {report.blockNumber}</td>
-          <td>{!isPinned(item) ? "Read-only · unqualified execution" : expired ? "Read-only · refresh required" : !item.depthQualified ? "Read-only · depth required" : "Pinned · fresh wallet checks required"}</td>
+          <td>{!isSwapPinned(item) ? "Read-only · unqualified execution" : expired ? "Read-only · refresh required" : !item.depthQualified ? "Read-only · depth required" : "Pinned · fresh wallet checks required"}</td>
           <td><button className="button demo-reset" aria-label={`Select ${feeLabel(item.feeTier)} pool`} aria-pressed={identity(item) === wanted} onClick={() => setSelectedIdentity(identity(item))}>{identity(item) === wanted ? "Selected" : "Select"}</button><Link className="discovery-detail-link" href={detailHref(item)} aria-label={`View ${feeLabel(item.feeTier)} pool detail`}>View detail ↗</Link></td>
         </tr>)}</tbody></table></div> : <p className="discovery-help" role="status">{report ? report.pools.length ? "No pools match your filters." : "No pools observed at this block." : status}</p>}
         {pool && visibleSelection && <p className="discovery-selection">Selected {feeLabel(pool.feeTier)} pool · <span className="mono">{pool.address}</span></p>}
@@ -130,10 +131,10 @@ export function DemoPoolDiscovery({ detail = false, selection }: { detail?: bool
         : !report ? "No data is read until you refresh. No wallet connection is needed."
         : !pool ? "The requested pool identity is absent from this report. Choose an observed pool in Explore."
         : expired ? "Historical evidence remains visible. Refresh before opening a new workflow."
-        : !isPinned(pool) ? "Read-only pool. Depth samples do not qualify another router or pool for wallet execution."
+        : !isSwapPinned(pool) ? "Read-only pool. Depth samples do not qualify an uncurated address for execution."
         : !qualified ? "The current quote samples did not pass the depth screen. Refresh later to check again."
         : "The sample depth screen passed. Each wallet action still requires its own fresh study, simulation and review."}</p>
-      {pool && visibleSelection && <div className="discovery-actions">{qualified ? <><Link className="button button-primary" href="/demo/1">Swap USDC / WETH</Link><Link className="button demo-reset" href="/demo/2">Manage liquidity</Link></> : <><button className="button button-primary" disabled>Swap USDC / WETH</button><button className="button demo-reset" disabled>Manage liquidity</button></>}</div>}
+      {pool && visibleSelection && <div className="discovery-actions">{qualified ? <><Link className="button button-primary" href={isPinned(pool) ? "/demo/1" : `/demo/1?${new URLSearchParams({ fee: String(pool.feeTier), pool: pool.address })}`}>Swap USDC / WETH</Link>{isPinned(pool) ? <Link className="button demo-reset" href="/demo/2">Manage liquidity</Link> : <button className="button demo-reset" disabled>Manage liquidity</button>}</> : <><button className="button button-primary" disabled>Swap USDC / WETH</button><button className="button demo-reset" disabled>Manage liquidity</button></>}</div>}
       {report && <details className="discovery-source-details"><summary>Source and block</summary><section className="discovery-provenance" aria-label="Snapshot provenance">
         <h3>Snapshot provenance</h3><p>All observed pools share this source and pinned block.</p><dl>
           <div><dt>Source</dt><dd className="mono">{report.source}</dd></div>

@@ -1,7 +1,7 @@
 import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
-  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
+  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields, testnetDirectPool } from "@vezta-dex/core";
 import { parseTestnetApprovalRequest } from "./testnet-approval";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
@@ -77,7 +77,7 @@ export class TestnetSwapPreparer {
       }
     };
     fresh();
-    const dependencies = [P.router, C.v3QuoterV2, C.v3Factory, P.pool, C.v3PositionManager];
+    const dependencies = [P.router, C.v3QuoterV2, C.v3Factory, quote.pool, C.v3PositionManager];
     const [walletCode, codes, tokenCodes, decimals, input, eth, allowance, nonce, pending] = await Promise.all([
       source.getCode(i.wallet, block.number), Promise.all(dependencies.map(a => source.getCode(a, block.number))),
       Promise.all([C.USDC.address, C.WETH.address].map(a => source.getCode(a, block.number))),
@@ -95,7 +95,7 @@ export class TestnetSwapPreparer {
       fresh();
     }
     if (!tokenCodes.every(c => /^0x(?:[0-9a-fA-F]{2})+$/.test(c)) || decimals[0] !== 6 || decimals[1] !== 18) return fail("TESTNET_CONFIGURATION_INVALID");
-    try { verifyTestnetRuntimeCodes(P.chainId, dependencies.map((address, n) => ({ address, code: codes[n] }))); }
+    try { verifyTestnetRuntimeCodes(P.chainId, dependencies.map((address, n) => ({ address, code: codes[n] })), quote.feeTier); }
     catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
     if (![input, eth, allowance].every(v => uint(v)) || !uint(nonce, 64) || !uint(pending, 64)) return fail("TESTNET_STATE_INVALID");
     if (nonce !== pending) return fail("TESTNET_NONCE_CHANGED");
@@ -112,20 +112,20 @@ export class TestnetSwapPreparer {
     else if (approvalKind !== "ready") status = "approval-required";
     else {
       const [pool, state, spacing, deps] = await Promise.all([
-        source.getPool(P.feeTier, block.number), source.getPoolState(P.pool, block.number),
-        source.getTickSpacing(P.pool, block.number), source.getDependencyConfiguration(block.number),
+        source.getPool(quote.feeTier, block.number), source.getPoolState(quote.pool, block.number),
+        source.getTickSpacing(quote.pool, block.number), source.getDependencyConfiguration(block.number),
       ]);
       fresh();
-      if (!same(pool, P.pool) || !same(state.token0, C.USDC.address) || !same(state.token1, C.WETH.address)
-        || !same(state.factory, C.v3Factory) || state.fee !== P.feeTier || spacing !== 60
+      if (!same(pool, quote.pool) || !same(state.token0, C.USDC.address) || !same(state.token1, C.WETH.address)
+        || !same(state.factory, C.v3Factory) || state.fee !== quote.feeTier || spacing !== testnetDirectPool(quote.feeTier).tickSpacing
         || !uint(state.liquidity, 128) || state.liquidity === 0n || !uint(state.sqrtPriceX96, 160)
         || state.sqrtPriceX96 <= MIN_SQRT || state.sqrtPriceX96 >= MAX_SQRT
         || ![deps.router, deps.quoter, deps.manager].every(d => same(d.factory, C.v3Factory) && same(d.weth, C.WETH.address))
         || !same(deps.router.positionManager, C.v3PositionManager)) return fail("TESTNET_CONFIGURATION_INVALID");
-      const q = await source.quoteExactInput(i.tokenIn, i.tokenOut, BigInt(i.amountIn), P.feeTier, block.number);
+      const q = await source.quoteExactInput(i.tokenIn, i.tokenOut, BigInt(i.amountIn), quote.feeTier, block.number);
       fresh();
       const forward = same(i.tokenIn, C.USDC.address); const ratio = state.sqrtPriceX96 ** 2n; const Q192 = 2n ** 192n;
-      const spot = BigInt(i.amountIn) * 997000n * (forward ? ratio : Q192) / (1000000n * (forward ? Q192 : ratio));
+      const spot = BigInt(i.amountIn) * BigInt(1000000 - quote.feeTier) * (forward ? ratio : Q192) / (1000000n * (forward ? Q192 : ratio));
       if (spot <= 0n || !uint(q.amountOut) || q.amountOut === 0n || q.amountOut > spot
         || !uint(q.gasEstimate) || q.gasEstimate === 0n || !uint(q.sqrtPriceX96After, 160)
         || q.sqrtPriceX96After <= MIN_SQRT + 1n || q.sqrtPriceX96After >= MAX_SQRT - 1n

@@ -2,7 +2,7 @@
 import { TestnetActivity } from "./testnet-activity";
 import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent, parseTestnetSwapAmount, parseTestnetSlippage } from "@vezta-dex/core";
+import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_DIRECT_POOLS, parseTestnetSwapIntent, parseTestnetSwapAmount, parseTestnetSlippage } from "@vezta-dex/core";
 import { TestnetWalletController, type TestnetWallet, type TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
 import { createTestnetWalletClient } from "../lib/testnet-wallet-client";
 import { TestnetWalletReview } from "./testnet-wallet-review";
@@ -10,13 +10,14 @@ import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
 import { DemoSwapActions } from "./demo-swap-actions";
 import { DemoSwapInputs } from "./demo-swap-inputs";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
-export function TestnetWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "technical" | "demo" }) {
+export function TestnetWalletPanel({ executionEnabled, presentation = "technical", initialPoolFee }: { executionEnabled: boolean; presentation?: "technical" | "demo"; initialPoolFee?: number | null }) {
   const controller = useRef<TestnetWalletController | null>(null);
   const wallet = useRef<TestnetWallet | null>(null);
   const [state, setState] = useState<TestnetWalletSnapshot | null>(null);
   const [recoveryController, setRecoveryController] = useState<TestnetWalletController | null>(null);
   const [startup, setStartup] = useState("Loading wallet interface…");
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
+  const [routing, setRouting] = useState(initialPoolFee === null ? "invalid" : initialPoolFee === undefined ? "legacy" : String(initialPoolFee));
   const [amount, setAmount] = useState("1"); const [slippage, setSlippage] = useState("0.5"); const [now, setNow] = useState(0); const [switching, setSwitching] = useState(false);
   useEffect(() => {
     let alive = true;
@@ -56,13 +57,14 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   }
   let parsedAmount: string | null = null; let slippageBps: number | null = null;
   try { parsedAmount = parseTestnetSwapAmount(amount, direction === "forward" ? C.USDC.address : C.WETH.address); slippageBps = parseTestnetSlippage(slippage); } catch {}
-  const inputValid = parsedAmount !== null && slippageBps !== null;
+  const inputValid = parsedAmount !== null && slippageBps !== null && routing !== "invalid";
   async function quote() {
     if (!state?.account || !controller.current || !inputValid) return;
     await controller.current.quote(parseTestnetSwapIntent({ chainId: P.chainId, wallet: state.account,
       tokenIn: direction === "forward" ? C.USDC.address : C.WETH.address,
       tokenOut: direction === "forward" ? C.WETH.address : C.USDC.address,
-      amountIn: parsedAmount!, slippageBps: slippageBps! }));
+      amountIn: parsedAmount!, slippageBps: slippageBps!,
+      ...(routing === "best-direct" ? { routing: "best-direct" } : routing === "legacy" ? {} : { poolFeeTier: Number(routing) }) }));
   }
   function changeDirection(next: "forward" | "reverse") {
     controller.current?.invalidateInput(); setDirection(next); setAmount(next === "forward" ? "1" : "0.0001");
@@ -71,12 +73,12 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   return <div className={`testnet-demo-grid ${presentation === "demo" ? "recording-grid" : ""}`}>
     {presentation !== "demo" && <aside className="section-card testnet-explore" aria-label="Demo pool">
       <span className="eyebrow">EXPLORE · BASE SEPOLIA</span><h2>USDC / WETH</h2>
-      <p>Uniswap v3 · 0.3% fee pool</p><span className="badge badge-fresh">Test tokens only</span>
+      <p>Uniswap v3 · {state?.quote ? `${state.quote.quote.feeTier / 10000}% selected fee pool` : "0.3% original pool"}</p><span className="badge badge-fresh">Test tokens only</span>
       <dl className="demo-preview"><div><dt>Chain</dt><dd>Base Sepolia · 84532</dd></div>
-        <div><dt>Pool</dt><dd className="mono"><a href={`https://sepolia.basescan.org/address/${P.pool}`} target="_blank" rel="noreferrer">{P.pool}</a></dd></div>
+        <div><dt>Pool</dt><dd className="mono"><a href={`https://sepolia.basescan.org/address/${state?.quote?.quote.pool ?? P.pool}`} target="_blank" rel="noreferrer">{state?.quote?.quote.pool ?? P.pool}</a></dd></div>
         <div><dt>Source</dt><dd>{state?.quote ? "Base Sepolia RPC · verified quote" : "Curated pool · request quote to verify"}</dd></div>
         {state?.quote && <div><dt>Block</dt><dd>{state.quote.quote.blockNumber}</dd></div>}
-      </dl>{state?.quote && <details className="quote-provenance"><summary>Block provenance</summary><p className="mono">{state.quote.quote.blockHash}</p></details>}<p className="form-help">Testnet prices have no monetary value. This demo uses one pool; it does not aggregate best prices or display inferred APR.</p>
+      </dl>{state?.quote && <details className="quote-provenance"><summary>Block provenance</summary><p className="mono">{state.quote.quote.blockHash}</p></details>}<p className="form-help">Testnet prices have no monetary value. Swap settings can compare four curated direct pools; this is not global routing or inferred APR.</p>
       <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer">Get test USDC ↗</a>
     </aside>}
     <section className="section-card testnet-wallet" aria-label="Testnet wallet swap">
@@ -92,10 +94,19 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
             <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to Base Sepolia</button></div>}
           <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} onDirection={changeDirection} onAmount={changeAmount} />
           <details className="swap-review-options"><summary>Swap settings · {slippage}% slippage</summary>
+            <label className="form-label" htmlFor="testnet-routing">Routing preference</label>
+            <select className="field" id="testnet-routing" value={routing} disabled={busy} onChange={e => { controller.current?.invalidateInput(); setRouting(e.target.value); }}>
+              {routing === "invalid" && <option value="invalid">Invalid pool selection · choose a route</option>}
+              <option value="legacy">Pinned pool · 0.3% (original)</option>
+              <option value="best-direct">Compare direct pools · greatest output</option>
+              {TESTNET_DIRECT_POOLS.map(p => <option key={p.feeTier} value={p.feeTier}>Selected pool · {p.feeTier / 10000}%</option>)}
+            </select>
+            <p className="form-help">Comparison excludes failed checks and impact above 1%. Selection uses output before gas; a reviewed quote never reroutes.</p>
             <label className="form-label" htmlFor="testnet-slippage">Slippage tolerance (%)</label>
             <input className="field" id="testnet-slippage" inputMode="decimal" maxLength={6} value={slippage} disabled={busy} onChange={e => { controller.current?.invalidateInput(); setSlippage(e.target.value); }} />
             <p className="form-help">Allowed: 0.05%–1%. Lower tolerance may cause a revert; higher tolerance permits a lower received amount.</p>
           </details>
+          {routing === "invalid" && <p role="alert" className="form-error">The pool URL is invalid. Choose a curated routing preference in Swap settings.</p>}
           {!inputValid && <p role="alert" className="form-error">Enter a positive amount within the testnet cap, using at most {direction === "forward" ? 6 : 18} decimals, and slippage from 0.05% to 1%.</p>}
           {slippageBps !== null && slippageBps > P.slippageBps && <p className="form-help">Your selected slippage allows more price movement than the default 0.5%.</p>}
           {presentation !== "demo" && <button className="button testnet-quote-button" disabled={busy || !state.account || !inputValid} onClick={() => void quote()}>Get wallet quote</button>}

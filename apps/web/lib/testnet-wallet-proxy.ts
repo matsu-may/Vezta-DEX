@@ -1,7 +1,7 @@
 import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { historicalTestnetApprovalRequestSchema, parseHistoricalTestnetApprovalResponse } from "./testnet-wallet-historical";
 import { z } from "zod";
-import { parseTestnetSwapIntent } from "@vezta-dex/core";
+import { parseTestnetSwapIntent, testnetRouteComparisonSchema } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
 import { parseTestnetWalletQuote, walletReviewSchema, walletObservationResponseSchema, walletHash } from "./testnet-wallet-contracts";
 import { testnetDemoEnabled } from "./testnet-demo-gate";
@@ -42,7 +42,7 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
       if (!upstream.ok) return json({ error: "Testnet action unavailable", code: safeTestnetCode(typeof raw === "object" && raw !== null && "code" in raw ? raw.code : undefined) }, [400, 409, 410, 413, 415, 429, 503].includes(upstream.status) ? upstream.status : 503);
       const enabled = testnetDemoEnabled(env);
       if (action === "quote") {
-        const parsed = z.object({ quote: z.unknown(), quoteId: id, priceImpactBps: z.number().int().min(0).max(100), qualification: z.object({ configurationVerified: z.literal(true), runtimeVerified: z.literal(true), executionEnabled: z.boolean() }).strict() }).strict().parse(raw);
+        const parsed = z.object({ quote: z.unknown(), quoteId: id, priceImpactBps: z.number().int().min(0).max(100), comparison: testnetRouteComparisonSchema.optional(), qualification: z.object({ configurationVerified: z.literal(true), runtimeVerified: z.literal(true), executionEnabled: z.boolean() }).strict() }).strict().parse(raw);
         const checked = parseTestnetWalletQuote(parsed, parseTestnetSwapIntent(body), now());
         return json({ ...parsed, quote: checked.quote, qualification: { ...parsed.qualification, executionEnabled: enabled && parsed.qualification.executionEnabled } });
       }

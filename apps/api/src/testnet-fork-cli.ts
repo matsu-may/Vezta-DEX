@@ -4,6 +4,7 @@ import { startOwnedTestnetAnvil } from "./testnet-fork-process";
 import { runTestnetForkLifecycle } from "./testnet-fork-lifecycle";
 import { forkAssert } from "./testnet-fork";
 import { parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
+import { parseTestnetForkRouting } from "./testnet-fork-routing";
 
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
@@ -14,6 +15,7 @@ process.once("SIGINT", interrupt); process.once("SIGTERM", interrupt);
 const report = (row: Record<string, unknown>) => process.stdout.write(`${JSON.stringify(row)}\n`);
 let stage = "upstream-read";
 async function run() {
+  const routing = parseTestnetForkRouting(process.argv.slice(2));
   // At 1–2 RPS the unchanged quote+preparation pipeline cannot fit the original 30s TTL.
   forkAssert(parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS) >= 3, "FORK_RPC_BUDGET_LOW");
   const url = process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
@@ -27,7 +29,7 @@ async function run() {
   const fork = await startOwnedTestnetAnvil(controller.signal, { url, block: block.number });
   try {
     stage = "lifecycle";
-    await runTestnetForkLifecycle(fork, block, controller.signal, report);
+    await runTestnetForkLifecycle(fork, block, controller.signal, report, routing);
   } finally { await fork.stop(); report({ stage: "owned-anvil-stopped", localOnly: true }); }
 }
 void run().catch(error => {

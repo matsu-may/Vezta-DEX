@@ -1,8 +1,8 @@
 import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { z } from "zod";
 import { getAddress, type Hex } from "viem";
-import { parseTestnetSwapIntent, parseTestnetSwapQuote, inspectTestnetSwapTransaction, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY as P, testnetFeeFieldsSchema, sameTestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
+import { parseTestnetSwapIntent, testnetSwapIntentFromQuote, parseTestnetSwapQuote, inspectTestnetSwapTransaction, planTestnetTokenApproval,
+  TESTNET_SWAP_POLICY as P, testnetRouteComparisonSchema, type TestnetRouteComparison, testnetFeeFieldsSchema, sameTestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
 
 export const walletUint = z.string().regex(/^(0|[1-9][0-9]{0,77})$/).refine(v => BigInt(v) < 2n ** 256n);
 export const walletHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/).refine(v => BigInt(v) > 0n);
@@ -18,16 +18,23 @@ export const walletActionSchema = z.object({ contextId: id, kind: z.enum(["swap"
   chainId: z.literal(P.chainId), transaction: txSchema, quoteExpiresAt: z.iso.datetime(),
   trackingExpiresAt: z.iso.datetime(), executionEnabled: z.boolean() }).strict();
 export type TestnetWalletAction = z.infer<typeof walletActionSchema>;
-export type TestnetWalletQuote = { quoteId: string; quote: TestnetSwapQuote; executionEnabled: boolean };
+export type TestnetWalletQuote = { quoteId: string; quote: TestnetSwapQuote; executionEnabled: boolean; comparison?: TestnetRouteComparison };
 export function parseTestnetWalletQuote(value: unknown, intent: TestnetSwapIntent, now: number): TestnetWalletQuote {
   const response = z.object({ quoteId: id, quote: z.unknown(), priceImpactBps: z.number().int().min(0).max(100),
+    comparison: testnetRouteComparisonSchema.optional(),
     qualification: z.object({ configurationVerified: z.literal(true), runtimeVerified: z.literal(true), executionEnabled: z.boolean() }) }).parse(value);
   const quote = parseTestnetSwapQuote(response.quote, now); bindIntent(intent, quote);
-  return { quoteId: response.quoteId, quote, executionEnabled: response.qualification.executionEnabled };
+  if (quote.routing === "best-direct") {
+    bound(!!response.comparison);
+    const candidates = response.comparison!.candidates.filter(c => c.status === "qualified")
+      .sort((a,b) => BigInt(a.amountOut) > BigInt(b.amountOut) ? -1 : BigInt(a.amountOut) < BigInt(b.amountOut) ? 1 : a.feeTier - b.feeTier);
+    bound(candidates[0].feeTier === quote.feeTier && candidates[0].amountOut === quote.amountOut);
+  } else bound(!response.comparison);
+  return { quoteId: response.quoteId, quote, executionEnabled: response.qualification.executionEnabled,
+    ...(response.comparison ? { comparison: response.comparison } : {}) };
 }
 function bindIntent(intent: TestnetSwapIntent, quote: TestnetSwapQuote) {
-  bound(JSON.stringify(parseTestnetSwapIntent(intent)) === JSON.stringify(parseTestnetSwapIntent({ chainId: quote.chainId,
-    wallet: quote.wallet, tokenIn: quote.tokenIn, tokenOut: quote.tokenOut, amountIn: quote.amountIn, slippageBps: quote.slippageBps })));
+  bound(JSON.stringify(parseTestnetSwapIntent(intent)) === JSON.stringify(testnetSwapIntentFromQuote(quote)));
 }
 function inspectAction(action: TestnetWalletAction, intent: TestnetSwapIntent, quote: TestnetSwapQuote, now: number) {
   bindIntent(intent, quote); const tx = action.transaction;

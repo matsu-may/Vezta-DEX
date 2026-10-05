@@ -4,7 +4,7 @@ import { OtherTestnetSubmissionError, requireNoOtherTestnetSubmission } from "./
 import { TestnetBrowserError } from "./testnet-wallet-client";
 import { testnetActionMessage } from "./testnet-browser-errors";
 import { getAddress, toHex, type Address } from "viem";
-import { classifyTestnetWalletCode, testnetRpcFeeFields, parseTestnetSwapIntent, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, BASE_SEPOLIA_CANDIDATE as C, type TestnetSwapIntent } from "@vezta-dex/core";
+import { classifyTestnetWalletCode, testnetRpcFeeFields, parseTestnetSwapIntent, testnetSwapIntentFromQuote, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P, BASE_SEPOLIA_CANDIDATE as C, type TestnetSwapIntent } from "@vezta-dex/core";
 import { parseTestnetWalletQuote, parseTestnetWalletReview, parseTestnetWalletObservation, parseTestnetSubmission, walletHash,
   type TestnetWalletQuote, type TestnetWalletAction, type TestnetSubmission } from "./testnet-wallet-contracts";
 import { TESTNET_SUBMISSION_KEY, readTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission,
@@ -139,8 +139,7 @@ export class TestnetWalletController {
   }); }
   async review(kind: "approval" | "swap") { return this.run(async () => {
     this.free(); require(kind === "approval" || kind === "swap"); const q = this.current(); const g = this.generation;
-    const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
-      tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
+    const intent = testnetSwapIntentFromQuote(q.quote);
     this.publish({ action: null, review: null }); await this.walletCheck(intent.wallet, g);
     const raw = await this.api.call("recheck", { kind, intent, quoteId: q.quoteId }); this.generationCheck(g);
     const checked = parseTestnetWalletReview(raw, q, kind, this.now());
@@ -155,8 +154,7 @@ export class TestnetWalletController {
       action.kind === "swap" ? "swap" : "approval", this.now());
     checkReview();
     await this.walletCheck(q.quote.wallet, g); this.current(); checkReview(); require(this.executionAllowed());
-    const intent = parseTestnetSwapIntent({ chainId: q.quote.chainId, wallet: q.quote.wallet, tokenIn: q.quote.tokenIn,
-      tokenOut: q.quote.tokenOut, amountIn: q.quote.amountIn, slippageBps: q.quote.slippageBps });
+    const intent = testnetSwapIntentFromQuote(q.quote);
     const original = parseTestnetSubmission({ version: 1, intent, quote: q.quote, action, attemptedAt: this.now(), hash: null });
     requireNoOtherTestnetSubmission(this.storage, "swap");
     writeTestnetSubmission(this.storage, original); this.publish({ submission: original, review: null, quote: null, action: null, stage: "uncertain" });

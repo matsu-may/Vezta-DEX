@@ -1,3 +1,4 @@
+import { TESTNET_DIRECT_POOLS } from "./testnet-swap-pools";
 import { concatHex, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData,
   hashStruct, padHex, parseAbi, recoverTypedDataAddress, toHex, type Address, type Hex } from "viem";
 
@@ -87,7 +88,7 @@ function requireSwapBalances(single: SingleExecution, owner: Address, expected: 
   const swap = call.args[0];
   if (!(same(swap.tokenIn, C.USDC.address) && same(swap.tokenOut, C.WETH.address)
     || same(swap.tokenIn, C.WETH.address) && same(swap.tokenOut, C.USDC.address))
-    || !same(swap.recipient, owner) || swap.fee !== P.feeTier || swap.amountIn === 0n
+    || !same(swap.recipient, owner) || !TESTNET_DIRECT_POOLS.some(p => p.feeTier === swap.fee) || swap.amountIn === 0n
     || swap.amountOutMinimum === 0n || swap.sqrtPriceLimitX96 !== 0n) return invalid();
   const [native, output, input] = single.delegation.caveats;
   const word = (n: bigint) => padHex(toHex(n), { size: 32 });

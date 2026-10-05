@@ -3,7 +3,7 @@ import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { inspectTestnetSwapTransaction, parseTestnetSwapIntent, parseTestnetSwapQuote, planTestnetTokenApproval,
+import { inspectTestnetSwapTransaction, parseTestnetSwapIntent, testnetSwapIntentFromQuote, parseTestnetSwapQuote, planTestnetTokenApproval,
   TESTNET_SWAP_POLICY as P, testnetFeeFieldsSchema, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
 import type { TestnetQuoteStore } from "./testnet-quote-store";
 import type { TestnetApprovalReader } from "./testnet-approval";
@@ -38,8 +38,7 @@ const contextSchema = z.object({ kind: z.enum(["swap", "approve", "reset"]), int
   contextId: z.string().regex(/^[a-f0-9]{48}$/), issuedAt: z.number().int().nonnegative(),
   trackingExpiresAt: z.number().int().nonnegative(), quoteExpiresAt: z.iso.datetime(),
   originalHash: z.string().regex(/^0x[0-9a-f]{64}$/).refine(v => BigInt(v) > 0n).nullable(), submissionAttempted: z.boolean() }).strict();
-const quoteIntent = (q: TestnetSwapQuote) => parseTestnetSwapIntent({ chainId: q.chainId, wallet: q.wallet,
-  tokenIn: q.tokenIn, tokenOut: q.tokenOut, amountIn: q.amountIn, slippageBps: q.slippageBps });
+const quoteIntent = testnetSwapIntentFromQuote;
 
 function validateInput(value: TestnetActionInput, now: number): TestnetActionInput {
   try {
