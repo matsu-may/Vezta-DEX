@@ -33,18 +33,18 @@ automatically accept these new behaviors on the public chain.
 - Complete snapshot fee budgets remain estimates. L2 receipt gas cost is not
   complete charged fees, and relayer gas cost is not automatically a wallet debit.
 
-## Phase status, 2026-10-05
+## Phase status, 2026-10-06
 
 | Phase | Status | Remaining |
 |---|---|---|
 | 1 | Complete | None |
 | 2 | Implemented, local verification passed | One public custom amount/slippage swap |
-| 3 | Implemented, local verification passed | Small custom-range public mint, read/increase/decrease/collect |
+| 3 | Implemented, local verification passed; custom-range fork mint gas estimation timed out | Small custom-range public mint, read/increase/decrease/collect; custom-range fork receipt evidence remains unqualified |
 | 4 | Implemented, local verification passed | Owner browse/filter/detail delta check |
 | 5 | Implemented, local verification passed | Owner activity/reload/account isolation check; complete charged fees separately unqualified |
 | 6 | Local gates/review passed, handoff prepared | Owner delta acceptance; publication is separate |
 | 7 | Implemented; independent runtime, unit, fork and browser checks passed | Owner comparison/selected-pool wallet delta acceptance; public receipt evidence for newly selected pools |
-| 8 | Read-only feasibility measured on two candidates | Owner chain choice, independent runtime/fee/finality qualification and adapter |
+| 8 | Read-only feasibility measured on two candidates; shared read client and adapter boundary prepared | Owner chain choice, independent runtime/fee/finality qualification and adapter |
 
 ## Verification
 
@@ -105,6 +105,22 @@ or execution qualification in this project yet. Recommend Unichain for OP Stack
 adapter reuse; Ethereum broadens coverage to L1 with a different fee adapter.
 Owner choice is pending; no second chain was activated. Measurements, primary
 sources and next steps: [feasibility report](2026-10-05-second-testnet-feasibility.md).
+
+## Final independent checks, 2026-10-06
+
+See the [current evidence and limits](2026-10-06-independent-checks-progress.md).
+The LP fork harness now carries opt-in custom ticks through approval rounds and
+checks NFT/restart range identity. Two bounded live attempts passed exact
+approvals but timed out at mint gas estimation; neither produced a custom-range
+mint receipt. This does not change the historical full-range acceptance.
+
+A bounded read-only receipt-fee CLI validates chain/transaction/canonical block
+identity and leaves missing components unknown. The historical swap probe has
+L2/L1 fields but no operator fee; complete charged fees remain unqualified.
+Base now consumes the shared read transport. Fresh review caught and regression
+tests fixed both exposed-request and mutable-queued-input allowlist bypasses.
+Phase 8 activation still awaits owner choice; the existing Base product remains
+the target of one consolidated owner acceptance pass.
 
 ## Trust-boundary extensions
 

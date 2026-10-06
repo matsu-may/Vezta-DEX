@@ -5,6 +5,8 @@ import { runTestnetLpWalletFork } from "./testnet-lp-wallet-fork-lifecycle";
 import { forkAssert } from "./testnet-fork";
 import { parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
+import { parseLpWalletForkOptions } from "./testnet-lp-fork-range";
+
 const envFile = new URL("../.env", import.meta.url);
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 const controller = new AbortController();
@@ -14,6 +16,7 @@ process.once("SIGINT", interrupt); process.once("SIGTERM", interrupt);
 const report = (row: Record<string, unknown>) => process.stdout.write(`${JSON.stringify(row)}\n`);
 let stage = "upstream-read";
 async function run() {
+  const options = parseLpWalletForkOptions(process.argv.slice(2));
   // Keep the qualified local fixture within bounded RPC/service timeouts.
   forkAssert(parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS) >= 3, "FORK_RPC_BUDGET_LOW");
   const url = process.env.BASE_SEPOLIA_RPC_URL ?? "https://sepolia.base.org";
@@ -27,7 +30,7 @@ async function run() {
   const fork = await startOwnedTestnetAnvil(controller.signal, { url, block: block.number });
   try {
     stage = "lifecycle";
-    await runTestnetLpWalletFork(fork, block, controller.signal, report);
+    await runTestnetLpWalletFork(fork, block, controller.signal, report, options);
   } finally { await fork.stop(); report({ stage: "owned-anvil-stopped", localOnly: true }); }
 }
 void run().catch(error => {

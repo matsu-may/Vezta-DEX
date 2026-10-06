@@ -50,7 +50,7 @@ remain separate. Discovery on another chain does not prove multi-chain execution
 
 - [x] Phase 1: current-state documentation reconciled; latest checkpoint overrides dated historical pending statements.
 - [x] Phase 2: flexible amounts/slippage implemented; integer/calldata/UI checks pass. New public wallet acceptance pending.
-- [x] Phase 3: custom-range LP implemented; SDK comparison, intent/calldata/boundary/UI checks pass. New custom-range public mint acceptance pending; no new custom-range fork run claimed.
+- [x] Phase 3 implementation: custom-range LP implemented; SDK comparison, intent/calldata/boundary/UI checks pass. Two custom-range fork attempts reached exact approvals but mint gas estimation timed out; successful custom-range fork/public receipt evidence remains pending.
 - [x] Phase 4: multi-pool discovery and eligibility/navigation verified; separately proven curated swap pools are enabled only through fresh qualification; LP remains 0.3%.
 - [x] Phase 5: local activity and fee presentation verified. L2 actual costs remain distinct from estimated total budgets; complete charged L1/operator fees are still unqualified.
 - [ ] Phase 6: independent review and local quality gates passed; delta acceptance/release handoff must be closed by owner before marking the milestone complete.
@@ -71,6 +71,16 @@ Implementation and delta owner guide are recorded in
 Phase 7 preparation selected direct qualified pools under the existing router;
 pool source/template reuse does not waive per-address immutable/runtime proofs.
 Phase 8 requires a measured second-chain qualification and the explicit owner choice.
+
+## Checkpoint 2026-10-06
+
+The [final independent check plan](2026-10-06-final-independent-checks.md) adds
+custom-range fork coverage, a bounded fee evidence CLI and shared read transport.
+The [progress report](../../research/2026-10-06-independent-checks-progress.md)
+records actual passes and the unresolved mint estimate timeout. Do not repeat
+independent diagnostics as owner acceptance steps. Use the single delta guide
+once; defer second-chain activation until the owner chooses it. Complete charged
+fee accounting is not claimed from partial receipt fields.
 The old Base Sepolia acceptance remains accepted; test only the changed behaviors.
 
 Phase 7 execution/evidence: `2026-10-05-direct-pool-routing.md` and

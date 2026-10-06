@@ -1,13 +1,15 @@
 import type { Address } from "viem";
-import { testnetLpIntentSchema, type TestnetLpIntent, type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
+import { testnetLpIntentSchema, testnetLpRangeSchema, type TestnetLpRange, type TestnetLpIntent, type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
 import { forkAssert } from "./testnet-fork";
 export interface LpWalletForkSteps {
   owner: Address;
+  range?: TestnetLpRange;
   study(intent: TestnetLpIntent): Promise<TestnetLpStudy>;
   execute(study: TestnetLpStudy): Promise<TestnetLpReceipt>;
 }
 /** Bounded local-fixture sequence. Each action uses the actual study/recheck/receipt implementation. */
 export async function runTestnetLpWalletForkSteps(io: LpWalletForkSteps): Promise<string> {
+  const range = io.range === undefined ? undefined : testnetLpRangeSchema.parse(io.range);
   let tokenId: string | null = null;
   const perform = async (value: TestnetLpIntent) => {
     const intent = testnetLpIntentSchema.parse(value);
@@ -27,7 +29,7 @@ export async function runTestnetLpWalletForkSteps(io: LpWalletForkSteps): Promis
     forkAssert(false, "FORK_LP_WALLET_APPROVAL_LOOP");
   };
   const base = { chainId: 84532 as const, wallet: io.owner };
-  await perform({ ...base, kind: "mint", amount0Cap: "1000000", amount1Cap: "50000000000000000" });
+  await perform({ ...base, kind: "mint", ...(range ? { range } : {}), amount0Cap: "1000000", amount1Cap: "50000000000000000" });
   forkAssert(tokenId, "FORK_LP_WALLET_NFT_INVALID");
   await perform({ ...base, kind: "increase", tokenId, amount0Cap: "100000", amount1Cap: "50000000000000000" });
   await perform({ ...base, kind: "decrease", tokenId, percentage: 50 });

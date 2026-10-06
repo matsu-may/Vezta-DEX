@@ -13,11 +13,12 @@ import { sendReviewedForkTransaction } from "./testnet-fork-send";
 import { withForkSnapshot } from "./testnet-fork-snapshot";
 import { mineFreshForkBlock } from "./testnet-fork-clock";
 import type { startOwnedTestnetAnvil } from "./testnet-fork-process";
+import { customLpForkRange } from "./testnet-lp-fork-range";
 import { classifyTestnetRpcFailure } from "./testnet-rpc-diagnostics";
 const owner = "0x1111111111111111111111111111111111111111" as const;
 const same = (a: string | null, b: string) => a?.toLowerCase() === b.toLowerCase();
 export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof startOwnedTestnetAnvil>>,
-  upstream: { number: bigint; hash: string; timestamp: bigint }, signal: AbortSignal, report: (row: Record<string, unknown>) => void) {
+  upstream: { number: bigint; hash: string; timestamp: bigint }, signal: AbortSignal, report: (row: Record<string, unknown>) => void, options: { customRange?: boolean } = {}) {
   const { client, origin, boundary } = fork;
   const mutate = (method: string, params: readonly unknown[]) => guardedForkRequest(boundary, origin, method, params, () => signal.throwIfAborted());
   let rpcFailureReported = false;
@@ -65,7 +66,11 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
       const store = new TestnetLpWalletStore(directory); const wallet = new TestnetLpWallet(source, store);
       const receipt = new TestnetLpWalletReceiptReader(source, store);
       const fresh = async () => { const b = await reads.getLatestBlock(); await mineFreshForkBlock(boundary, origin, b.timestamp, signal); };
-      let restartVerified = false;
+      const observedPool = await reads.getLpPoolState(warm.number);
+      const range = options.customRange ? customLpForkRange(observedPool.tick) : undefined;
+      if (range) await Promise.all([reads.getFeeGrowthOutside(range.tickLower,warm.number), reads.getFeeGrowthOutside(range.tickUpper,warm.number)]);
+      if (range) report({ stage:"custom-range-fixture", ...range, observedTick:observedPool.tick, localOnly:true });
+      let restartVerified = false; let rangeChecks = 0; let mintRestartVerified = false;
       const execute = async (review: TestnetLpStudy) => {
         report({ stage:"action-recheck", actionKind:review.actionKind, localOnly:true });
         const checked = await wallet.recheck({ contextId: review.contextId });
@@ -76,10 +81,22 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
         await client.waitForTransactionReceipt({ hash: hash as Hex, timeout:30000, retryCount:0 }); await fresh();
         const observation = await receipt.observe({ contextId:checked.contextId, hash });
         forkAssert(observation.status === "confirmed" && observation.verified && BigInt(observation.confirmations) >= 2n, "FORK_LP_WALLET_RECEIPT_INVALID");
-        if (!restartVerified) {
+        if (range && ["mint","increase","decrease","collect"].includes(checked.actionKind)) {
+          forkAssert(observation.tokenId, "FORK_LP_WALLET_NFT_INVALID");
+          const nft = await reads.getPosition(BigInt(observation.tokenId), BigInt(observation.receiptBlockNumber!));
+          forkAssert(nft.tickLower === range.tickLower && nft.tickUpper === range.tickUpper, "FORK_LP_WALLET_RANGE_INVALID");
+          rangeChecks++;
+          report({ stage:"custom-range-verified", actionKind:checked.actionKind, tokenId:observation.tokenId, ...range, localOnly:true });
+        }
+        if (!restartVerified || (range && checked.actionKind === "mint")) {
           const restarted = new TestnetLpWalletReceiptReader(source, new TestnetLpWalletStore(directory));
           const recovered = await restarted.observe({ contextId:checked.contextId, hash });
           forkAssert(recovered.verified && recovered.hash === observation.hash && recovered.contextId === observation.contextId, "FORK_LP_WALLET_RESTART_INVALID");
+          if (range && checked.actionKind === "mint") {
+            forkAssert(recovered.intent.kind === "mint" && recovered.intent.range?.tickLower === range.tickLower
+              && recovered.intent.range?.tickUpper === range.tickUpper, "FORK_LP_WALLET_RANGE_RECOVERY_INVALID");
+            mintRestartVerified = true;
+          }
           restartVerified = true;
           report({ stage:"restart-recovery", localOnly:true, verified:true, originalHashBound:true });
         }
@@ -88,7 +105,7 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
           actualTotalFeeQualified:false });
         return observation;
       };
-      const tokenId = await runTestnetLpWalletForkSteps({ owner, async study(intent) {
+      const tokenId = await runTestnetLpWalletForkSteps({ owner, ...(range ? {range} : {}), async study(intent) {
         await fresh(); report({ stage:"action-study", actionKind:intent.kind, localOnly:true });
         return wallet.study({ intent });
       }, execute });
@@ -97,7 +114,8 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
       forkAssert(await reads.getPositionCount(owner,end.number) === 0n && await reads.getPositionOwnerOrNull(BigInt(tokenId),end.number) === null, "FORK_LP_WALLET_BURN_INVALID");
       const allowances = await Promise.all([C.USDC.address,C.WETH.address].map(a => reads.getTokenAllowance(a,owner,C.v3PositionManager,end.number)));
       forkAssert(allowances.every(a => a === 0n) && restartVerified, "FORK_LP_WALLET_FINAL_INVALID");
-      report({ stage:"burn-and-clear", localOnly:true, burned:true, allowancesCleared:true, restartVerified });
+      if (range) forkAssert(rangeChecks === 5 && mintRestartVerified, "FORK_LP_WALLET_RANGE_INCOMPLETE");
+      report({ stage:"burn-and-clear", customRangeVerified:!!range, mintRestartVerified, localOnly:true, burned:true, allowancesCleared:true, restartVerified });
     });
   } finally { rmSync(directory,{recursive:true,force:true}); }
   report({ status:"testnet-lp-wallet-fork-lifecycle-local-only", chainId:84532, verified:true, snapshotReverted:true,

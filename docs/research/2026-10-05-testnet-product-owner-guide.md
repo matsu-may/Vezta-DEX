@@ -4,6 +4,12 @@ Các luồng cũ bạn đã xác nhận pass vẫn được ghi nhận. Hướng
 số tiền/slippage tùy chọn, range LP, Explore nhiều pool, routing và lịch sử mới. Chỉ dùng
 test token trên **Base Sepolia 84532**. Frontend Vercel hiện tại chưa nhận bản này.
 
+Cập nhật 06/10: hướng dẫn này vẫn là **một vòng nghiệm thu chung**. RPC client
+và công cụ đọc phí đã được kiểm tra độc lập; bạn không cần chạy lại các lệnh
+chẩn đoán. Fork custom range vẫn timeout khi estimate gas mint và chưa có receipt
+đạt; ghi rõ giới hạn này trong báo cáo, không coi là pass. Việc thêm chain thứ
+hai cần lựa chọn riêng; chưa có chain mới để kiểm tra trong vòng Base này.
+
 ## 1. Mở bản mới
 
 Code đã kiểm tra nằm trên nhánh `codex/testnet-product-completion` trong worktree

@@ -1,5 +1,6 @@
-import { BaseError, ContractFunctionRevertedError, createPublicClient, erc20Abi, http, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
-  type Address, type Transport } from "viem";
+import { BaseError, ContractFunctionRevertedError, erc20Abi, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
+  type Address } from "viem";
+import { createTestnetReadClient } from "./testnet-read-client";
 import { baseSepolia } from "viem/chains";
 import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
@@ -11,7 +12,7 @@ import type { BaseSepoliaLpWalletSource } from "./testnet-lp-wallet";
 import type { BaseSepoliaLpSource } from "./testnet-lp-position";
 import type { BaseSepoliaReceiptSource } from "./testnet-receipt";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
-import { baseSepoliaRpcPacers, parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
+import { parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
 const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
@@ -54,35 +55,6 @@ const feeOracleAbi = parseAbi(["function isFjord() view returns (bool)", "functi
   "function getL1FeeUpperBound(uint256 unsignedSize) view returns (uint256)",
   "function getOperatorFee(uint256 gasUsed) view returns (uint256)"]);
 
-// Bound bytes before JSON decoding, including chunked or incorrectly declared bodies.
-const RPC_RESPONSE_BYTE_LIMIT = 1048576;
-class RpcResponseTooLargeError extends Error {
-  constructor() { super("Base Sepolia RPC response exceeds byte limit"); this.name = "RpcResponseTooLargeError"; }
-}
-async function readRpcBody(response: Response, signal?: AbortSignal | null) {
-  signal?.throwIfAborted();
-  if (Number(response.headers.get("content-length")) > RPC_RESPONSE_BYTE_LIMIT) {
-    void response.body?.cancel().catch(() => {});
-    throw new RpcResponseTooLargeError();
-  }
-  if (!response.body) return new Uint8Array(0);
-  const reader = response.body.getReader();
-  const cancel = () => { void reader.cancel().catch(() => {}); };
-  signal?.addEventListener("abort", cancel, { once: true });
-  const body = new Uint8Array(RPC_RESPONSE_BYTE_LIMIT); let size = 0;
-  try {
-    while (true) {
-      signal?.throwIfAborted();
-      const { done, value } = await reader.read();
-      signal?.throwIfAborted();
-      if (done) break;
-      if (value.byteLength > RPC_RESPONSE_BYTE_LIMIT - size) { cancel(); throw new RpcResponseTooLargeError(); }
-      body.set(value, size); size += value.byteLength;
-    }
-    return body.subarray(0, size);
-  } finally { signal?.removeEventListener("abort", cancel); reader.releaseLock(); }
-}
-
 export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource & BaseSepoliaLpWalletSource & BaseSepoliaLpReceiptSource {
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
@@ -90,24 +62,7 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
     && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("Base Sepolia RPC requires HTTPS or loopback HTTP");
   }
-  const pacer = baseSepoliaRpcPacers.get(url, parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS));
-  const transport: Transport = options => {
-    const inner = http(rpcUrl, { timeout: 8_000, retryCount: 0,
-      // viem's timeout surrounds fetchFn, otherwise ending when headers arrive.
-      // Consume the body here so stalled bodies cannot retain both shared slots.
-      fetchFn: async (input, init) => {
-        const requestSignal = signal
-          ? init?.signal ? AbortSignal.any([signal, init.signal]) : signal : init?.signal;
-        const response = await fetch(input, { ...init, signal: requestSignal });
-        const body = await readRpcBody(response, requestSignal);
-        return new Response([204, 205, 304].includes(response.status) ? null : body,
-          { status: response.status, statusText: response.statusText, headers: response.headers });
-      } })(options);
-    // Queue before the HTTP transport starts its per-request network timeout.
-    return { ...inner, request: (args, requestOptions) =>
-      pacer.run(() => inner.request(args, requestOptions), signal) };
-  };
-  const client = createPublicClient({ chain: baseSepolia, transport });
+  const client = createTestnetReadClient(rpcUrl, baseSepolia, signal, parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS));
   const quoteExactInput: BaseSepoliaSwapSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",
