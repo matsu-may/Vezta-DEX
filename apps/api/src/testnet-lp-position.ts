@@ -1,6 +1,6 @@
 import { Pool, Position, TickMath, Token } from "./uniswap-lp-sdk";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpRequestSchema,
-  parseTestnetLpPage, type TestnetLpRequest, type Address } from "@vezta-dex/core";
+  parseTestnetLpPage, testnetChainConfig, type TestnetChainId, type TestnetLpRequest, type Address } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
 export interface LpNftState {
@@ -25,25 +25,27 @@ const uint = (n: bigint, bits = 256) => typeof n === "bigint" && n >= 0n && n < 
 const mod = (n: bigint) => BigInt.asUintN(256, n);
 export class TestnetLpError extends Error { constructor(readonly code: string) { super(code); } }
 export function lpAssert(ok: unknown, code = "TESTNET_LP_STATE_INVALID"): asserts ok { if (!ok) throw new TestnetLpError(code); }
-export function lpSdkPool(s: LpPoolState) {
+export function lpSdkPool(s: LpPoolState, chainId: TestnetChainId = 84532) {
+  const C = testnetChainConfig(chainId).candidate;
   lpAssert(same(s.token0, C.USDC.address) && same(s.token1, C.WETH.address) && same(s.factory, C.v3Factory)
     && s.fee === 3000 && uint(s.liquidity, 128) && Number.isInteger(s.tick) && s.tick >= -887272 && s.tick < 887272
     && s.sqrtPriceX96 >= BigInt(TickMath.getSqrtRatioAtTick(s.tick).toString())
     && s.sqrtPriceX96 <= BigInt(TickMath.getSqrtRatioAtTick(s.tick + 1).toString())
     && s.sqrtPriceX96 > BigInt(TickMath.MIN_SQRT_RATIO.toString()) && s.sqrtPriceX96 < BigInt(TickMath.MAX_SQRT_RATIO.toString()));
-  return new Pool(new Token(84532, C.USDC.address, 6, "USDC"), new Token(84532, C.WETH.address, 18, "WETH"),
+  return new Pool(new Token(chainId, C.USDC.address, 6, "USDC"), new Token(chainId, C.WETH.address, 18, "WETH"),
     3000, s.sqrtPriceX96.toString(), s.liquidity.toString(), s.tick);
 }
-export function lpSdkPosition(p: LpNftState, s: LpPoolState) {
+export function lpSdkPosition(p: LpNftState, s: LpPoolState, chainId: TestnetChainId = 84532) {
+  const C = testnetChainConfig(chainId).candidate;
   lpAssert(same(p.token0, C.USDC.address) && same(p.token1, C.WETH.address) && p.fee === 3000
     && Number.isInteger(p.tickLower) && Number.isInteger(p.tickUpper) && p.tickLower >= -887220 && p.tickUpper <= 887220
     && p.tickLower < p.tickUpper && p.tickLower % 60 === 0 && p.tickUpper % 60 === 0 && uint(p.liquidity, 128)
     && uint(p.tokensOwed0, 128) && uint(p.tokensOwed1, 128)
     && uint(p.feeGrowthInside0LastX128) && uint(p.feeGrowthInside1LastX128));
-  return new Position({ pool: lpSdkPool(s), liquidity: p.liquidity.toString(), tickLower: p.tickLower, tickUpper: p.tickUpper });
+  return new Position({ pool: lpSdkPool(s,chainId), liquidity: p.liquidity.toString(), tickLower: p.tickLower, tickUpper: p.tickUpper });
 }
-export function calculateLpAmounts(p: LpNftState, s: LpPoolState, lower: LpFeeOutside, upper: LpFeeOutside) {
-  const pos = lpSdkPosition(p, s);
+export function calculateLpAmounts(p: LpNftState, s: LpPoolState, lower: LpFeeOutside, upper: LpFeeOutside, chainId: TestnetChainId = 84532) {
+  const pos = lpSdkPosition(p, s,chainId);
   lpAssert([s.feeGrowthGlobal0X128, s.feeGrowthGlobal1X128, ...Object.values(lower), ...Object.values(upper)].every(v => uint(v)));
   const fees = (global: bigint, lo: bigint, hi: bigint, last: bigint) => {
     const below = s.tick >= p.tickLower ? lo : mod(global - lo);

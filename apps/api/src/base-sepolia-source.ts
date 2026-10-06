@@ -1,8 +1,8 @@
 import { BaseError, ContractFunctionRevertedError, erc20Abi, parseAbi, size, TransactionNotFoundError, TransactionReceiptNotFoundError,
   type Address } from "viem";
 import { createTestnetReadClient } from "./testnet-read-client";
-import { baseSepolia } from "viem/chains";
-import { BASE_SEPOLIA_CANDIDATE, TESTNET_SWAP_POLICY } from "@vezta-dex/core";
+import { baseSepolia, unichainSepolia } from "viem/chains";
+import { testnetChainConfig } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaApprovalSource } from "./testnet-approval";
@@ -14,7 +14,6 @@ import type { BaseSepoliaReceiptSource } from "./testnet-receipt";
 import { TESTNET_FEE_ORACLE, serializeTestnetFeeEnvelope, TestnetFeeError } from "./testnet-fees";
 import { parseBaseSepoliaRpcRps } from "./testnet-rpc-pacer";
 
-const C = BASE_SEPOLIA_CANDIDATE;
 const factoryAbi = [{ type: "function", name: "getPool", stateMutability: "view", inputs: [
   { type: "address" }, { type: "address" }, { type: "uint24" },
 ], outputs: [{ type: "address" }] }] as const;
@@ -55,14 +54,26 @@ const feeOracleAbi = parseAbi(["function isFjord() view returns (bool)", "functi
   "function getL1FeeUpperBound(uint256 unsignedSize) view returns (uint256)",
   "function getOperatorFee(uint256 gasUsed) view returns (uint256)"]);
 
-export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource & BaseSepoliaLpWalletSource & BaseSepoliaLpReceiptSource {
+export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortSignal, localFixtureRps?: 6) {
+  return createTestnetChainSource(84532, rpcUrl, signal, localFixtureRps);
+}
+
+export function createTestnetChainSource(chainId: unknown, rpcUrl: string, signal?: AbortSignal, localFixtureRps?: 6): BaseSepoliaSwapSource & BaseSepoliaWalletSource & BaseSepoliaApprovalSource & BaseSepoliaPreparationSource & BaseSepoliaReceiptSource & BaseSepoliaLpSource & BaseSepoliaLpWalletSource & BaseSepoliaLpReceiptSource {
+  const config = testnetChainConfig(chainId);
+  const C = config.candidate, P = config.policy;
   let url: URL;
   try { url = new URL(rpcUrl); } catch { throw new Error("Invalid Base Sepolia RPC URL"); }
   if (url.protocol !== "https:" && !(url.protocol === "http:"
     && ["localhost", "127.0.0.1"].includes(url.hostname))) {
     throw new Error("Base Sepolia RPC requires HTTPS or loopback HTTP");
   }
-  const client = createTestnetReadClient(rpcUrl, baseSepolia, signal, parseBaseSepoliaRpcRps(process.env.BASE_SEPOLIA_RPC_RPS));
+  if (localFixtureRps !== undefined && (localFixtureRps !== 6 || url.protocol !== "http:"
+    || url.hostname !== "127.0.0.1" || !url.port || url.username || url.password
+    || url.pathname !== "/" || url.search || url.hash)) {
+    throw new Error("Fixture read budget requires an explicit loopback origin");
+  }
+  const client = createTestnetReadClient(rpcUrl, config.policy.chainId === 84532 ? baseSepolia : unichainSepolia, signal,
+    localFixtureRps ?? parseBaseSepoliaRpcRps(process.env[config.policy.chainId === 84532 ? "BASE_SEPOLIA_RPC_RPS" : "UNICHAIN_SEPOLIA_RPC_RPS"]));
   const quoteExactInput: BaseSepoliaSwapSource["quoteExactInput"] = async (tokenIn, tokenOut, amountIn, fee, blockNumber) => {
     const { result } = await client.simulateContract({ address: C.v3QuoterV2,
       abi: quoterAbi, functionName: "quoteExactInputSingle",
@@ -98,7 +109,7 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
         feeGrowthInside0LastX128: p[8], feeGrowthInside1LastX128: p[9], tokensOwed0: p[10], tokensOwed1: p[11] };
     },
     async getLpPoolState(blockNumber) {
-      const address = TESTNET_SWAP_POLICY.pool;
+      const address = P.pool;
       const [token0, token1, factory, fee, liquidity, slot0, feeGrowthGlobal0X128, feeGrowthGlobal1X128] = await Promise.all([
         client.readContract({ address, abi: poolAbi, functionName: "token0", blockNumber }),
         client.readContract({ address, abi: poolAbi, functionName: "token1", blockNumber }),
@@ -112,7 +123,7 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
       return { token0, token1, factory, fee, liquidity, sqrtPriceX96: slot0[0], tick: slot0[1], feeGrowthGlobal0X128, feeGrowthGlobal1X128 };
     },
     async getFeeGrowthOutside(tick, blockNumber) {
-      const row = await client.readContract({ address: TESTNET_SWAP_POLICY.pool, abi: growthAbi, functionName: "ticks", args: [tick], blockNumber });
+      const row = await client.readContract({ address: P.pool, abi: growthAbi, functionName: "ticks", args: [tick], blockNumber });
       return { feeGrowthOutside0X128: row[2], feeGrowthOutside1X128: row[3] };
     },
     async getTransaction(hash) {
@@ -145,6 +156,7 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
         data: transaction.data, value: 0n, blockNumber });
     },
     async getAdditionalFees(transaction, nonce, gas, gasPrice, blockNumber) {
+      if (transaction.chainId !== config.policy.chainId) throw new TestnetFeeError();
       const serialized = serializeTestnetFeeEnvelope(transaction, nonce, gas, gasPrice);
       const [code, fjord, jovian] = await Promise.all([
         client.getCode({ address: TESTNET_FEE_ORACLE, blockNumber }),
@@ -215,8 +227,8 @@ export function createBaseSepoliaPreflightSource(rpcUrl: string, signal?: AbortS
         return { factory, weth };
       };
       const [router, positionManager, quoter, manager] = await Promise.all([
-        periphery(TESTNET_SWAP_POLICY.router),
-        client.readContract({ address: TESTNET_SWAP_POLICY.router, abi: configurationAbi,
+        periphery(P.router),
+        client.readContract({ address: P.router, abi: configurationAbi,
           functionName: "positionManager", blockNumber }),
         periphery(C.v3QuoterV2), periphery(C.v3PositionManager),
       ]);

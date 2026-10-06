@@ -1,7 +1,7 @@
 import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
-  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields, testnetDirectPool } from "@vezta-dex/core";
+  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields, testnetDirectPool } from "@vezta-dex/core";
 import { parseTestnetApprovalRequest } from "./testnet-approval";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
@@ -11,8 +11,8 @@ import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { planTestnetSourceGas, testnetGasFeeFields, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
 export interface BaseSepoliaPreparationSource extends BaseSepoliaWalletSource, BaseSepoliaSwapSource, TestnetFeeSource {
-  simulateTestnetSwap(transaction: TestnetSwapTransaction, block: bigint): Promise<Hex>;
-  estimateTestnetSwapGas(transaction: TestnetSwapTransaction, block: bigint): Promise<bigint>;
+  simulateTestnetSwap(transaction: TestnetSwapTransaction<TestnetChainId>, block: bigint): Promise<Hex>;
+  estimateTestnetSwapGas(transaction: TestnetSwapTransaction<TestnetChainId>, block: bigint): Promise<bigint>;
   getGasPrice(): Promise<bigint>;
 }
 type RequestBody = ReturnType<typeof parseTestnetApprovalRequest>;

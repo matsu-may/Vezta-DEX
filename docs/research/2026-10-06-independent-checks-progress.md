@@ -1,5 +1,7 @@
 # Independent checks before one owner acceptance pass
 
+**Later update:** the custom-range fork now passes the complete lifecycle; chain 2 qualification and compatibility findings are in the [full-testnet session report](2026-10-06-full-testnet-session.md). Earlier timeout evidence below is historical.
+
 Base: `08d405c`; branch `codex/testnet-product-completion`; original checkout
 and recovery untouched. No push, deploy, public signing, new dependency or UI
 behavior change in this session. The owner will check all product deltas once.

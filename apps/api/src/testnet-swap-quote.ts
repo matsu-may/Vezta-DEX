@@ -1,5 +1,4 @@
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  parseTestnetSwapQuote, TESTNET_DIRECT_POOLS, testnetDirectPool, type Address, type TestnetSwapIntent } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId, type TestnetChainSwapIntent, type Address } from "@vezta-dex/core";
 import type { BaseSepoliaDepthSource } from "./base-sepolia-depth";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -26,17 +25,22 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const hasCode = (code: string) => /^0x(?:[0-9a-fA-F]{2})+$/.test(code);
 const fail = (code: QuoteErrorCode): never => { throw new TestnetQuoteError(code); };
 
-export class TestnetSwapQuoteReader {
+export class TestnetSwapQuoteReader<I extends TestnetChainId = 84532> {
   private busy = false;
-  readonly store: TestnetQuoteStore;
+  private readonly domain;
+  private readonly config;
+  readonly store: TestnetQuoteStore<I>;
   constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaSwapSource,
-    store?: TestnetQuoteStore, private readonly now = Date.now) {
-    this.store = store ?? new TestnetQuoteStore(now);
+    store?: TestnetQuoteStore<I>, private readonly now = Date.now, private readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId);
+    this.domain = createTestnetSwapDomain(chainId);
+    if (store && store.chainId !== chainId) throw new Error("Testnet quote store chain mismatch");
+    this.store = store ?? new TestnetQuoteStore(now,128,chainId);
   }
 
   async read(value: unknown) {
-    let intent: TestnetSwapIntent;
-    try { intent = parseTestnetSwapIntent(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
+    let intent: TestnetChainSwapIntent<I>;
+    try { intent = this.domain.parseTestnetSwapIntent(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
     if (this.busy) return fail("TESTNET_QUOTE_BUSY");
     this.busy = true;
     const controller = new AbortController();
@@ -58,7 +62,10 @@ export class TestnetSwapQuoteReader {
     }
   }
 
-  private async probe(source: BaseSepoliaSwapSource, i: TestnetSwapIntent, signal: AbortSignal) {
+  private async probe(source: BaseSepoliaSwapSource, i: TestnetChainSwapIntent<I>, signal: AbortSignal) {
+    const C = this.config.candidate, P = { ...this.config.policy, chainId: this.chainId };
+    const TESTNET_DIRECT_POOLS = this.config.pools;
+    const testnetDirectPool = (fee: number) => { const p = TESTNET_DIRECT_POOLS.find(p => p.feeTier === fee); if (!p) return fail("TESTNET_INTENT_INVALID"); return p; };
     if (await source.getChainId() !== P.chainId) return fail("TESTNET_WRONG_CHAIN");
     signal.throwIfAborted();
     const block = await source.getLatestBlock();
@@ -86,6 +93,7 @@ export class TestnetSwapQuoteReader {
     let walletKind: ReturnType<typeof classifyTestnetWalletCode>;
     try { walletKind = classifyTestnetWalletCode(walletCode); } catch { return fail("TESTNET_EOA_REQUIRED"); }
     if (walletKind === "metamask-delegated") {
+      if (this.chainId !== 84532) return fail("TESTNET_EOA_REQUIRED");
       try { await verifyTestnetMetaMaskRuntime(source, block.number); } catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
       freshness();
     }
@@ -131,10 +139,10 @@ export class TestnetSwapQuoteReader {
     const { selected, q, impact } = qualified[0];
     if (!same(await source.getBlockHash(block.number), block.hash)) return fail("TESTNET_BLOCK_CHANGED");
     freshness();
-    const quote = parseTestnetSwapQuote({ ...i, protocol: "v3", pool: selected.pool, feeTier: selected.feeTier, quoteTtlSeconds: P.demoQuoteTtlSeconds,
+    const quote = this.domain.parseTestnetSwapQuote({ ...i, protocol: "v3", pool: selected.pool, feeTier: selected.feeTier, quoteTtlSeconds: P.demoQuoteTtlSeconds,
       amountOut: q.amountOut.toString(), minimumAmountOut: (q.amountOut * BigInt(10000 - i.slippageBps) / 10000n).toString(),
       blockNumber: block.number.toString(), blockHash: block.hash,
-      observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: "base-sepolia-rpc" }, this.now());
+      observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: this.config.source }, this.now());
     return { quote, priceImpactBps: impact,
       ...(i.routing === "best-direct" ? { comparison: { attemptedPoolCount: candidates.length, qualifiedPoolCount: qualified.length,
         candidates: results.map((r, index) => r.status === "fulfilled"

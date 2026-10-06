@@ -1,12 +1,12 @@
 import { isAddress, serializeTransaction, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapTransaction } from "@vezta-dex/core";
+import { testnetChainConfig, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapTransaction, type TestnetChainId } from "@vezta-dex/core";
 
 export const TESTNET_FEE_ORACLE = "0x420000000000000000000000000000000000000F" as const;
 export interface TestnetAdditionalFees { l1FeeUpperBound: bigint; operatorFeeUpperBound: bigint; fork: "jovian" }
 export interface TestnetFeeSource {
   getEip1559Fees?(block: bigint): Promise<{ baseFeePerGas: bigint; maxPriorityFeePerGas: bigint }>;
   getBlockBaseFee?(block: bigint): Promise<bigint>;
-  getAdditionalFees(transaction: TestnetSwapTransaction & Partial<TestnetFeeFields>, nonce: bigint, gas: bigint,
+  getAdditionalFees(transaction: TestnetSwapTransaction<TestnetChainId> & Partial<TestnetFeeFields>, nonce: bigint, gas: bigint,
     gasPrice: bigint, block: bigint): Promise<TestnetAdditionalFees>;
 }
 export interface TestnetGasPlan {
@@ -41,7 +41,10 @@ export function planTestnetGas(estimate: bigint, price: bigint, kind: "approval"
   return { estimatedGas: estimate, gasLimit, gasPrice: price * 2n };
 }
 
-export function serializeTestnetFeeEnvelope(transaction: TestnetSwapTransaction & Partial<TestnetFeeFields>, nonce: bigint, gas: bigint, price: bigint): Hex {
+export function serializeTestnetFeeEnvelope(transaction: TestnetSwapTransaction<TestnetChainId> & Partial<TestnetFeeFields>, nonce: bigint, gas: bigint, price: bigint): Hex {
+  let config;
+  try { config=testnetChainConfig(transaction.chainId); } catch { throw new TestnetFeeError(); }
+  const C=config.candidate,P=config.policy;
   if (transaction.chainId !== P.chainId || transaction.value !== "0" || !isAddress(transaction.from)
     || ![C.USDC.address, C.WETH.address, P.router, C.v3PositionManager].some(a => a.toLowerCase() === transaction.to.toLowerCase())
     || !/^0x(?:[0-9a-fA-F]{2})+$/.test(transaction.data) || transaction.data.length > 4096

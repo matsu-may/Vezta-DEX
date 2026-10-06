@@ -2,7 +2,7 @@ import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { z } from "zod";
 import type { Hex } from "viem";
 import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetFeeFields } from "@vezta-dex/core";
+  planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields } from "@vezta-dex/core";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -10,8 +10,8 @@ import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { planTestnetSourceGas, testnetGasFeeFields, completeTestnetFeeBudget, TestnetFeeError, type TestnetFeeSource } from "./testnet-fees";
 
 export interface BaseSepoliaApprovalSource extends BaseSepoliaWalletSource, TestnetFeeSource {
-  simulateApproval(transaction: TestnetSwapTransaction, block: bigint): Promise<Hex>;
-  estimateApprovalGas(transaction: TestnetSwapTransaction, block: bigint): Promise<bigint>;
+  simulateApproval(transaction: TestnetSwapTransaction<TestnetChainId>, block: bigint): Promise<Hex>;
+  estimateApprovalGas(transaction: TestnetSwapTransaction<TestnetChainId>, block: bigint): Promise<bigint>;
   getGasPrice(): Promise<bigint>;
 }
 const requestSchema = z.object({ intent: z.unknown(), quoteId: z.string().regex(/^[a-f0-9]{48}$/) }).strict();

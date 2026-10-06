@@ -11,6 +11,14 @@ const manifest = [
   { address: P.pool, bytes: 22142, hash: "0xbbda0bdc9da3fd1f4832633a5ea75dc401ca24fdbca3d64a2511f27583ec7c4d" },
   { address: C.v3PositionManager, bytes: 24384, hash: "0x60f3e548ae28f43dfdedd281dc9233b7135dcae55050662c985583df84bc453d" },
 ] as const;
+// Independently rebuilt at Unichain Sepolia block 64442961; see its qualification report.
+const unichainManifest = [
+  {"address": "0xd1AAE39293221B77B0C71fBD6dCb7Ea29Bb5B166", "bytes": 24497, "hash": "0xceed0c7f9c5b1c86d921ec39bded0c3572851c79b897e26a8c20253924eace4a"},
+  {"address": "0x6Dd37329A1A225a6Fca658265D460423DCafBF89", "bytes": 8273, "hash": "0xd833dcf44a912014423afa2b637f23b5db5b7dc492494cbe3f46026a6d57b424"},
+  {"address": "0x1F98431c8aD98523631AE4a59f267346ea31F984", "bytes": 24535, "hash": "0x4d7b8525cd5d14343fa67a732fba5b24cddba11620ca88392f4ec6c52f91fd69"},
+  {"address": "0x8F463126bBEA80A10DF9Bf6FF5455B6B0292B34e", "bytes": 22142, "hash": "0xec1beb2b94bc86f304e78f73d50a5f72c19e5b85d84dba92ccc2f9f24928ab5f"},
+  {"address": "0xB7F724d6dDDFd008eFf5cc2834edDE5F9eF0d075", "bytes": 24384, "hash": "0x2b99f74250bd7af732819905f69c8ecdfb9a230f7cbd82c531c67b7b683df818"},
+] as const;
 export class TestnetRuntimeError extends Error {
   readonly code = "TESTNET_RUNTIME_MISMATCH";
   constructor() { super("TESTNET_RUNTIME_MISMATCH"); }
@@ -25,10 +33,11 @@ const poolHashes: Record<number, string> = {
 };
 export function verifyTestnetRuntimeCodes(chainId: number, codes: unknown, feeTier: number = 3000): void {
   const fail = (): never => { throw new TestnetRuntimeError(); };
-  if (chainId !== 84532 || !Array.isArray(codes) || codes.length !== 5) return fail();
+  if (![84532,1301].includes(chainId) || !Array.isArray(codes) || codes.length !== 5) return fail();
+  if (chainId === 1301 && feeTier !== 3000) return fail();
   let selected;
   try { selected = testnetDirectPool(feeTier); } catch { return fail(); }
-  const expected = manifest.map(p => p.address === P.pool
+  const expected = chainId === 1301 ? unichainManifest : manifest.map(p => p.address === P.pool
     ? { address: selected.pool, bytes: 22142, hash: poolHashes[feeTier] } : p);
   const seen = new Set<string>();
   for (const row of codes) {

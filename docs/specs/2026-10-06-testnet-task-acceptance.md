@@ -25,7 +25,9 @@ The existing size, impact and slippage limits stay explicit. AMM/CLMM/DLMM
 mechanisms belong in the knowledge documentation; this scope does not require
 implementing a new AMM, a DLMM protocol or custom Solidity contracts.
 
-## Remaining work at checkpoint 13d8ed1
+## Historical remaining work at checkpoint 13d8ed1
+
+Superseded status: the [new session checkpoint](../research/2026-10-06-full-testnet-session.md) records the passing custom-range lifecycle, selected Unichain qualification and pending wallet-model decision. The historical list below explains the earlier checkpoint.
 
 1. Resolve the custom-range local-fork mint gas-estimation timeout and obtain
    successful range/NFT/lifecycle/restart evidence. Unit/browser coverage and

@@ -1,7 +1,7 @@
 import { CurrencyAmount, Percent, NonfungiblePositionManager as Manager, Position } from "./uniswap-lp-sdk";
 import { decodeFunctionData, encodeFunctionData, erc20Abi, getAddress, parseAbi, type Address, type Hex } from "viem";
 import { z } from "zod";
-import { BASE_SEPOLIA_CANDIDATE as C } from "@vezta-dex/core";
+import { testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { lpAssert, lpSdkPool, lpSdkPosition, type LpNftState, type LpPoolState } from "./testnet-lp-position";
 export const lpManagerAbi = parseAbi([
   "function mint((address token0,address token1,uint24 fee,int24 tickLower,int24 tickUpper,uint256 amount0Desired,uint256 amount1Desired,uint256 amount0Min,uint256 amount1Min,address recipient,uint256 deadline) params) payable returns (uint256 tokenId,uint128 liquidity,uint256 amount0,uint256 amount1)",
@@ -13,6 +13,8 @@ export const lpManagerAbi = parseAbi([
 ]);
 const amount = z.string().regex(/^(0|[1-9][0-9]{0,77})$/).refine(v => BigInt(v) < 2n ** 256n);
 const positive = amount.refine(v => BigInt(v) > 0n);
+function planSchema(chainId: TestnetChainId) {
+  const C = testnetChainConfig(chainId).candidate;
 const wallet = z.string().transform(v => getAddress(v)).refine(v => ![C.v3PositionManager, C.USDC.address, C.WETH.address, "0x0000000000000000000000000000000000000000"].some(a => a.toLowerCase() === v.toLowerCase()));
 const caps = { amount0Cap: amount.refine(v => BigInt(v) <= 5000000n), amount1Cap: amount.refine(v => BigInt(v) <= 50000000000000000n), deadline: positive };
 const schema = z.discriminatedUnion("kind", [
@@ -22,28 +24,32 @@ const schema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("collect"), wallet, tokenId: positive }).strict(),
   z.object({ kind: z.literal("burn"), wallet, tokenId: positive }).strict(),
 ]);
-export interface LpPlan {
+  return schema;
+}
+export interface LpPlan<I extends TestnetChainId = 84532> {
   kind: "mint" | "increase" | "decrease" | "collect" | "burn";
-  transaction: { chainId: 84532; from: Address; to: Address; data: Hex; value: "0" };
+  transaction: { chainId: I; from: Address; to: Address; data: Hex; value: "0" };
   amount0Desired?: string; amount1Desired?: string; amount0Minimum?: string; amount1Minimum?: string;
   liquidity?: string; executionEnabled: false;
 }
 // Internal unsigned planning only. Caller must qualify pinned runtime/state/ownership before invoking.
 // This function is deliberately not a public HTTP execution endpoint.
-export function planTestnetLp(value: unknown, state: { pool: LpPoolState; position?: LpNftState; actualOwner?: Address }, nowSeconds: number, ttlSeconds = 30): LpPlan {
+export function planTestnetLp<I extends TestnetChainId = 84532>(value: unknown, state: { pool: LpPoolState; position?: LpNftState; actualOwner?: Address }, nowSeconds: number, ttlSeconds = 30, chainId: I = 84532 as I): LpPlan<I> {
+  const C = testnetChainConfig(chainId).candidate;
+  const schema = planSchema(chainId);
   const i = schema.parse(value); lpAssert(Number.isSafeInteger(nowSeconds) && nowSeconds > 0 && (ttlSeconds === 30 || ttlSeconds === 120));
-  const pool = lpSdkPool(state.pool);
+  const pool = lpSdkPool(state.pool,chainId);
   let original: Position | undefined;
   if (i.kind !== "mint") {
     lpAssert(state.position && state.actualOwner?.toLowerCase() === i.wallet.toLowerCase(), "TESTNET_LP_OWNER_CHANGED");
-    original = lpSdkPosition(state.position, state.pool);
+    original = lpSdkPosition(state.position, state.pool,chainId);
   }
   if ("deadline" in i) lpAssert(BigInt(i.deadline) > BigInt(nowSeconds) && BigInt(i.deadline) <= BigInt(nowSeconds + ttlSeconds), "TESTNET_LP_DEADLINE_INVALID");
   const tolerance = new Percent(50, 10000);
   const collectOptions = { recipient: i.wallet,
     expectedCurrencyOwed0: CurrencyAmount.fromRawAmount(pool.token0, state.position?.tokensOwed0.toString() ?? "0"),
     expectedCurrencyOwed1: CurrencyAmount.fromRawAmount(pool.token1, state.position?.tokensOwed1.toString() ?? "0") };
-  let data: Hex; const details: Omit<LpPlan, "transaction" | "kind" | "executionEnabled"> = {};
+  let data: Hex; const details: Omit<LpPlan<I>, "transaction" | "kind" | "executionEnabled"> = {};
   const unwrap = (calldata: string) => {
     const decoded = decodeFunctionData({ abi: lpManagerAbi, data: calldata as Hex });
     return decoded.functionName === "multicall" ? [...decoded.args[0]] : [calldata as Hex];
@@ -100,9 +106,10 @@ export function planTestnetLp(value: unknown, state: { pool: LpPoolState; positi
     lpAssert(state.position!.liquidity === 0n && state.position!.tokensOwed0 === 0n && state.position!.tokensOwed1 === 0n, "TESTNET_LP_BURN_BLOCKED");
     data = encodeFunctionData({ abi: lpManagerAbi, functionName: "burn", args: [BigInt(i.tokenId)] });
   }
-  return { kind: i.kind, transaction: { chainId: 84532, from: i.wallet, to: C.v3PositionManager, data, value: "0" }, ...details, executionEnabled: false };
+  return { kind: i.kind, transaction: { chainId, from: i.wallet, to: C.v3PositionManager, data, value: "0" }, ...details, executionEnabled: false };
 }
-export function planLpApprovals(plan: LpPlan, allowances: { USDC: bigint; WETH: bigint }) {
+export function planLpApprovals<I extends TestnetChainId>(plan: LpPlan<I>, allowances: { USDC: bigint; WETH: bigint }) {
+  const C = testnetChainConfig(plan.transaction.chainId).candidate;
   lpAssert((plan.kind === "mint" || plan.kind === "increase") && plan.amount0Desired !== undefined && plan.amount1Desired !== undefined);
   return (["USDC", "WETH"] as const).map((token, n) => {
     const current = allowances[token]; const desired = BigInt(n === 0 ? plan.amount0Desired! : plan.amount1Desired!);
@@ -110,7 +117,7 @@ export function planLpApprovals(plan: LpPlan, allowances: { USDC: bigint; WETH: 
     if (current === desired) return { token, kind: "ready" as const, amount: desired.toString(), transaction: null };
     const amount = current !== 0n ? 0n : desired;
     return { token, kind: current !== 0n ? "reset" as const : "approve" as const, amount: amount.toString(), transaction: {
-      chainId: 84532 as const, from: plan.transaction.from, to: C[token].address, value: "0" as const,
+      chainId: plan.transaction.chainId, from: plan.transaction.from, to: C[token].address, value: "0" as const,
       data: encodeFunctionData({ abi: erc20Abi, functionName: "approve", args: [C.v3PositionManager, amount] }),
     } };
   });

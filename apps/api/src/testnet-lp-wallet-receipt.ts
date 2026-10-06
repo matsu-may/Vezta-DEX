@@ -2,8 +2,8 @@ import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./test
 import { verifyMetaMaskExecution } from "./testnet-metamask-execution";
 import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 import { decodeEventLog, erc20Abi, parseAbi, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpReceiptRequestSchema, parseTestnetLpReceipt,
-  TESTNET_METAMASK as M, classifyTestnetWalletCode, type TestnetLpReceipt, type TestnetLpStudy } from "@vezta-dex/core";
+import { createTestnetLpDomain, testnetChainConfig, testnetLpReceiptRequestSchema,
+  TESTNET_METAMASK as M, classifyTestnetWalletCode, type TestnetChainId, type TestnetChainLpReceipt, type TestnetChainLpStudy } from "@vezta-dex/core";
 import type { BaseSepoliaReceiptSource, TestnetObservedReceipt } from "./testnet-receipt";
 import { TestnetLpError, lpAssert, lpSdkPosition, type BaseSepoliaLpSource } from "./testnet-lp-position";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -27,7 +27,8 @@ export interface BaseSepoliaLpReceiptSource extends BaseSepoliaReceiptSource,Bas
   getPositionOwnerOrNull(id:bigint,block:bigint):Promise<`0x${string}`|null>;
 }
 interface ParsedEvent { eventName:string; args:Record<string,string|bigint|number> }
-function reviewEvents(study:TestnetLpStudy,r:TestnetObservedReceipt) {
+function reviewEvents(study:TestnetChainLpStudy,r:TestnetObservedReceipt) {
+  const config=testnetChainConfig(study.intent.chainId),C=config.candidate,P=config.policy;
   const manager:ParsedEvent[]=[],pool:ParsedEvent[]=[],transfers:{token:"USDC"|"WETH";from:string;to:string;value:bigint}[]=[],approvals:ParsedEvent[]=[];
   for(const l of r.logs) {
     lpAssert(!l.removed&&l.blockNumber===r.blockNumber&&same(l.blockHash,r.blockHash)&&same(l.transactionHash,r.transactionHash),"TESTNET_LP_EVENT_INVALID");
@@ -98,10 +99,15 @@ function reviewEvents(study:TestnetLpStudy,r:TestnetObservedReceipt) {
     &&e.args.value===BigInt(e.eventName==="USDC"?p.amount0Cap:p.amount1Cap)-(e.eventName==="USDC"?actual0:actual1),"TESTNET_LP_EVENT_INVALID");
   return {tokenId,amount0:actual0,amount1:actual1,liquidity};
 }
-export class TestnetLpWalletReceiptReader {
+export class TestnetLpWalletReceiptReader<I extends TestnetChainId = 84532> {
+  private readonly domain;
+  private readonly config;
   private busy=false;
-  constructor(private readonly createSource:(signal:AbortSignal)=>BaseSepoliaLpReceiptSource,private readonly store:TestnetLpWalletStore,private readonly now=Date.now){}
-  async observe(value:unknown):Promise<TestnetLpReceipt> {
+  constructor(private readonly createSource:(signal:AbortSignal)=>BaseSepoliaLpReceiptSource,private readonly store:TestnetLpWalletStore<I>,private readonly now=Date.now,private readonly chainId:I=84532 as I){
+    this.domain=createTestnetLpDomain(chainId);this.config=testnetChainConfig(chainId);
+    lpAssert(store.chainId===chainId,"TESTNET_LP_CONTEXT_INVALID");
+  }
+  async observe(value:unknown):Promise<TestnetChainLpReceipt<I>> {
     let query:ReturnType<typeof testnetLpReceiptRequestSchema.parse>;try{query=testnetLpReceiptRequestSchema.parse(value);}catch{throw new TestnetLpError("TESTNET_LP_REQUEST_INVALID");}
     const c=this.store.read(query.contextId);lpAssert(c.originalHash===null||same(c.originalHash,query.hash),"TESTNET_LP_CONTEXT_HASH_CHANGED");
     lpAssert(!this.busy,"TESTNET_LP_BUSY");this.busy=true;const controller=new AbortController();let timer:ReturnType<typeof setTimeout>|undefined;
@@ -110,14 +116,15 @@ export class TestnetLpWalletReceiptReader {
     })]);}catch(error){if(error instanceof TestnetLpError)throw error;throw new TestnetLpError("TESTNET_LP_RPC_UNAVAILABLE");}
     finally{clearTimeout(timer);controller.abort();this.busy=false;}
   }
-  private async probe(s:BaseSepoliaLpReceiptSource,study:TestnetLpStudy,hash:Hex,signal:AbortSignal):Promise<TestnetLpReceipt>{
-    lpAssert(await s.getChainId()===84532,"TESTNET_LP_WRONG_CHAIN");const head=await s.getLatestBlock();
+  private async probe(s:BaseSepoliaLpReceiptSource,study:TestnetChainLpStudy<I>,hash:Hex,signal:AbortSignal):Promise<TestnetChainLpReceipt<I>>{
+    const C=this.config.candidate,P=this.config.policy;
+    lpAssert(await s.getChainId()===this.chainId,"TESTNET_LP_WRONG_CHAIN");const head=await s.getLatestBlock();
     const fresh=()=>{signal.throwIfAborted();this.store.read(study.contextId!);const age=this.now()-Number(head.timestamp)*1000;
       lpAssert(Number.isSafeInteger(age)&&age>=-10000&&age<120000&&head.number>0n&&/^0x[a-fA-F0-9]{64}$/.test(head.hash)&&BigInt(head.hash)>0n,"TESTNET_LP_STALE");};fresh();
-    const base:TestnetLpReceipt={contextId:study.contextId!,hash,intent:study.intent,actionKind:study.actionKind,approvalToken:study.approvalToken,chainId:84532,
-      source:"base-sepolia-rpc",observedAt:new Date(Number(head.timestamp)*1000).toISOString(),blockNumber:head.number.toString(),blockHash:head.hash,
+    const base:TestnetChainLpReceipt<I>={contextId:study.contextId!,hash,intent:study.intent,actionKind:study.actionKind,approvalToken:study.approvalToken,chainId:this.chainId,
+      source:this.config.source,observedAt:new Date(Number(head.timestamp)*1000).toISOString(),blockNumber:head.number.toString(),blockHash:head.hash,
       receiptBlockNumber:null,receiptBlockHash:null,status:"unknown",confirmations:"0",diagnostic:null,verified:false,tokenId:null,amount0:"0",amount1:"0",actualTotalFeeQualified:false,executionEnabled:false};
-    const result=(status:TestnetLpReceipt["status"],diagnostic:TestnetLpReceipt["diagnostic"]=null)=>parseTestnetLpReceipt({...base,status,diagnostic},this.now());
+    const result=(status:TestnetChainLpReceipt<I>["status"],diagnostic:TestnetChainLpReceipt<I>["diagnostic"]=null)=>this.domain.parseTestnetLpReceipt({...base,status,diagnostic},this.now());
     const stable=async()=>{fresh();return same(await s.getBlockHash(head.number),head.hash);};
     const [tx,r]=await Promise.all([s.getTransaction(hash),s.getReceipt(hash)]);fresh();
     if(!tx)return await stable()?result(r?"unverified":"unknown",r?"transaction-unavailable":null):result("reorged");
@@ -126,12 +133,13 @@ export class TestnetLpWalletReceiptReader {
     if(same(tx.to,M.manager)&&same(tx.hash,hash)) {
       // Pending manager calldata does not yet prove canonical delegated execution.
       if(!r)return result("unverified");
+      if(this.chainId!==84532 || expected.chainId!==84532)return result("unverified","unsupported-transaction-type");
       try{relay=await verifyMetaMaskExecution(s,tx,r,expected);}
       catch{return result("unverified","transaction-mismatch");}
       fresh();
     } else {
       if(tx.type!=="legacy"&&tx.type!=="eip1559")return result("unverified","unsupported-transaction-type");
-      if(!same(tx.hash,hash)||tx.chainId!==84532||!same(tx.from,expected.from)||!same(tx.to,expected.to)||!same(tx.input,expected.data)||tx.value!==0n
+      if(!same(tx.hash,hash)||tx.chainId!==this.chainId||!same(tx.from,expected.from)||!same(tx.to,expected.to)||!same(tx.input,expected.data)||tx.value!==0n
         ||!Number.isSafeInteger(tx.nonce)||String(tx.nonce)!==expected.nonce||tx.gas!==BigInt(expected.gas)||!matchesTestnetFeeEnvelope(tx,expected))return result("unverified","transaction-mismatch");
     }
     // A typo or unknown candidate cannot poison recovery. Bind only a verified original envelope.
@@ -149,7 +157,7 @@ export class TestnetLpWalletReceiptReader {
     if(BigInt(base.confirmations)<2n)return result("confirming");
     if(r.status==="reverted") {
       if(r.logs.length!==0)return result("unverified","receipt-mismatch");
-      return parseTestnetLpReceipt({...base,status:"reverted",verified:true,tokenId:"tokenId" in study.intent ? study.intent.tokenId : null},this.now());
+      return this.domain.parseTestnetLpReceipt({...base,status:"reverted",verified:true,tokenId:"tokenId" in study.intent ? study.intent.tokenId : null},this.now());
     }
     if(r.status!=="success")return result("unverified","receipt-mismatch");
     let economics:ReturnType<typeof reviewEvents>;
@@ -159,9 +167,9 @@ export class TestnetLpWalletReceiptReader {
       const [codes,decimals,deps,poolAddress,spacing,walletCode]=await Promise.all([
         Promise.all(addresses.map(a=>s.getCode(a,r.blockNumber))),Promise.all([C.USDC.address,C.WETH.address].map(a=>s.getDecimals(a,r.blockNumber))),
         s.getDependencyConfiguration(r.blockNumber),s.getPool(3000,r.blockNumber),s.getTickSpacing(P.pool,r.blockNumber),s.getCode(study.intent.wallet,r.blockNumber),
-      ]);fresh();verifyTestnetRuntimeCodes(84532,addresses.map((address,index)=>({address,code:codes[index]})));
+      ]);fresh();verifyTestnetRuntimeCodes(this.chainId,addresses.map((address,index)=>({address,code:codes[index]})));
       const walletKind=classifyTestnetWalletCode(walletCode);
-      if(walletKind==="metamask-delegated")await verifyTestnetMetaMaskRuntime(s,r.blockNumber);
+      if(walletKind==="metamask-delegated"){lpAssert(this.chainId===84532,"TESTNET_LP_EOA_REQUIRED");await verifyTestnetMetaMaskRuntime(s,r.blockNumber);}
       lpAssert(decimals[0]===6&&decimals[1]===18&&same(poolAddress,P.pool)&&spacing===60
         &&same(deps.manager.factory,C.v3Factory)&&same(deps.manager.weth,C.WETH.address),"TESTNET_LP_STATE_INVALID");
       const kind=study.actionKind,p=study.plan;
@@ -174,7 +182,7 @@ export class TestnetLpWalletReceiptReader {
         if(kind==="burn")lpAssert(owner===null,"TESTNET_LP_STATE_INVALID");
         else {
           lpAssert(owner!==null&&same(owner,study.intent.wallet),"TESTNET_LP_STATE_INVALID");
-          const [nft,pool]=await Promise.all([s.getPosition(BigInt(economics.tokenId),r.blockNumber),s.getLpPoolState(r.blockNumber)]);lpSdkPosition(nft,pool);
+          const [nft,pool]=await Promise.all([s.getPosition(BigInt(economics.tokenId),r.blockNumber),s.getLpPoolState(r.blockNumber)]);lpSdkPosition(nft,pool,this.chainId);
           lpAssert(nft.tickLower===p.tickLower&&nft.tickUpper===p.tickUpper,"TESTNET_LP_STATE_INVALID");
           const before=BigInt(p.positionLiquidity);
           lpAssert(nft.liquidity===(kind==="mint"||kind==="increase"?before+economics.liquidity:kind==="decrease"?before-economics.liquidity:before),"TESTNET_LP_STATE_INVALID");
@@ -184,6 +192,6 @@ export class TestnetLpWalletReceiptReader {
       }
     }catch{return result("unverified","state-mismatch");}
     if(!same(await s.getBlockHash(r.blockNumber),r.blockHash)||!await stable())return result("reorged");fresh();
-    return parseTestnetLpReceipt({...base,status:"confirmed",verified:true,tokenId:economics.tokenId,amount0:economics.amount0.toString(),amount1:economics.amount1.toString()},this.now());
+    return this.domain.parseTestnetLpReceipt({...base,status:"confirmed",verified:true,tokenId:economics.tokenId,amount0:economics.amount0.toString(),amount1:economics.amount1.toString()},this.now());
   }
 }

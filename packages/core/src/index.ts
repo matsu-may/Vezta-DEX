@@ -116,8 +116,8 @@ export * from "./permit-signature";
 export * from "./transaction-receipt";
 export { BASE_SEPOLIA_CANDIDATE, BASE_SEPOLIA_CHAIN_ID } from "./testnet";
 export { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "./testnet-depth";
-export { TESTNET_SWAP_POLICY, testnetQuoteExpiresAt, buildTestnetSwapTransaction, inspectTestnetSwapTransaction,
-  planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, testnetSwapIntentFromQuote, type TestnetSwapIntent, type TestnetSwapQuote,
+export { createTestnetSwapDomain, TESTNET_SWAP_POLICY, testnetQuoteExpiresAt, buildTestnetSwapTransaction, inspectTestnetSwapTransaction,
+  planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, testnetSwapIntentFromQuote, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetChainSwapIntent, type TestnetChainSwapQuote,
   type TestnetSwapTransaction, type TestnetApprovalPlan } from "./testnet-swap";
 export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";
 
@@ -128,3 +128,5 @@ export * from "./hosted-config";
 export * from "./testnet-inputs";
 export * from "./testnet-lp-range";
 export * from "./testnet-swap-pools";
+
+export { TESTNET_CHAIN_CONFIGS, testnetChainConfig, type TestnetChainConfig, type TestnetChainId } from "./testnet-chain-config";

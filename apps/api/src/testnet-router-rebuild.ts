@@ -122,8 +122,9 @@ export function verifyTestnetPoolTemplate(value: unknown, snapshot: unknown, out
   return verifyCompiledRuntime("pool", policy("pool", selectedPool), prepared, output, compilerVersion, code);
 }
 
-function verifyCompiledRuntime(role: TestnetSwapDependencyRole, selected: RebuildPolicy,
-  prepared: ReturnType<typeof prepareTestnetSwapDependencyRebuild>, output: unknown, compilerVersion: unknown, onchainCode: string) {
+export function verifyCompiledRuntime<S extends { compilerVersion: string }>(role: TestnetSwapDependencyRole, selected: RebuildPolicy,
+  prepared: { summary: S; input: { sources: Record<string, { content: string }>; settings: Record<string, unknown> };
+    payload: { metadata: { sources: Record<string, { keccak256: string }> } } }, output: unknown, compilerVersion: unknown, onchainCode: string) {
   try {
     const result = object(output); const errors = result.errors ?? [];
     check(Array.isArray(errors) && errors.length <= 200);

@@ -2,15 +2,20 @@ import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { inspectTestnetLpTransaction, testnetLpStudySchema, type TestnetLpStudy } from "@vezta-dex/core";
+import { createTestnetLpDomain, type TestnetChainId, type TestnetChainLpStudy } from "@vezta-dex/core";
 import { TestnetLpError, lpAssert } from "./testnet-lp-position";
-const schema = z.object({ study: testnetLpStudySchema, state: z.string().max(8192), issuedAt: z.number().int().nonnegative(),
+function contextSchema<I extends TestnetChainId>(chainId:I) {
+  return z.object({ study: createTestnetLpDomain(chainId).testnetLpStudySchema, state: z.string().max(8192), issuedAt: z.number().int().nonnegative(),
   trackingExpiresAt: z.number().int().nonnegative(), originalHash: z.string().regex(/^0x[0-9a-f]{64}$/).nullable() }).strict();
-export type TestnetLpContext = z.infer<typeof schema>;
+}
+export type TestnetLpContext<I extends TestnetChainId = 84532> = z.infer<ReturnType<typeof contextSchema<I>>>;
 // One process only. Every mutation is persisted before returning; no signer material is stored.
-export class TestnetLpWalletStore {
-  private readonly entries = new Map<string,TestnetLpContext>();
-  constructor(private readonly directory?: string, private readonly now = Date.now, private readonly capacity = 128) {
+export class TestnetLpWalletStore<I extends TestnetChainId = 84532> {
+  private readonly schema;
+  private readonly domain;
+  private readonly entries = new Map<string,TestnetLpContext<I>>();
+  constructor(private readonly directory?: string, private readonly now = Date.now, private readonly capacity = 128, readonly chainId:I = 84532 as I) {
+    this.schema=contextSchema(chainId);this.domain=createTestnetLpDomain(chainId);
     lpAssert(Number.isInteger(capacity) && capacity > 0 && capacity <= 128,"TESTNET_LP_CONTEXT_INVALID");
     if (!directory) return;
     try {
@@ -25,12 +30,12 @@ export class TestnetLpWalletStore {
         // Never returned to a caller: discard only validated interrupted writes.
         // The last committed JSON remains the source for original-hash recovery.
         if (temporary) { unlinkSync(file); continue; }
-        const entry = schema.parse(JSON.parse(readFileSync(file,"utf8")));
+        const entry = this.schema.parse(JSON.parse(readFileSync(file,"utf8")));
         lpAssert(entry.study.contextId === name.slice(0,48) && entry.study.status === "prepared"
           && entry.trackingExpiresAt === entry.issuedAt + 86400000 && entry.issuedAt <= this.now() + 10000
           && (entry.originalHash === null || BigInt(entry.originalHash) > 0n),"TESTNET_LP_STORAGE_UNAVAILABLE");
         // Revalidate originally reviewed calldata at issuance, including expired reviews retained for receipt recovery.
-        inspectTestnetLpTransaction(entry.study,entry.issuedAt);
+        this.domain.inspectTestnetLpTransaction(entry.study,entry.issuedAt);
         if (entry.trackingExpiresAt <= this.now()) unlinkSync(file);
         else this.entries.set(entry.study.contextId!,entry);
       }
@@ -45,25 +50,25 @@ export class TestnetLpWalletStore {
       this.entries.delete(id);
     }
   }
-  private save(id: string,c: TestnetLpContext) {
+  private save(id: string,c: TestnetLpContext<I>) {
     if (!this.directory) { this.entries.set(id,structuredClone(c)); return; }
     const temp = join(this.directory,`${id}.${randomBytes(8).toString("hex")}.tmp`); let fd: number|undefined;
     try {
-      fd = openSync(temp,"wx",0o600); writeFileSync(fd,JSON.stringify(schema.parse(c))); fsyncSync(fd); closeSync(fd); fd=undefined;
+      fd = openSync(temp,"wx",0o600); writeFileSync(fd,JSON.stringify(this.schema.parse(c))); fsyncSync(fd); closeSync(fd); fd=undefined;
       renameSync(temp,join(this.directory,`${id}.json`));
       fd = openSync(this.directory,"r"); fsyncSync(fd); closeSync(fd); fd=undefined;
       this.entries.set(id,structuredClone(c));
     } catch { throw new TestnetLpError("TESTNET_LP_STORAGE_UNAVAILABLE"); }
     finally { if (fd !== undefined) closeSync(fd); if (existsSync(temp)) unlinkSync(temp); }
   }
-  issue(study: TestnetLpStudy,state: string): TestnetLpStudy {
+  issue(study: TestnetChainLpStudy<I>,state: string): TestnetChainLpStudy<I> {
     this.prune(); lpAssert(this.entries.size < this.capacity,"TESTNET_LP_CONTEXT_CAPACITY");
     const id = randomBytes(24).toString("hex"), now = this.now();
-    const prepared = { ...study,contextId:id }; inspectTestnetLpTransaction(prepared,now);
-    const c = schema.parse({ study:prepared,state,issuedAt:now,trackingExpiresAt:now+86400000,originalHash:null });
+    const prepared = { ...study,contextId:id }; this.domain.inspectTestnetLpTransaction(prepared,now);
+    const c = this.schema.parse({ study:prepared,state,issuedAt:now,trackingExpiresAt:now+86400000,originalHash:null });
     this.save(id,c); return structuredClone(c.study);
   }
-  read(id: string): TestnetLpContext {
+  read(id: string): TestnetLpContext<I> {
     this.prune(); const c = /^[a-f0-9]{48}$/.test(id) ? this.entries.get(id) : undefined;
     lpAssert(c,"TESTNET_LP_CONTEXT_UNAVAILABLE"); return structuredClone(c);
   }

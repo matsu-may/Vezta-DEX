@@ -1,5 +1,7 @@
 # Vezta DEX Roadmap
 
+**Latest independent checkpoint, 2026-10-06:** custom-range LP fork lifecycle now passes; five Unichain runtimes are independently rebuilt. Chain-specific internal domains/services are under implementation, with new-chain execution unactivated. A wallet compatibility decision is pending before completing chain 2; see [session report](research/2026-10-06-full-testnet-session.md).
+
 **Controlling goal, 2026-10-06:** the owner requires completion of the standalone
 DEX task on public testnets, not closure at the early-demo milestone. All eight
 phases of the product completion roadmap remain in scope, including independently

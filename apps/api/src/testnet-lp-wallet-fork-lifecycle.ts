@@ -14,6 +14,8 @@ import { withForkSnapshot } from "./testnet-fork-snapshot";
 import { mineFreshForkBlock } from "./testnet-fork-clock";
 import type { startOwnedTestnetAnvil } from "./testnet-fork-process";
 import { customLpForkRange } from "./testnet-lp-fork-range";
+import { warmOwnedForkCall } from "./testnet-fork-warm";
+import { planTestnetLp } from "./testnet-lp-plan";
 import { classifyTestnetRpcFailure } from "./testnet-rpc-diagnostics";
 const owner = "0x1111111111111111111111111111111111111111" as const;
 const same = (a: string | null, b: string) => a?.toLowerCase() === b.toLowerCase();
@@ -22,7 +24,7 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
   const { client, origin, boundary } = fork;
   const mutate = (method: string, params: readonly unknown[]) => guardedForkRequest(boundary, origin, method, params, () => signal.throwIfAborted());
   let rpcFailureReported = false;
-  const source = (inner: AbortSignal) => new Proxy(createBaseSepoliaPreflightSource(origin, AbortSignal.any([signal, inner])), {
+  const source = (inner: AbortSignal) => new Proxy(createBaseSepoliaPreflightSource(origin, AbortSignal.any([signal, inner]), 6), {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
       if (typeof property !== "string" || !/^[A-Za-z]{1,64}$/.test(property) || typeof method !== "function") return method;
@@ -106,6 +108,17 @@ export async function runTestnetLpWalletFork(fork: Awaited<ReturnType<typeof sta
         return observation;
       };
       const tokenId = await runTestnetLpWalletForkSteps({ owner, ...(range ? {range} : {}), async study(intent) {
+        if (range && intent.kind === "mint") {
+          const b = await reads.getLatestBlock();
+          const allowance = await Promise.all([C.USDC.address, C.WETH.address].map(a => reads.getTokenAllowance(a, owner, C.v3PositionManager, b.number)));
+          if (allowance[0] === BigInt(intent.amount0Cap) && allowance[1] === BigInt(intent.amount1Cap)) {
+            const pool = await reads.getLpPoolState(b.number);
+            const plan = planTestnetLp({ kind:"mint",wallet:owner,amount0Cap:intent.amount0Cap,amount1Cap:intent.amount1Cap,
+              ...range,deadline:(b.timestamp+120n).toString() }, { pool, actualOwner:owner }, Number(b.timestamp), 120);
+            await warmOwnedForkCall(boundary,origin,plan.transaction,b.number,signal);
+            report({stage:"custom-mint-read-warmup",localOnly:true,executionQualified:false});
+          }
+        }
         await fresh(); report({ stage:"action-study", actionKind:intent.kind, localOnly:true });
         return wallet.study({ intent });
       }, execute });

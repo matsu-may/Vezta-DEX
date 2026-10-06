@@ -153,3 +153,17 @@ it("starts the eight-second network timeout after a queue wait longer than eight
   expect(finalSettled).toBe(true);
   expect((await Promise.all(reads))[28]).toBe("failed");
 });
+
+it("uses a separate bounded six-RPS budget only for explicit loopback fixture reads", async () => {
+  vi.useFakeTimers(); const beginning = Date.now(); const starts: number[] = [];
+  vi.stubGlobal("fetch", async (_input: unknown, init: RequestInit) => {
+    starts.push(Date.now() - beginning); const body = JSON.parse(String(init.body));
+    return Response.json({ jsonrpc: "2.0", id: body.id, result: "0x6000" });
+  });
+  expect(() => createBaseSepoliaPreflightSource("https://public-fixture-budget.example.invalid", undefined, 6)).toThrow();
+  const source = createBaseSepoliaPreflightSource("http://127.0.0.1:45679", undefined, 6);
+  const reads = Array.from({ length: 4 }, (_, i) => source.getCode(`0x${(i + 1).toString(16).padStart(40,"0")}`, 123n));
+  await vi.advanceTimersByTimeAsync(600);
+  expect(await Promise.all(reads)).toEqual(Array(4).fill("0x6000"));
+  expect(starts).toEqual([0, 167, 334, 501]);
+});

@@ -38,7 +38,9 @@
     "testnet:lp-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-fork-cli.ts",
     "testnet:lp-wallet-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-lp-wallet-fork-cli.ts",
     "testnet:routing-evidence": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-routing-evidence-cli.ts",
-    "testnet:receipt-fees": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-receipt-fee-evidence-cli.ts"
+    "testnet:receipt-fees": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-receipt-fee-evidence-cli.ts",
+    "testnet:unichain-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-rebuild-cli.ts",
+    "testnet:unichain-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-quote-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",
