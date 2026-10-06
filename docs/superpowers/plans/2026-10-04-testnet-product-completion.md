@@ -2,6 +2,12 @@
 
 ## Scope and authorization
 
+**Owner clarification, 2026-10-06:** complete the standalone DEX task on testnet.
+Do not stop at a Base demo or treat phases 7–8 as optional follow-ups. Use the
+[task acceptance criteria](../../specs/2026-10-06-testnet-task-acceptance.md)
+as the final exit contract. Existing implemented slices and historical wallet
+acceptance remain valid; unresolved proofs and new-chain work remain open.
+
 The owner approved saving and executing this roadmap on 2026-10-04. Continue
 independently with reversible code/configuration choices; stop for wallet signatures,
 external publication, or a material product/chain choice that evidence cannot settle.
@@ -58,6 +64,12 @@ remain separate. Discovery on another chain does not prove multi-chain execution
 - [ ] Phase 8: Ethereum/Unichain feasibility measured; explicit owner chain choice and independent execution adapter still required.
 
 ## Owner checkpoints
+
+The owner's latest preference is **one consolidated acceptance pass at the end**.
+The per-phase checks below describe its coverage, not requests to test after each
+implementation session. Extend the existing delta guide to include the second
+chain after its adapter is qualified; do not ask the owner to rerun accepted
+compiler/fork diagnostics.
 
 After phase 2: one small custom amount/slippage swap. After phase 3: one small
 custom-range mint and position read/decrease/collect. After the group: new UI,

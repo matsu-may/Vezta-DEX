@@ -1,5 +1,15 @@
 # Vezta DEX Roadmap
 
+**Controlling goal, 2026-10-06:** the owner requires completion of the standalone
+DEX task on public testnets, not closure at the early-demo milestone. All eight
+phases of the product completion roadmap remain in scope, including independently
+executable multi-chain support. The [testnet task acceptance criteria](specs/2026-10-06-testnet-task-acceptance.md)
+define the final boundary and remaining gates. Earlier demo milestones and
+reports are historical checkpoints, not the final completion standard. Owner
+acceptance will be consolidated after independent implementation and qualification.
+Main Vezta integration, mainnet, mobile polish and hosted backend remain deferred
+under the existing owner decisions.
+
 **Active scope, 2026-10-04:** the owner confirmed the refreshed desktop UI and
 frontend-only Vercel visual check. Backend hosting is deferred. The approved
 [testnet product completion plan](superpowers/plans/2026-10-04-testnet-product-completion.md)
