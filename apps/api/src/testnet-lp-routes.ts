@@ -1,9 +1,10 @@
-import { testnetLpRequestSchema } from "@vezta-dex/core";
+import { createTestnetLpPositionDomain, type TestnetChainId } from "@vezta-dex/core";
 import { TestnetLpError, type TestnetLpPositionReader } from "./testnet-lp-position";
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
-export async function handleTestnetLpRequest(request: Request, positions?: TestnetLpPositionReader): Promise<Response | undefined> {
+export async function handleTestnetLpRequest<I extends TestnetChainId = 84532>(request: Request, positions?: TestnetLpPositionReader<I>, chainId: I = 84532 as I): Promise<Response | undefined> {
   const url = new URL(request.url);
-  if (url.pathname !== "/api/v1/testnet/base-sepolia/lp/positions") return undefined;
+  const {testnetLpRequestSchema} = createTestnetLpPositionDomain(chainId);
+  if (url.pathname !== `/api/v1/testnet/${chainId === 84532 ? "base-sepolia" : "unichain-sepolia"}/lp/positions`) return undefined;
   if (request.method !== "POST") return json({ error: "POST required" }, 405);
   if (url.search) return json({ error: "Query unsupported" }, 400);
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") return json({ error: "JSON required" }, 415);

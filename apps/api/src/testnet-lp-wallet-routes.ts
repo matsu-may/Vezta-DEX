@@ -1,12 +1,14 @@
-import { testnetLpStudyRequestSchema,testnetLpRecheckRequestSchema,testnetLpReceiptRequestSchema } from "@vezta-dex/core";
+import { createTestnetLpDomain, type TestnetChainId } from "@vezta-dex/core";
 import { TestnetLpError } from "./testnet-lp-position";
 import type { TestnetLpWallet } from "./testnet-lp-wallet";
 import type { TestnetLpWalletReceiptReader } from "./testnet-lp-wallet-receipt";
 const json=(body:unknown,status=200)=>Response.json(body,{status,headers:{"Cache-Control":"no-store"}});
-export async function handleTestnetLpWalletRequest(request:Request,wallet?:TestnetLpWallet,receipts?:TestnetLpWalletReceiptReader,
-  executionEnabled=false,unavailableCode="TESTNET_LP_RPC_NOT_CONFIGURED"):Promise<Response|undefined>{
-  const url=new URL(request.url),endpoint=url.pathname.slice("/api/v1/testnet/base-sepolia/lp/".length);
-  if(!url.pathname.startsWith("/api/v1/testnet/base-sepolia/lp/")||!["study","recheck","receipt"].includes(endpoint))return undefined;
+export async function handleTestnetLpWalletRequest<I extends TestnetChainId = 84532>(request:Request,wallet?:TestnetLpWallet<I>,receipts?:TestnetLpWalletReceiptReader<I>,
+  executionEnabled=false,unavailableCode="TESTNET_LP_RPC_NOT_CONFIGURED",chainId:I=84532 as I):Promise<Response|undefined>{
+  const {testnetLpStudyRequestSchema,testnetLpRecheckRequestSchema,testnetLpReceiptRequestSchema}=createTestnetLpDomain(chainId);
+  const prefix=`/api/v1/testnet/${chainId===84532?"base-sepolia":"unichain-sepolia"}/lp/`;
+  const url=new URL(request.url),endpoint=url.pathname.slice(prefix.length);
+  if(!url.pathname.startsWith(prefix)||!["study","recheck","receipt"].includes(endpoint))return undefined;
   if(request.method!=="POST")return json({error:"POST required"},405);
   if(url.search)return json({error:"Query unsupported"},400);
   if(request.headers.get("content-type")?.split(";")[0].trim().toLowerCase()!=="application/json")return json({error:"JSON required"},415);

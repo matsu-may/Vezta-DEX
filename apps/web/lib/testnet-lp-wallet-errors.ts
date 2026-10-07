@@ -1,3 +1,4 @@
+import {testnetChainConfig,type TestnetChainId} from "@vezta-dex/core";
 const messages: Record<string,string> = {
   TESTNET_LP_CONTEXT_UNAVAILABLE: "Original tracking context is unavailable or expired. Keep the hash and recovery record; ask for review before continuing.",
   TESTNET_LP_CONTEXT_HASH_CHANGED: "This hash differs from the original tracked transaction. Keep the original hash and ask for review.",
@@ -24,7 +25,8 @@ const messages: Record<string,string> = {
   TESTNET_LP_CONTEXT_CAPACITY: "LP tracking capacity is full. Resolve original transactions before starting another action.",
 };
 export const safeTestnetLpCode = (v: unknown) => typeof v === "string" && Object.hasOwn(messages,v) ? v : "TESTNET_BROWSER_UNAVAILABLE";
-export function testnetLpMessage(code: string, recovery = false) {
+export function testnetLpMessage(code: string, recovery = false, chainId: TestnetChainId = 84532) {
   const message = messages[safeTestnetLpCode(code)] ?? (recovery ? "The original transaction check is unavailable. Keep its context and hash; retry the explicit receipt check later." : "The LP action is unavailable. Check wallet, balances and Base Sepolia, then request a fresh study.");
-  return recovery ? `${message} Preserve the original transaction; do not resend.` : message;
+  const selected = chainId === 84532 ? message : code === "TESTNET_LP_EOA_REQUIRED" ? "Unichain Sepolia requires a standard EOA wallet; delegated smart accounts are not qualified." : message.replaceAll("Base Sepolia",testnetChainConfig(chainId).label).replaceAll("(84532)",`(${chainId})`);
+  return recovery ? `${selected} Preserve the original transaction; do not resend.` : selected;
 }

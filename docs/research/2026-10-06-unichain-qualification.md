@@ -94,3 +94,10 @@ HTTP/browser chain selection, chain-qualified swap action services, original-cha
 recovery/global submission lock, independent new-chain fork/browser evidence and
 faucet-funded owner acceptance remain required. Two canonical L2 confirmations
 will need an explicit inclusion policy; they must not be described as L1 finality.
+
+## Executable EOA follow-up — 2026-10-07
+
+The owner accepted EOA-first scope. HTTP/UI, swap/LP adapter, original-chain
+recovery and new-chain fork/browser qualification are now implemented; see
+[session evidence](2026-10-06-unichain-eoa-session.md). Public Unichain owner
+acceptance remains open; the paragraph above describes the historical checkpoint.

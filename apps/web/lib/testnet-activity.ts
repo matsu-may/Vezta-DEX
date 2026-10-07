@@ -5,7 +5,7 @@ import type { TestnetSubmissionStorage } from "./testnet-wallet-storage";
 export const TESTNET_ACTIVITY_KEY = "vezta-dex:testnet-activity:v1";
 const uint = z.string().regex(/^(0|[1-9][0-9]{0,77})$/).refine(v => BigInt(v) < 2n ** 256n);
 const address = z.string().refine(v => isAddress(v)).transform(v => getAddress(v));
-const entrySchema = z.object({ chainId: z.literal(84532), account: address, flow: z.enum(["swap", "lp"]),
+const entrySchema = z.object({ chainId: z.union([z.literal(84532), z.literal(1301)]), account: address, flow: z.enum(["swap", "lp"]),
   kind: z.enum(["swap", "approve", "reset", "mint", "increase", "decrease", "collect", "burn"]),
   hash: z.string().regex(/^0x[0-9a-fA-F]{64}$/).refine(v => BigInt(v) > 0n).transform(v => v.toLowerCase()),
   status: z.enum(["pending", "confirming", "confirmed", "reverted", "unverified", "reorged", "unknown", "unknown-original"]),

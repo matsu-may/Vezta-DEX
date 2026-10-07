@@ -1,5 +1,5 @@
 import { decodeEventLog, erc20Abi, isAddress, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, type TestnetFeeFields } from "@vezta-dex/core";
+import { testnetChainConfig, type TestnetChainId, type TestnetFeeFields } from "@vezta-dex/core";
 import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./testnet-transaction-envelope";
 
 export class TestnetForkError extends Error {
@@ -29,11 +29,12 @@ export interface ForkClientBoundary {
 const writes = new Set(["anvil_setBalance", "anvil_impersonateAccount", "anvil_stopImpersonatingAccount",
   "evm_snapshot", "evm_revert", "evm_mine", "evm_setNextBlockTimestamp", "eth_sendTransaction"]);
 
-export async function guardedForkRequest(client: ForkClientBoundary, origin: string, method: string, params: readonly unknown[], beforeWrite?: () => void) {
+export async function guardedForkRequest(client: ForkClientBoundary, origin: string, method: string, params: readonly unknown[], beforeWrite?: () => void, chainId: TestnetChainId = 84532) {
+  testnetChainConfig(chainId);
   assertTestnetForkOrigin(origin);
   forkAssert(client.transport.type === "http" && client.transport.url === origin && writes.has(method), "FORK_TRANSPORT_INVALID");
   const [chain, version] = await Promise.all([client.getChainId(), client.getClientVersion()]);
-  forkAssert(chain === P.chainId && /\banvil\b/i.test(version), "FORK_CLIENT_INVALID");
+  forkAssert(chain === chainId && /\banvil\b/i.test(version), "FORK_CLIENT_INVALID");
   beforeWrite?.();
   return client.request({ method, params });
 }
@@ -41,7 +42,7 @@ export async function guardedForkRequest(client: ForkClientBoundary, origin: str
 export interface TestnetForkReceiptEvidence {
   kind: "swap" | "approve" | "reset";
   tokenIn: string; tokenOut: string; amountIn: string; minimumAmountOut: string;
-  transaction: { chainId: 84532; from: string; to: string; data: Hex; value: "0"; nonce: string; gas: string } & TestnetFeeFields;
+  transaction: { chainId: TestnetChainId; from: string; to: string; data: Hex; value: "0"; nonce: string; gas: string } & TestnetFeeFields;
   hash: Hex; afterBlock: bigint; canonical: { number: bigint; hash: string | null; baseFeePerGas?: bigint | null }; latestBlock: bigint;
   tx: { hash: string; from: string; to: string | null; input: Hex; value: bigint; nonce: number;
     chainId?: number; blockNumber: bigint | null; blockHash: string | null; gas: bigint; type: string;
@@ -57,6 +58,7 @@ export interface TestnetForkReceiptEvidence {
 
 // Verifies a supplied original fork context, not an authenticated public submission record.
 export function reviewTestnetForkReceipt(e: TestnetForkReceiptEvidence) {
+  const cfg = testnetChainConfig(e.transaction.chainId), C = cfg.candidate, P = cfg.policy;
   const { transaction: expected, tx, receipt: r } = e; const wallet = expected.from;
   const amount = BigInt(e.amountIn); const minimum = BigInt(e.minimumAmountOut);
   const forward = same(e.tokenIn, C.USDC.address) && same(e.tokenOut, C.WETH.address);

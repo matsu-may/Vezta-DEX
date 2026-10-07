@@ -1,7 +1,6 @@
-import { testnetQuoteExpiresAt } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig } from "@vezta-dex/core";
 import { decodeAbiParameters, encodeAbiParameters, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, buildTestnetSwapTransaction,
-  inspectTestnetSwapTransaction, planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields, testnetDirectPool } from "@vezta-dex/core";
+import {  classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields } from "@vezta-dex/core";
 import { parseTestnetApprovalRequest } from "./testnet-approval";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
@@ -15,7 +14,7 @@ export interface BaseSepoliaPreparationSource extends BaseSepoliaWalletSource, B
   estimateTestnetSwapGas(transaction: TestnetSwapTransaction<TestnetChainId>, block: bigint): Promise<bigint>;
   getGasPrice(): Promise<bigint>;
 }
-type RequestBody = ReturnType<typeof parseTestnetApprovalRequest>;
+type RequestBody<I extends TestnetChainId> = ReturnType<typeof parseTestnetApprovalRequest<I>>;
 type Code = "TESTNET_INTENT_INVALID" | "TESTNET_QUOTE_UNAVAILABLE" | "TESTNET_PREPARE_BUSY"
   | "TESTNET_PREPARE_TIMEOUT" | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN"
   | "TESTNET_PREPARE_STALE" | "TESTNET_CONFIGURATION_INVALID" | "TESTNET_EOA_REQUIRED"
@@ -31,16 +30,21 @@ const uint = (v: bigint, bits = 256) => typeof v === "bigint" && v >= 0n && v < 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const MIN_SQRT = 4295128739n;
 const MAX_SQRT = 1461446703485210103287273052203988822378723970342n;
-type UnsignedSwap = TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
+type UnsignedSwap<I extends TestnetChainId> = TestnetSwapTransaction<I> & { nonce: string; gas: string } & TestnetFeeFields;
 
-export class TestnetSwapPreparer {
+export class TestnetSwapPreparer<I extends TestnetChainId = 84532> {
+  private readonly config;
+  private readonly domain;
   private busy = false;
   constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaPreparationSource,
-    private readonly quotes: TestnetQuoteStore, private readonly now = Date.now) {}
+    private readonly quotes: TestnetQuoteStore<I>, private readonly now = Date.now, readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId); this.domain = createTestnetSwapDomain(chainId);
+    if (quotes.chainId !== chainId) throw new Error("Quote store chain mismatch");
+  }
 
   async read(value: unknown) {
-    let request: RequestBody;
-    try { request = parseTestnetApprovalRequest(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
+    let request: RequestBody<I>;
+    try { request = parseTestnetApprovalRequest(value, this.chainId); } catch { return fail("TESTNET_INTENT_INVALID"); }
     this.quote(request);
     if (this.busy) return fail("TESTNET_PREPARE_BUSY");
     this.busy = true;
@@ -57,12 +61,13 @@ export class TestnetSwapPreparer {
     } finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
 
-  private quote(request: RequestBody) {
+  private quote(request: RequestBody<I>) {
     try { return this.quotes.read(request.quoteId, request.intent); }
     catch { return fail("TESTNET_QUOTE_UNAVAILABLE"); }
   }
 
-  private async probe(source: BaseSepoliaPreparationSource, request: RequestBody, signal: AbortSignal) {
+  private async probe(source: BaseSepoliaPreparationSource, request: RequestBody<I>, signal: AbortSignal) {
+    const { candidate: C, policy: P } = this.config;
     const i = request.intent; const quote = this.quote(request);
     if (await source.getChainId() !== P.chainId) return fail("TESTNET_WRONG_CHAIN");
     signal.throwIfAborted();
@@ -90,6 +95,7 @@ export class TestnetSwapPreparer {
     let accountKind: ReturnType<typeof classifyTestnetWalletCode>;
     try { accountKind = classifyTestnetWalletCode(walletCode); } catch { return fail("TESTNET_EOA_REQUIRED"); }
     if (accountKind === "metamask-delegated") {
+      if (this.chainId !== 84532) return fail("TESTNET_EOA_REQUIRED");
       try { await verifyTestnetMetaMaskRuntime(source, block.number); }
       catch { return fail("TESTNET_METAMASK_RUNTIME_MISMATCH"); }
       fresh();
@@ -99,14 +105,14 @@ export class TestnetSwapPreparer {
     catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
     if (![input, eth, allowance].every(v => uint(v)) || !uint(nonce, 64) || !uint(pending, 64)) return fail("TESTNET_STATE_INVALID");
     if (nonce !== pending) return fail("TESTNET_NONCE_CHANGED");
-    const approvalKind = planTestnetTokenApproval(i, allowance).kind;
+    const approvalKind = this.domain.planTestnetTokenApproval(i, allowance).kind;
     const funding = { inputBalanceSufficient: input >= BigInt(i.amountIn), nativeEthPositive: eth > 0n,
       l2BudgetCovered: null as boolean | null, totalBudgetCovered: null as boolean | null };
     let status: "blocked" | "approval-required" | "unsigned-prepared" = "blocked";
     let reason: "TESTNET_INPUT_BALANCE_LOW" | "TESTNET_NATIVE_BALANCE_LOW" | "TESTNET_L2_BUDGET_LOW" | "TESTNET_TOTAL_BUDGET_LOW" | null = null;
     let gas: ReturnType<typeof completeTestnetFeeBudget> | null = null;
     let simulation: { status: "success"; amountOut: string } | null = null;
-    let transaction: UnsignedSwap | null = null; let priceImpactBps: number | null = null;
+    let transaction: UnsignedSwap<I> | null = null; let priceImpactBps: number | null = null;
     if (!funding.inputBalanceSufficient) reason = "TESTNET_INPUT_BALANCE_LOW";
     else if (!funding.nativeEthPositive) reason = "TESTNET_NATIVE_BALANCE_LOW";
     else if (approvalKind !== "ready") status = "approval-required";
@@ -117,7 +123,7 @@ export class TestnetSwapPreparer {
       ]);
       fresh();
       if (!same(pool, quote.pool) || !same(state.token0, C.USDC.address) || !same(state.token1, C.WETH.address)
-        || !same(state.factory, C.v3Factory) || state.fee !== quote.feeTier || spacing !== testnetDirectPool(quote.feeTier).tickSpacing
+        || !same(state.factory, C.v3Factory) || state.fee !== quote.feeTier || spacing !== this.config.pools.find(p => p.feeTier === quote.feeTier)?.tickSpacing
         || !uint(state.liquidity, 128) || state.liquidity === 0n || !uint(state.sqrtPriceX96, 160)
         || state.sqrtPriceX96 <= MIN_SQRT || state.sqrtPriceX96 >= MAX_SQRT
         || ![deps.router, deps.quoter, deps.manager].every(d => same(d.factory, C.v3Factory) && same(d.weth, C.WETH.address))
@@ -135,8 +141,8 @@ export class TestnetSwapPreparer {
       priceImpactBps = Number(((spot - q.amountOut) * 10000n + spot - 1n) / spot);
       if (priceImpactBps > 100) return fail("TESTNET_IMPACT_EXCEEDED");
       if (q.amountOut < BigInt(quote.minimumAmountOut)) return fail("TESTNET_MINIMUM_NOT_MET");
-      const tx = buildTestnetSwapTransaction(quote, this.now());
-      inspectTestnetSwapTransaction(tx, quote, this.now());
+      const tx = this.domain.buildTestnetSwapTransaction(quote, this.now());
+      this.domain.inspectTestnetSwapTransaction(tx, quote, this.now());
       let output: bigint;
       try {
         const data = await source.simulateTestnetSwap(tx, block.number);
@@ -174,7 +180,7 @@ export class TestnetSwapPreparer {
     return { status, reason, chainId: P.chainId, quoteId: request.quoteId, intent: i, approvalKind,
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
-      expiresAt: testnetQuoteExpiresAt(quote), source: "base-sepolia-rpc" as const,
+      expiresAt: this.domain.testnetQuoteExpiresAt(quote), source: this.config.source,
       minimumAmountOut: quote.minimumAmountOut, priceImpactBps, accountNonce: nonce.toString(),
       inputBalance: input.toString(), nativeBalance: eth.toString(), currentAllowance: allowance.toString(),
       funding, simulation, gas, transaction, runtimeVerified: true as const, executionEnabled: false as const };

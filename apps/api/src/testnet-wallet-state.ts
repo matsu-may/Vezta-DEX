@@ -1,5 +1,5 @@
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  planTestnetTokenApproval, classifyTestnetWalletCode, type Address, type TestnetSwapIntent } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig } from "@vezta-dex/core";
+import {  classifyTestnetWalletCode, type TestnetChainId, type Address, type TestnetChainSwapIntent } from "@vezta-dex/core";
 import type { BaseSepoliaPreflightSource } from "./base-sepolia-preflight";
 import { verifyTestnetMetaMaskRuntime } from "./testnet-metamask-runtime";
 
@@ -21,14 +21,18 @@ export class TestnetWalletStateError extends Error {
 const fail = (code: StateCode): never => { throw new TestnetWalletStateError(code); };
 const uint = (value: bigint, bits = 256) => typeof value === "bigint" && value >= 0n && value < 2n ** BigInt(bits);
 
-export class TestnetWalletStateReader {
+export class TestnetWalletStateReader<I extends TestnetChainId = 84532> {
+  private readonly config;
+  private readonly domain;
   private busy = false;
   constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaWalletSource,
-    private readonly now = Date.now) {}
+    private readonly now = Date.now, readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId); this.domain = createTestnetSwapDomain(chainId);
+  }
 
   async read(value: unknown) {
-    let intent: TestnetSwapIntent;
-    try { intent = parseTestnetSwapIntent(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
+    let intent: TestnetChainSwapIntent<I>;
+    try { intent = this.domain.parseTestnetSwapIntent(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
     if (this.busy) return fail("TESTNET_STATE_BUSY");
     this.busy = true;
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout> | undefined;
@@ -43,7 +47,8 @@ export class TestnetWalletStateReader {
     } finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
 
-  private async probe(source: BaseSepoliaWalletSource, i: TestnetSwapIntent, signal: AbortSignal) {
+  private async probe(source: BaseSepoliaWalletSource, i: TestnetChainSwapIntent<I>, signal: AbortSignal) {
+    const { candidate: C, policy: P } = this.config;
     if (await source.getChainId() !== P.chainId) return fail("TESTNET_WRONG_CHAIN");
     signal.throwIfAborted();
     const block = await source.getLatestBlock();
@@ -68,6 +73,7 @@ export class TestnetWalletStateReader {
     let accountKind: ReturnType<typeof classifyTestnetWalletCode>;
     try { accountKind = classifyTestnetWalletCode(code); } catch { return fail("TESTNET_EOA_REQUIRED"); }
     if (accountKind === "metamask-delegated") {
+      if (this.chainId !== 84532) return fail("TESTNET_EOA_REQUIRED");
       try { await verifyTestnetMetaMaskRuntime(source, block.number); }
       catch { return fail("TESTNET_METAMASK_RUNTIME_MISMATCH"); }
       fresh();
@@ -88,10 +94,10 @@ export class TestnetWalletStateReader {
     const balance = i.tokenIn.toLowerCase() === C.USDC.address.toLowerCase() ? usdc : weth;
     return { chainId: P.chainId, wallet: i.wallet, accountKind,
       blockNumber: block.number.toString(), blockHash: block.hash,
-      observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: "base-sepolia-rpc" as const,
+      observedAt: new Date(Number(block.timestamp) * 1000).toISOString(), source: this.config.source,
       accountNonce: nonce.toString(), balances: { USDC: usdc.toString(), WETH: weth.toString(), ETH: eth.toString() },
       tokenIn: i.tokenIn, amountIn: i.amountIn, spender: P.router, tokenAllowance: allowance.toString(),
-      approvalKind: planTestnetTokenApproval(i, allowance).kind,
+      approvalKind: this.domain.planTestnetTokenApproval(i, allowance).kind,
       funding: { inputBalanceSufficient: balance >= BigInt(i.amountIn), nativeEthPositive: eth > 0n },
       executionEnabled: false as const };
   }

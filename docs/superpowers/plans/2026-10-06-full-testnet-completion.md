@@ -35,19 +35,25 @@ Interface: explicit chain-qualified dependency records; independently compiled f
 - [x] Record Unichain selection, current official mappings and live state; fetch five role sources.
 - [x] RED: chain/address/source/settings/hash/immutable mismatch and missing proof rejected.
 - [x] GREEN: compile verified sources using exact pinned compiler and compare full runtime.
-- [ ] Complete activation qualification of fee/finality, wallet model and current pool depth separately; reference/read-only probes are recorded.
+- [x] Qualify independent Unichain fee-oracle configuration, EOA profile, canonical L2 inclusion policy and fresh per-intent pool depth; actual charged fee totals remain unknown.
 - [x] Focused malformed-proof tests and one live read-only snapshot/rebuild report.
 
 ## Task 3: Executable chain adapter and handoff
 
 Files: chain registry/core schemas, quote/LP planning/source/receipt/store consumers, API/browser chain selection and recovery, adjacent tests and owner guide. Refine exact interfaces from Task 2 proofs before modifying consumers.
 Interface: chain-qualified context/intent plus compatible legacy Base serialization; each adapter owns deployment, fee/finality and envelope qualification.
-- [ ] RED: wrong-chain state/quotes/allowances/contexts, legacy recovery, unresolved global write lock, same-address chain confusion and pending wallet changes.
-- [ ] GREEN: implement explicit testnet selection, swaps/LP/discovery and original-chain receipt handling; preserve Base defaults.
-- [ ] One local fork per new adapter and desktop wallet mocks; no owner funds used.
-- [ ] Final full tests/typecheck/lint/build, one whole-change review/fix pass, local commits and complete feature/evidence matrix.
-- [ ] Consolidate owner test instructions and list any external evidence blocker without claiming task completion.
+- [x] RED/GREEN: wrong-chain state/quotes/allowances/contexts, legacy recovery, unresolved global write lock and selected-chain browser recovery.
+- [x] Implement explicit testnet selection, swaps/LP/discovery and original-chain receipt handling; preserve Base defaults.
+- [x] Unichain swap and custom-range LP forks qualified separately; desktop wallet/Explore mocks passed; no owner funds used.
+- [x] Full suite, final typecheck/lint/build, one new-diff review and repaired regression pass; local checkpoint/evidence matrix.
+- [x] Consolidate one-pass owner instructions; public Unichain acceptance remains open, full-task completion not claimed.
 
-## Checkpoint before activation
+## Current checkpoint
 
-Owner wallet-scope choice pending after canonical Unichain read: Base manager absent, delegate runtime differs. Task 3 internal domains/quote/LP planning/stores/approval receipt are implemented; HTTP/UI/swap action/chain-fork handoff remain pending. See `docs/research/2026-10-06-full-testnet-session.md`. Current checkpoint receives one fresh review and release gates; no full-task completion claim.
+Owner accepted **A: Unichain EOA first**; Base retains qualified EOA/MetaMask.
+Five independent runtime proofs and the completed Base range fork are reused.
+Unichain swap evidence is block64447049; LP evidence is block64447265,
+NFT418172/range185160..186420. New shared `/networks/{slug}/{view}` routes support
+both testnets with chain-specific stores, API, UI and original-hash recovery.
+Final local gates/review and one consolidated public-wallet owner acceptance
+remain distinct. See `docs/research/2026-10-06-unichain-eoa-session.md`.

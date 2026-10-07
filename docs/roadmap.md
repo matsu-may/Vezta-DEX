@@ -1,6 +1,6 @@
 # Vezta DEX Roadmap
 
-**Latest independent checkpoint, 2026-10-06:** custom-range LP fork lifecycle now passes; five Unichain runtimes are independently rebuilt. Chain-specific internal domains/services are under implementation, with new-chain execution unactivated. A wallet compatibility decision is pending before completing chain 2; see [session report](research/2026-10-06-full-testnet-session.md).
+**Latest independent checkpoint, 2026-10-06:** option A accepted: Unichain Sepolia EOA first; Base keeps qualified EOA/MetaMask. Both-direction Unichain swap and complete custom-range LP forks pass. Shared chain-selected API/UI/recovery and Explore/detail are implemented at `/networks/{slug}/{view}`. Public Unichain wallet acceptance is still required; see [session report](research/2026-10-06-unichain-eoa-session.md) and [one-pass owner guide](research/2026-10-06-two-testnet-owner-guide.md).
 
 **Controlling goal, 2026-10-06:** the owner requires completion of the standalone
 DEX task on public testnets, not closure at the early-demo milestone. All eight

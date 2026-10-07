@@ -509,3 +509,9 @@ body:has(.recording-page) .demo-technical-link { display: inline-flex; color: #9
  .positions-list-heading { flex-wrap: wrap; }
  .recording-page .lp-position-card .demo-preview { grid-template-columns: 1fr; }
 }
+
+/* Chain workspace shares the established dark Vezta components. */
+.testnet-network-control { display: flex; align-items: center; gap: .75rem; max-width: 34rem; }
+.testnet-network-control .field { min-width: 11rem; width: auto; font-size: .8rem; padding: .55rem .75rem; }
+.testnet-network-control [role="status"] { font-size: .75rem; color: var(--muted, #aaa); }
+body:has(.testnet-network-control) .main-nav { display: none; }

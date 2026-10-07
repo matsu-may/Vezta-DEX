@@ -1,6 +1,5 @@
 import { Pool, Position, TickMath, Token } from "./uniswap-lp-sdk";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpRequestSchema,
-  parseTestnetLpPage, testnetChainConfig, type TestnetChainId, type TestnetLpRequest, type Address } from "@vezta-dex/core";
+import { createTestnetLpPositionDomain, testnetChainConfig, type TestnetChainId, type TestnetChainLpRequest, type Address } from "@vezta-dex/core";
 import type { BaseSepoliaSwapSource } from "./testnet-swap-quote";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
 export interface LpNftState {
@@ -60,12 +59,16 @@ export function calculateLpAmounts(p: LpNftState, s: LpPoolState, lower: LpFeeOu
     storedOwed: { USDC: p.tokensOwed0.toString(), WETH: p.tokensOwed1.toString() },
     collectable: { USDC: (fee0 + p.tokensOwed0).toString(), WETH: (fee1 + p.tokensOwed1).toString() } };
 }
-export class TestnetLpPositionReader {
+export class TestnetLpPositionReader<I extends TestnetChainId = 84532> {
+  private readonly config;
+  private readonly domain;
   private busy = false;
-  constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaLpSource, private readonly now = Date.now) {}
+  constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaLpSource, private readonly now = Date.now, readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId); this.domain = createTestnetLpPositionDomain(chainId);
+  }
   async read(value: unknown) {
-    let i: TestnetLpRequest;
-    try { i = testnetLpRequestSchema.parse(value); } catch { throw new TestnetLpError("TESTNET_LP_REQUEST_INVALID"); }
+    let i: TestnetChainLpRequest<I>;
+    try { i = this.domain.testnetLpRequestSchema.parse(value); } catch { throw new TestnetLpError("TESTNET_LP_REQUEST_INVALID"); }
     lpAssert(!this.busy, "TESTNET_LP_BUSY"); this.busy = true;
     const controller = new AbortController(); let timer: ReturnType<typeof setTimeout> | undefined;
     try {
@@ -75,8 +78,9 @@ export class TestnetLpPositionReader {
     } catch (error) { if (error instanceof TestnetLpError) throw error; throw new TestnetLpError("TESTNET_LP_RPC_UNAVAILABLE"); }
     finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
-  private async probe(s: BaseSepoliaLpSource, i: TestnetLpRequest, signal: AbortSignal) {
-    lpAssert(await s.getChainId() === 84532, "TESTNET_LP_WRONG_CHAIN");
+  private async probe(s: BaseSepoliaLpSource, i: TestnetChainLpRequest<I>, signal: AbortSignal) {
+    const {candidate: C, policy: P} = this.config;
+    lpAssert(await s.getChainId() === this.chainId, "TESTNET_LP_WRONG_CHAIN");
     const block = i.snapshot ? await s.getLpBlock(BigInt(i.snapshot.number)) : await s.getLatestBlock();
     const fresh = () => {
       signal.throwIfAborted(); const age = this.now() - Number(block.timestamp) * 1000;
@@ -92,11 +96,11 @@ export class TestnetLpPositionReader {
       s.getPool(3000, block.number), s.getLpPoolState(block.number), s.getTickSpacing(P.pool, block.number),
       s.getDependencyConfiguration(block.number), s.getPositionCount(i.owner, block.number),
     ]); fresh();
-    try { verifyTestnetRuntimeCodes(84532, addresses.map((address, index) => ({ address, code: codes[index] }))); }
+    try { verifyTestnetRuntimeCodes(this.chainId, addresses.map((address, index) => ({ address, code: codes[index] }))); }
     catch { throw new TestnetLpError("TESTNET_LP_RUNTIME_MISMATCH"); }
     lpAssert(decimals[0] === 6 && decimals[1] === 18 && same(pool, P.pool) && spacing === 60
       && same(deps.manager.factory, C.v3Factory) && same(deps.manager.weth, C.WETH.address), "TESTNET_LP_CONFIGURATION_INVALID");
-    lpSdkPool(state); lpAssert(uint(count) && count <= 1000000n && BigInt(i.cursor) <= count);
+    lpSdkPool(state, this.chainId); lpAssert(uint(count) && count <= 1000000n && BigInt(i.cursor) <= count);
     const end = BigInt(i.cursor) + BigInt(i.limit) < count ? BigInt(i.cursor) + BigInt(i.limit) : count;
     const positions = []; const ids = new Set<string>();
     for (let n = BigInt(i.cursor); n < end; n++) {
@@ -105,16 +109,16 @@ export class TestnetLpPositionReader {
       const [owner, p] = await Promise.all([s.getPositionOwner(id, block.number), s.getPosition(id, block.number)]);
       lpAssert(same(owner, i.owner), "TESTNET_LP_OWNER_CHANGED");
       if (!same(p.token0, C.USDC.address) || !same(p.token1, C.WETH.address) || p.fee !== 3000) continue;
-      lpSdkPosition(p, state);
+      lpSdkPosition(p, state, this.chainId);
       const [lower, upper] = await Promise.all([s.getFeeGrowthOutside(p.tickLower, block.number), s.getFeeGrowthOutside(p.tickUpper, block.number)]);
       const inRange = state.tick >= p.tickLower && state.tick < p.tickUpper;
       positions.push({ tokenId: id.toString(), tickLower: p.tickLower, tickUpper: p.tickUpper, liquidity: p.liquidity.toString(),
-        inRange, state: p.liquidity === 0n ? "empty" : inRange ? "active" : "out-of-range", ...calculateLpAmounts(p, state, lower, upper) }); fresh();
+        inRange, state: p.liquidity === 0n ? "empty" : inRange ? "active" : "out-of-range", ...calculateLpAmounts(p, state, lower, upper, this.chainId) }); fresh();
     }
     lpAssert(same(await s.getBlockHash(block.number), block.hash), "TESTNET_LP_BLOCK_CHANGED"); fresh();
-    return parseTestnetLpPage({ chainId: 84532, manager: C.v3PositionManager, pool: P.pool, owner: i.owner, snapshot,
+    return this.domain.parseTestnetLpPage({ chainId: this.chainId, manager: C.v3PositionManager, pool: P.pool, owner: i.owner, snapshot,
       cursor: i.cursor, scanned: Number(end - BigInt(i.cursor)), totalOwned: count.toString(), nextCursor: end < count ? end.toString() : null,
       incomplete: end < count, poolTick: state.tick, sqrtPriceX96: state.sqrtPriceX96.toString(), positions,
-      source: "base-sepolia-rpc", runtimeVerified: true, executionEnabled: false }, this.now());
+      source: this.config.source, runtimeVerified: true, executionEnabled: false }, this.now());
   }
 }

@@ -1,0 +1,71 @@
+async page => {
+ const f={"now":1790800002000,"intent":{"chainId":1301,"wallet":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","tokenIn":"0x31d0220469e10c4E71834a79b1f276d740d3768F","tokenOut":"0x4200000000000000000000000000000000000006","amountIn":"1000000","slippageBps":50},"quoted":{"quote":{"chainId":1301,"wallet":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","tokenIn":"0x31d0220469e10c4E71834a79b1f276d740d3768F","tokenOut":"0x4200000000000000000000000000000000000006","amountIn":"1000000","slippageBps":50,"protocol":"v3","pool":"0x8F463126bBEA80A10DF9Bf6FF5455B6B0292B34e","feeTier":3000,"amountOut":"398600600000000","minimumAmountOut":"396607597000000","blockNumber":"123","blockHash":"0xabababababababababababababababababababababababababababababababab","quoteTtlSeconds":120,"observedAt":"2026-09-30T20:26:40.000Z","source":"unichain-sepolia-rpc"},"priceImpactBps":5,"qualification":{"configurationVerified":true,"runtimeVerified":true,"executionEnabled":true},"quoteId":"0ec5a8cdcc1d4c21e8b4d311f423c144874338217b78e251"},"checked":{"study":{"status":"unsigned-prepared","reason":null,"chainId":1301,"quoteId":"0ec5a8cdcc1d4c21e8b4d311f423c144874338217b78e251","intent":{"chainId":1301,"wallet":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","tokenIn":"0x31d0220469e10c4E71834a79b1f276d740d3768F","tokenOut":"0x4200000000000000000000000000000000000006","amountIn":"1000000","slippageBps":50},"approvalKind":"ready","blockNumber":"123","blockHash":"0xabababababababababababababababababababababababababababababababab","observedAt":"2026-09-30T20:26:40.000Z","expiresAt":"2026-09-30T20:28:40.000Z","source":"unichain-sepolia-rpc","minimumAmountOut":"396607597000000","priceImpactBps":5,"accountNonce":"7","inputBalance":"1000000000000000000","nativeBalance":"1000000000000000000","currentAllowance":"1000000","funding":{"inputBalanceSufficient":true,"nativeEthPositive":true,"l2BudgetCovered":true,"totalBudgetCovered":true},"simulation":{"status":"success","amountOut":"398600600000000"},"gas":{"estimatedGas":"150001","gasLimit":"180002","gasPrice":"20000000","l2FeeCeiling":"3600040000000","l1FeeUpperBound":"3000000000","operatorFeeUpperBound":"0","totalFeeBudget":"3606040000000","totalFeeQualified":true,"fork":"jovian"},"transaction":{"chainId":1301,"from":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","to":"0xd1AAE39293221B77B0C71fBD6dCb7Ea29Bb5B166","value":"0","data":"0x5ae401dc000000000000000000000000000000000000000000000000000000006abd70f800000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000e404e45aaf00000000000000000000000031d0220469e10c4e71834a79b1f276d740d3768f00000000000000000000000042000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000b4f286aeb57ab61af848f7c1619ff98144aed44e00000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000168b666ef3540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","nonce":"7","gas":"180002","gasPrice":"20000000"},"runtimeVerified":true,"executionEnabled":true},"action":{"contextId":"dc9a097a7954ec28dfce701b5278a52de730417eded37586","kind":"swap","chainId":1301,"transaction":{"chainId":1301,"from":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","to":"0xd1AAE39293221B77B0C71fBD6dCb7Ea29Bb5B166","value":"0","data":"0x5ae401dc000000000000000000000000000000000000000000000000000000006abd70f800000000000000000000000000000000000000000000000000000000000000400000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000e404e45aaf00000000000000000000000031d0220469e10c4e71834a79b1f276d740d3768f00000000000000000000000042000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000bb8000000000000000000000000b4f286aeb57ab61af848f7c1619ff98144aed44e00000000000000000000000000000000000000000000000000000000000f4240000000000000000000000000000000000000000000000000000168b666ef3540000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000","nonce":"7","gas":"180002","gasPrice":"20000000"},"quoteExpiresAt":"2026-09-30T20:28:40.000Z","trackingExpiresAt":"2026-10-01T20:26:42.000Z","executionEnabled":true}},"lp":{"contextId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","intent":{"chainId":1301,"wallet":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","kind":"mint","amount0Cap":"1000000","amount1Cap":"1000000000000000"},"status":"prepared","reason":null,"actionKind":"approve","approvalToken":"USDC","plan":{"amount0Cap":"1000000","amount1Cap":"1000000000000000","amount0Desired":"500000","amount1Desired":"500000000000000","amount0Minimum":"497500","amount1Minimum":"497500000000000","liquidity":"100","positionLiquidity":"0","storedOwed0":"0","storedOwed1":"0","tickLower":-887220,"tickUpper":887220,"deadline":"1790800120"},"transaction":{"gasPrice":"20000000","chainId":1301,"from":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","to":"0x31d0220469e10c4E71834a79b1f276d740d3768F","data":"0x095ea7b3000000000000000000000000b7f724d6dddfd008eff5cc2834edde5f9ef0d07500000000000000000000000000000000000000000000000000000000000f4240","value":"0","nonce":"7","gas":"120000"},"gas":{"gasPrice":"20000000","estimatedGas":"100000","gasLimit":"120000","l2FeeCeiling":"2400000000000","l1FeeUpperBound":"100","operatorFeeUpperBound":"0","totalFeeBudget":"2400000000200","totalFeeQualified":true,"fork":"jovian"},"balances":{"USDC":"5000000","WETH":"50000000000000000","ETH":"10000000000000000"},"allowances":{"USDC":"0","WETH":"1000000000000000"},"blockNumber":"123","blockHash":"0xabababababababababababababababababababababababababababababababab","observedAt":"2026-09-30T20:26:40.000Z","expiresAt":"2026-09-30T20:28:40.000Z","source":"unichain-sepolia-rpc","runtimeVerified":true,"executionEnabled":true},"lpNow":1790800000000,"lpObservation":{"contextId":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","hash":"0x1111111111111111111111111111111111111111111111111111111111111111","intent":{"chainId":1301,"wallet":"0xb4F286AEB57Ab61af848F7c1619Ff98144aED44e","kind":"mint","amount0Cap":"1000000","amount1Cap":"1000000000000000"},"actionKind":"approve","approvalToken":"USDC","chainId":1301,"source":"unichain-sepolia-rpc","observedAt":"2026-09-30T20:26:40.000Z","blockNumber":"125","blockHash":"0xcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd","receiptBlockNumber":"124","receiptBlockHash":"0xefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefefef","status":"confirmed","confirmations":"2","diagnostic":null,"verified":true,"tokenId":null,"amount0":"0","amount1":"0","actualTotalFeeQualified":false,"executionEnabled":false}};
+ const checks=[]; page.setDefaultTimeout(10000);
+ const check=(v,name)=>{if(!v)throw new Error(name);checks.push(name);};
+ await page.context().addInitScript(f=>{
+  const events=new Map(), m={now:location.pathname.endsWith('/positions') ? f.lpNow : f.now,methods:[],sends:[],reject:false};
+  Date.now=()=>m.now;window.__dexChainMock=m;
+  window.ethereum={isMetaMask:true,async request({method,params}){
+   m.methods.push(method);
+   if(method==='eth_accounts'||method==='eth_requestAccounts')return [f.intent.wallet];
+   if(method==='eth_chainId')return '0x515';
+   if(method==='eth_getCode')return '0x';
+   if(method==='eth_sendTransaction'){if(m.reject)throw {code:4001};m.sends.push(params);return '0x'+'11'.repeat(32);}
+   throw new Error('Unexpected mock wallet method');
+  },on(e,fn){if(!events.has(e))events.set(e,new Set());events.get(e).add(fn);},removeListener(e,fn){events.get(e)?.delete(fn);}};
+ },f);
+ await page.route('**/api/**',async route=>{
+  const url=route.request().url();let body;
+  if(url.includes('/wallet/quote')) body={...f.quoted,quote:{...f.quoted.quote,wallet:route.request().postDataJSON().wallet}};
+  else if(url.includes('/wallet/recheck')) body=f.checked;
+  else if(url.includes('/wallet/receipt')) body={observation:{contextId:f.checked.action.contextId,hash:'0x'+'11'.repeat(32),kind:'swap',chainId:1301,source:'unichain-sepolia-rpc',observedAt:new Date(f.now).toISOString(),executionEnabled:false,status:'confirmed',confirmations:'2',blockNumber:'124',blockHash:'0x'+'cc'.repeat(32),execution:{status:'verified',amountIn:f.intent.amountIn,amountOut:f.quoted.quote.amountOut,l2GasCost:'1000',actualTotalFeeQualified:false,balances:{USDC:'1000000',WETH:f.quoted.quote.amountOut,ETH:'1000000000000000000'},tokenAllowance:'0',allowanceMatchesExpected:true,stateBlockNumber:'125',stateBlockHash:'0x'+'dd'.repeat(32)}}};
+  else if(url.endsWith('/lp/study')||url.endsWith('/lp/recheck'))body={study:f.lp};
+  else if(url.endsWith('/lp/receipt'))body={observation:f.lpObservation};
+  else return route.fulfill({status:503,contentType:'application/json',body:JSON.stringify({code:'TESTNET_LP_RPC_UNAVAILABLE'})});
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+ });
+ const connect=async()=>{await page.getByRole('button',{name:'Connect wallet',exact:true}).click();await page.getByRole('button',{name:/MetaMask/}).click();};
+ await page.setViewportSize({width:1440,height:1000});
+ await page.goto('http://127.0.0.1:3120/networks/unichain-sepolia/swap');
+ await page.evaluate(()=>localStorage.clear());await page.reload();
+ await page.getByRole('button',{name:'Connect wallet',exact:true}).waitFor();
+ check((await page.evaluate(()=>window.__dexChainMock.methods)).length===0,'No wallet prompt on load');
+ await connect();await page.getByRole('button',{name:'Get wallet quote',exact:true}).click();
+ await page.getByText('Minimum received',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Review swap',exact:true}).click();
+ await page.getByText('Simulated swap',{exact:true}).waitFor();
+ await page.screenshot({path:'.playwright-cli/unichain-swap-desktop.png'});
+ await page.getByRole('button',{name:'Submit reviewed testnet transaction',exact:true}).click();
+ await page.getByRole('button',{name:'Check original transaction',exact:true}).waitFor();
+ check(await page.getByLabel('Testnet network',{exact:true}).isDisabled(),'Pending original transaction locks chain selection');
+ check(await page.evaluate(()=>window.__dexChainMock.sends[0][0].chainId==='0x515'),'Mock send uses Unichain chain');
+ await page.reload();await page.getByRole('button',{name:'Check original transaction',exact:true}).waitFor();
+ check((await page.evaluate(()=>window.__dexChainMock.methods)).length===0,'Reload recovers without wallet prompt');
+ await page.getByRole('button',{name:'Check original transaction',exact:true}).click();
+ await page.getByText('Verified executed output',{exact:true}).waitFor();
+ await page.getByRole('button',{name:'Acknowledge verified result',exact:true}).click();
+ check((await page.evaluate(()=>window.__dexChainMock.sends)).length===0,'Receipt recovery never resends');
+ await page.goto('http://127.0.0.1:3120/networks/unichain-sepolia/positions');await connect();
+ await page.getByRole('button',{name:'Create position',exact:true}).click();
+ await page.getByRole('button',{name:'Study LP action',exact:true}).click();
+ await page.getByText('Review approve USDC',{exact:true}).waitFor();
+ check((await page.locator('body').innerText()).includes('0xB7F724d6dDDFd008eFf5cc2834edDE5F9eF0d075'),'LP review shows Unichain manager');
+ await page.screenshot({path:'.playwright-cli/unichain-positions-desktop.png'});
+ await page.getByRole('button',{name:'Submit reviewed LP transaction',exact:true}).click();
+ await page.getByRole('button',{name:'Check original LP transaction',exact:true}).click();
+ await page.getByRole('button',{name:'Acknowledge verified LP result',exact:true}).waitFor();
+ check(true,'LP original receipt reaches confirmed approval');
+ await page.getByRole('button',{name:'Acknowledge verified LP result',exact:true}).click();
+ await page.goto('http://127.0.0.1:3120/networks/unichain-sepolia/explore');
+ await page.getByRole('button',{name:'Refresh pool sample',exact:true}).click();
+ await page.getByText('Quoted output',{exact:true}).waitFor();
+ check(true,'Explore representative quote passes selected-chain binding');
+ await page.getByLabel('Filter pools',{exact:true}).fill('unmatched');
+ await page.getByText('No pools match your filter.',{exact:true}).waitFor();
+ await page.getByLabel('Filter pools',{exact:true}).fill('USDC');
+ await page.getByRole('link',{name:'Pool details ↗',exact:true}).click();
+ await page.getByText('Pool identity',{exact:true}).waitFor();
+ check(!(await page.locator('body').innerText()).includes('Base Sepolia · 84532'),'Detail retains Unichain identity');
+ await page.screenshot({path:'.playwright-cli/unichain-pool-desktop.png'});
+ return {mockOnly:true,chainId:1301,checks};
+}

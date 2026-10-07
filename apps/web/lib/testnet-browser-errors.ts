@@ -1,3 +1,4 @@
+import {testnetChainConfig,type TestnetChainId} from "@vezta-dex/core";
 const codes = new Set([
   "TESTNET_ALLOWANCE_CHANGED",
   "TESTNET_APPROVAL_BUSY",
@@ -78,9 +79,10 @@ const actionMessages: Record<string, string> = {
   TESTNET_PREPARE_STALE: "The preparation has expired. Request and review a fresh quote before continuing.",
   TESTNET_NONCE_CHANGED: "The wallet nonce changed. Request and review a fresh quote before continuing.",
 };
-export function testnetActionMessage(code: string, recovering: boolean) {
+export function testnetActionMessage(code: string, recovering: boolean, chainId: TestnetChainId = 84532) {
   const message = actionMessages[safeTestnetCode(code)] ?? (recovering
     ? "Original transaction check is unavailable. Keep the context and hash; try an explicit receipt check later."
     : "Action unavailable. Request and review a fresh Base Sepolia quote.");
-  return recovering ? `${message} Preserve the original transaction; do not send again.` : message;
+  const selected = chainId === 84532 ? message : message.replaceAll("Base Sepolia",testnetChainConfig(chainId).label);
+  return recovering ? `${selected} Preserve the original transaction; do not send again.` : selected;
 }

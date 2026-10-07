@@ -1,9 +1,9 @@
 import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { historicalTestnetApprovalRequestSchema, parseHistoricalTestnetApprovalResponse } from "./testnet-wallet-historical";
 import { z } from "zod";
-import { parseTestnetSwapIntent, testnetRouteComparisonSchema } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId, testnetRouteComparisonSchema } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
-import { parseTestnetWalletQuote, walletReviewSchema, walletObservationResponseSchema, walletHash } from "./testnet-wallet-contracts";
+import { createTestnetWalletContracts, walletHash } from "./testnet-wallet-contracts";
 import { testnetDemoEnabled } from "./testnet-demo-gate";
 export { testnetDemoEnabled } from "./testnet-demo-gate";
 import { safeTestnetCode } from "./testnet-browser-errors";
@@ -11,10 +11,15 @@ const json = (body: unknown, status = 200) => Response.json(body, { status, head
 const id = z.string().regex(/^[a-f0-9]{48}$/);
 const recheck = z.object({ kind: z.enum(["approval", "swap"]), quoteId: id, intent: z.unknown() }).strict();
 const receipt = z.object({ contextId: id, hash: walletHash }).strict();
-export function createTestnetWalletProxy(env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch, now = Date.now) {
+export function createTestnetWalletProxy(env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch, now = Date.now, chainId: TestnetChainId = 84532) {
+  const config = testnetChainConfig(chainId);
+  const {parseTestnetSwapIntent} = createTestnetSwapDomain(chainId);
+  const {parseTestnetWalletQuote, walletReviewSchema, walletObservationResponseSchema} = createTestnetWalletContracts(chainId);
   let active = false; let starts: number[] = [];
   return async (request: Request, action: string): Promise<Response> => {
     if (!["quote", "recheck", "receipt", "historical-approval"].includes(action)) return json({ error: "Not found" }, 404);
+    if (chainId !== 84532 && action === "historical-approval") return json({ error: "Not found" }, 404);
+    if (env.DEX_HOSTED_MODE === "1" && chainId !== 84532) return json({ error: "Chain hosting unavailable" }, 403);
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
     const url = new URL(request.url);
     if (url.search) return json({ error: "Query parameters are not supported" }, 400);
@@ -36,7 +41,7 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
     if (active || starts.length >= 24) return json({ error: "Testnet read budget busy. Try an explicit fresh action later.", code: "TESTNET_BROWSER_BUSY" }, 429);
     active = true; starts.push(time);
     try {
-      const upstream = await fetcher(new URL(`/api/v1/testnet/base-sepolia/${action}`, target.url).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers },
+      const upstream = await fetcher(new URL(`/api/v1/testnet/${config.source.replace("-rpc", "")}/${action}`, target.url).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers },
         body: JSON.stringify(body), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(28000) });
       const raw = await boundedJson(upstream, upstream.ok ? 65536 : 4096);
       if (!upstream.ok) return json({ error: "Testnet action unavailable", code: safeTestnetCode(typeof raw === "object" && raw !== null && "code" in raw ? raw.code : undefined) }, [400, 409, 410, 413, 415, 429, 503].includes(upstream.status) ? upstream.status : 503);

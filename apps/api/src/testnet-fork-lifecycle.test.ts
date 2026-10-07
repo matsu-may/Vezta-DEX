@@ -2,7 +2,7 @@ import { expect, it, vi } from "vitest";
 import type { startOwnedTestnetAnvil } from "./testnet-fork-process";
 import { TESTNET_HASH } from "./testnet-quote.test-helper";
 
-vi.mock("./base-sepolia-source", () => ({ createBaseSepoliaPreflightSource: () => ({ async getCode() { return "0x6000"; } }) }));
+vi.mock("./base-sepolia-source", () => ({ createTestnetChainSource: () => ({ async getCode() { return "0x6000"; } }) }));
 const fixture = () => {
   const upstream = { number: 123n, hash: TESTNET_HASH, timestamp: BigInt(Math.floor(Date.now() / 1000)) };
   const request = vi.fn(async ({ method }: { method: string }) => method === "evm_snapshot" ? "0x7" : true);

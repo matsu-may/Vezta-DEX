@@ -1,4 +1,4 @@
-import { parseTestnetSwapIntent } from "@vezta-dex/core";
+import { createTestnetSwapDomain, type TestnetChainId } from "@vezta-dex/core";
 import { handleTestnetDiscovery, type TestnetDiscoveryReader } from "./testnet-discovery";
 import { TestnetQuoteError, type TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TestnetWalletStateError, type TestnetWalletStateReader } from "./testnet-wallet-state";
@@ -27,19 +27,22 @@ async function readJson(request: Request): Promise<unknown> {
   return JSON.parse(Buffer.concat(chunks).toString("utf8"));
 }
 
-export async function handleTestnetRequest(request: Request, discovery?: TestnetDiscoveryReader,
-  quotes?: TestnetSwapQuoteReader, states?: TestnetWalletStateReader,
-  approvals?: TestnetApprovalReader, preparer?: TestnetSwapPreparer,
-  rechecker?: TestnetRechecker, receipts?: TestnetReceiptReader, executionEnabled = false): Promise<Response | undefined> {
+export async function handleTestnetRequest<I extends TestnetChainId = 84532>(request: Request, discovery?: TestnetDiscoveryReader,
+  quotes?: TestnetSwapQuoteReader<I>, states?: TestnetWalletStateReader<I>,
+  approvals?: TestnetApprovalReader<I>, preparer?: TestnetSwapPreparer<I>,
+  rechecker?: TestnetRechecker<I>, receipts?: TestnetReceiptReader<I>, executionEnabled = false, chainId: I = 84532 as I): Promise<Response | undefined> {
   const url = new URL(request.url);
-  if (url.pathname === "/api/v1/testnet/base-sepolia/depth") return handleTestnetDiscovery(request, discovery);
-  const stateRequest = url.pathname === "/api/v1/testnet/base-sepolia/state";
-  const approvalRequest = url.pathname === "/api/v1/testnet/base-sepolia/approval";
-  const prepareRequest = url.pathname === "/api/v1/testnet/base-sepolia/prepare";
-  const recheckRequest = url.pathname === "/api/v1/testnet/base-sepolia/recheck";
-  const receiptRequest = url.pathname === "/api/v1/testnet/base-sepolia/receipt";
+  const slug = chainId === 84532 ? "base-sepolia" : "unichain-sepolia";
+  const prefix = `/api/v1/testnet/${slug}`;
+  const domain = createTestnetSwapDomain(chainId);
+  if (chainId === 84532 && url.pathname === `${prefix}/depth`) return handleTestnetDiscovery(request, discovery);
+  const stateRequest = url.pathname === `${prefix}/state`;
+  const approvalRequest = url.pathname === `${prefix}/approval`;
+  const prepareRequest = url.pathname === `${prefix}/prepare`;
+  const recheckRequest = url.pathname === `${prefix}/recheck`;
+  const receiptRequest = url.pathname === `${prefix}/receipt`;
   if (!stateRequest && !approvalRequest && !prepareRequest && !recheckRequest && !receiptRequest
-    && url.pathname !== "/api/v1/testnet/base-sepolia/quote") return undefined;
+    && url.pathname !== `${prefix}/quote`) return undefined;
   if (request.method !== "POST") return json({ error: "Method not allowed" }, 405);
   if (url.search) return json({ error: "Query parameters are not supported" }, 400);
   if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") {
@@ -48,8 +51,8 @@ export async function handleTestnetRequest(request: Request, discovery?: Testnet
   let intent;
   try {
     const body = await readJson(request);
-    intent = receiptRequest ? parseTestnetReceiptRequest(body) : recheckRequest ? parseTestnetRecheckRequest(body)
-      : approvalRequest || prepareRequest ? parseTestnetApprovalRequest(body) : parseTestnetSwapIntent(body);
+    intent = receiptRequest ? parseTestnetReceiptRequest(body) : recheckRequest ? parseTestnetRecheckRequest(body, chainId)
+      : approvalRequest || prepareRequest ? parseTestnetApprovalRequest(body, chainId) : domain.parseTestnetSwapIntent(body);
   }
   catch (error) {
     return error instanceof RangeError ? json({ error: "Request too large" }, 413)

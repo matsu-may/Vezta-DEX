@@ -5,6 +5,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { DemoWalletWorkspace } from "../components/demo-wallet-workspace";
 import { DemoNavigation } from "../components/demo-navigation";
+import {TestnetNetworkSelector} from "../components/testnet-network-selector";
 import { DemoWalletHeader } from "../components/demo-wallet-header";
 
 const displayFont = localFont({ src: "../public/fonts/SpaceGrotesk[wght].ttf", variable: "--font-display", weight: "300 700", display: "swap", preload: false });
@@ -37,7 +38,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
                 <Link href="/swap">Swap preview</Link>
               </nav>
               <span className="network-pill"><span className="network-dot" /> Standalone · chain shown per page</span>
-              <div className="demo-header-meta"><Link href="/demo/3">Base Sepolia <span className="badge">TESTNET</span></Link><DemoWalletHeader /></div>
+              <div className="demo-header-meta"><span className="badge">TESTNET</span><TestnetNetworkSelector/><DemoWalletHeader /></div>
             </header>
             <main>{children}</main>
             <footer className="site-footer">

@@ -1,10 +1,8 @@
-import { testnetQuoteExpiresAt } from "@vezta-dex/core";
 import { randomBytes } from "node:crypto";
 import { closeSync, existsSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { z } from "zod";
-import { inspectTestnetSwapTransaction, parseTestnetSwapIntent, testnetSwapIntentFromQuote, parseTestnetSwapQuote, planTestnetTokenApproval,
-  TESTNET_SWAP_POLICY as P, testnetFeeFieldsSchema, validateTestnetFeeFields, type TestnetFeeFields, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId, testnetFeeFieldsSchema, validateTestnetFeeFields, type TestnetFeeFields, type TestnetChainSwapIntent, type TestnetChainSwapQuote, type TestnetSwapTransaction } from "@vezta-dex/core";
 import type { TestnetQuoteStore } from "./testnet-quote-store";
 import type { TestnetApprovalReader } from "./testnet-approval";
 import type { TestnetSwapPreparer } from "./testnet-swap-preparation";
@@ -20,27 +18,28 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 const hash = (v: string) => /^0x[0-9a-fA-F]{64}$/.test(v) && BigInt(v) !== 0n;
 const integer = (v: string) => /^(0|[1-9][0-9]{0,77})$/.test(v) && BigInt(v) < 2n ** 256n;
 
-export interface TestnetActionInput {
+export interface TestnetActionInput<I extends TestnetChainId = 84532> {
   kind: "swap" | "approve" | "reset";
-  intent: TestnetSwapIntent; quote: TestnetSwapQuote;
-  transaction: TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
+  intent: TestnetChainSwapIntent<I>; quote: TestnetChainSwapQuote<I>;
+  transaction: TestnetSwapTransaction<I> & { nonce: string; gas: string } & TestnetFeeFields;
   blockNumber: string; blockHash: string; currentAllowance: string;
   observedAt?: string; // Legacy persisted contexts predate independent study freshness.
 }
-export interface TestnetActionContext extends TestnetActionInput {
+export interface TestnetActionContext<I extends TestnetChainId = 84532> extends TestnetActionInput<I> {
   contextId: string; issuedAt: number; trackingExpiresAt: number;
   quoteExpiresAt: string; originalHash: string | null; submissionAttempted: boolean;
 }
-const contextSchema = z.object({ kind: z.enum(["swap", "approve", "reset"]), intent: z.unknown(), quote: z.unknown(),
-  transaction: testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(P.chainId), from: z.string().max(42), to: z.string().max(42),
+const contextSchemaFor = (chainId: TestnetChainId) => z.object({ kind: z.enum(["swap", "approve", "reset"]), intent: z.unknown(), quote: z.unknown(),
+  transaction: testnetFeeFieldsSchema.safeExtend({ chainId: z.literal(chainId), from: z.string().max(42), to: z.string().max(42),
     data: z.string().max(4096), value: z.literal("0"), nonce: z.string().max(78), gas: z.string().max(78) }).strict(),
   observedAt: z.iso.datetime().optional(), blockNumber: z.string().max(78), blockHash: z.string().max(66), currentAllowance: z.string().max(78),
   contextId: z.string().regex(/^[a-f0-9]{48}$/), issuedAt: z.number().int().nonnegative(),
   trackingExpiresAt: z.number().int().nonnegative(), quoteExpiresAt: z.iso.datetime(),
   originalHash: z.string().regex(/^0x[0-9a-f]{64}$/).refine(v => BigInt(v) > 0n).nullable(), submissionAttempted: z.boolean() }).strict();
-const quoteIntent = testnetSwapIntentFromQuote;
 
-function validateInput(value: TestnetActionInput, now: number): TestnetActionInput {
+function validateInput<I extends TestnetChainId>(value: TestnetActionInput<I>, now: number, chainId: I): TestnetActionInput<I> {
+  const P = testnetChainConfig(chainId).policy;
+  const {parseTestnetSwapIntent, parseTestnetSwapQuote, inspectTestnetSwapTransaction, planTestnetTokenApproval, testnetSwapIntentFromQuote: quoteIntent} = createTestnetSwapDomain(chainId);
   try {
     const intent = parseTestnetSwapIntent(value.intent); const quote = parseTestnetSwapQuote(value.quote, now);
     const tx = value.transaction; validateTestnetFeeFields(tx);
@@ -70,9 +69,12 @@ function validateInput(value: TestnetActionInput, now: number): TestnetActionInp
 }
 
 // Internal trusted issuance; no HTTP endpoint accepts client-authored expected economics.
-export class TestnetActionStore {
-  private readonly entries = new Map<string, TestnetActionContext>();
-  constructor(private readonly now = Date.now, private readonly capacity = 128, private readonly directory?: string) {
+export class TestnetActionStore<I extends TestnetChainId = 84532> {
+  private readonly schema;
+  private readonly domain;
+  private readonly entries = new Map<string, TestnetActionContext<I>>();
+  constructor(private readonly now = Date.now, private readonly capacity = 128, private readonly directory?: string, readonly chainId: I = 84532 as I) {
+    this.domain = createTestnetSwapDomain(chainId); this.schema = contextSchemaFor(chainId);
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 128) throw new Error("Invalid context capacity");
     if (directory === undefined) return;
     try {
@@ -85,13 +87,13 @@ export class TestnetActionStore {
         // A crash before rename can leave a partial private write. It was never
         // committed or returned to a caller; preserve the last JSON state only.
         if (name.endsWith(".tmp")) { unlinkSync(file); continue; }
-        const saved = contextSchema.parse(JSON.parse(readFileSync(file, "utf8")));
+        const saved = this.schema.parse(JSON.parse(readFileSync(file, "utf8")));
         const { contextId, issuedAt, trackingExpiresAt, quoteExpiresAt, originalHash, submissionAttempted, ...value } = saved;
         // Validate original reviewed economics at issuance, so expired quotes remain usable for receipt recovery.
-        const input = validateInput(value as TestnetActionInput, issuedAt);
+        const input = validateInput(value as TestnetActionInput<I>, issuedAt, chainId);
         if (contextId !== name.slice(0, 48) || !Number.isSafeInteger(issuedAt) || issuedAt > now + 10000
           || trackingExpiresAt !== issuedAt + 86400000 || trackingExpiresAt > 8640000000000000
-          || quoteExpiresAt !== testnetQuoteExpiresAt(input.quote))
+          || quoteExpiresAt !== this.domain.testnetQuoteExpiresAt(input.quote))
           return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
         if (trackingExpiresAt <= now) unlinkSync(file);
         else this.entries.set(contextId, { ...input, contextId, issuedAt, trackingExpiresAt, quoteExpiresAt, originalHash, submissionAttempted });
@@ -119,12 +121,12 @@ export class TestnetActionStore {
     }
   }
   // One server process owns the directory. Never store signer material.
-  private save(context: TestnetActionContext) {
+  private save(context: TestnetActionContext<I>) {
     if (this.directory === undefined) { this.entries.set(context.contextId, structuredClone(context)); return; }
     const temp = join(this.directory, `${context.contextId}.${randomBytes(8).toString("hex")}.tmp`);
     let fd: number | undefined;
     try {
-      this.checkDirectory(); const serialized = JSON.stringify(contextSchema.parse(context));
+      this.checkDirectory(); const serialized = JSON.stringify(this.schema.parse(context));
       if (Buffer.byteLength(serialized) > 32768) return fail("TESTNET_CONTEXT_STORAGE_UNAVAILABLE");
       fd = openSync(temp, "wx", 0o600); writeFileSync(fd, serialized); fsyncSync(fd); closeSync(fd); fd = undefined;
       renameSync(temp, join(this.directory, `${context.contextId}.json`));
@@ -134,17 +136,17 @@ export class TestnetActionStore {
     finally { if (fd !== undefined) closeSync(fd); if (existsSync(temp)) unlinkSync(temp); }
   }
   get size() { this.prune(); return this.entries.size; }
-  issue(value: TestnetActionInput, consume: () => unknown) {
-    this.prune(); const now = this.now(); const input = validateInput(value, now);
+  issue(value: TestnetActionInput<I>, consume: () => unknown) {
+    this.prune(); const now = this.now(); const input = validateInput(value, now, this.chainId);
     if (input.quote.quoteTtlSeconds !== undefined && input.observedAt === undefined) return fail("TESTNET_CONTEXT_INVALID");
     if (this.entries.size >= this.capacity) return fail("TESTNET_CONTEXT_CAPACITY");
     const contextId = randomBytes(24).toString("hex");
-    const quoteExpiresAt = testnetQuoteExpiresAt(input.quote);
+    const quoteExpiresAt = this.domain.testnetQuoteExpiresAt(input.quote);
     const context = { ...input, contextId, issuedAt: now, trackingExpiresAt: now + 86400000,
       quoteExpiresAt, originalHash: null, submissionAttempted: false };
     // Construction/capacity checks precede consumption; persist before returning a reviewable context.
     consume(); this.save(context);
-    return { contextId, kind: input.kind, chainId: P.chainId, transaction: structuredClone(input.transaction),
+    return { contextId, kind: input.kind, chainId: this.chainId, transaction: structuredClone(input.transaction),
       quoteExpiresAt, trackingExpiresAt: new Date(context.trackingExpiresAt).toISOString(), executionEnabled: false as const };
   }
   read(id: string) {
@@ -162,24 +164,27 @@ export class TestnetActionStore {
   markSubmissionAttempted(id: string) {
     const context = this.read(id);
     if (context.submissionAttempted || context.originalHash !== null) return fail("TESTNET_CONTEXT_ATTEMPTED");
-    parseTestnetSwapQuote(context.quote, this.now());
+    this.domain.parseTestnetSwapQuote(context.quote, this.now());
     this.save({ ...context, submissionAttempted: true });
   }
 }
 
 const requestSchema = z.object({ kind: z.enum(["approval", "swap"]), intent: z.unknown(),
   quoteId: z.string().regex(/^[a-f0-9]{48}$/) }).strict();
-export function parseTestnetRecheckRequest(value: unknown) {
-  const body = requestSchema.parse(value); return { ...body, intent: parseTestnetSwapIntent(body.intent) };
+export function parseTestnetRecheckRequest<I extends TestnetChainId = 84532>(value: unknown, chainId: I = 84532 as I) {
+  const body = requestSchema.parse(value); return { ...body, intent: createTestnetSwapDomain(chainId).parseTestnetSwapIntent(body.intent) };
 }
 
-export class TestnetRechecker {
+export class TestnetRechecker<I extends TestnetChainId = 84532> {
   private busy = false;
-  constructor(private readonly approvals: TestnetApprovalReader, private readonly preparer: TestnetSwapPreparer,
-    private readonly quotes: TestnetQuoteStore, readonly contexts: TestnetActionStore) {}
+  constructor(private readonly approvals: TestnetApprovalReader<I>, private readonly preparer: TestnetSwapPreparer<I>,
+    private readonly quotes: TestnetQuoteStore<I>, readonly contexts: TestnetActionStore<I>, readonly chainId: I = 84532 as I) {
+    testnetChainConfig(chainId);
+    if ([approvals.chainId, preparer.chainId, quotes.chainId, contexts.chainId].some(id => id !== chainId)) throw new Error("Action service chain mismatch");
+  }
   async read(value: unknown) {
-    let request: ReturnType<typeof parseTestnetRecheckRequest>;
-    try { request = parseTestnetRecheckRequest(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
+    let request: ReturnType<typeof parseTestnetRecheckRequest<I>>;
+    try { request = parseTestnetRecheckRequest(value, this.chainId); } catch { return fail("TESTNET_INTENT_INVALID"); }
     if (this.busy) return fail("TESTNET_RECHECK_BUSY");
     this.busy = true;
     try {

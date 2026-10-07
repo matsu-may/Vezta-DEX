@@ -9,9 +9,12 @@ const diagnosticMessages = {
   "receipt-mismatch": "Receipt identity, block or gas fields could not be reconciled with the reviewed transaction.",
   "event-mismatch": "Token events did not prove the reviewed approval or swap amounts. Keep the original hash for review.",
 };
+import { testnetChainConfig } from "@vezta-dex/core";
 import { testnetAmount } from "./testnet-wallet-review";
 export function TestnetWalletRecovery({ state, controller }: { state: TestnetWalletSnapshot; controller: TestnetWalletController }) {
   const [hash, setHash] = useState(""); const [acceptedHash, setAcceptedHash] = useState<string | null>(null); const record = state.submission; const o = state.observation;
+  const config = testnetChainConfig(record?.intent.chainId ?? 84532);
+  const amount = (raw: string, token: string) => testnetAmount(raw,token,config.policy.chainId);
   if (!record && !state.historical && state.stage !== "recovery-blocked") return null;
   return <section className="testnet-review" aria-label="Original transaction recovery">
     <h3>{record?.hash ? "Original transaction" : "Submission outcome uncertain"}</h3>
@@ -22,19 +25,19 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
     {record && <><dl className="demo-preview">
       <div><dt>Original wallet</dt><dd className="mono">{record.intent.wallet}</dd></div>
       <div><dt>Original action</dt><dd>{record.action.kind}</dd></div>
-      <div><dt>Original input</dt><dd>{testnetAmount(record.intent.amountIn, record.intent.tokenIn)}</dd></div>
-      <div><dt>Network</dt><dd>Base Sepolia · 84532</dd></div>
+      <div><dt>Original input</dt><dd>{amount(record.intent.amountIn, record.intent.tokenIn)}</dd></div>
+      <div><dt>Network</dt><dd>{config.label} · {config.policy.chainId}</dd></div>
       <div><dt>Status</dt><dd>{state.stage}</dd></div>
     </dl>
-    {record.hash ? <><a href={`https://sepolia.basescan.org/tx/${record.hash}`} target="_blank" rel="noreferrer">View original Base Sepolia transaction</a>
+    {record.hash ? <><a href={`${config.explorer}/tx/${record.hash}`} target="_blank" rel="noreferrer">View original {config.label} transaction</a>
       <p className="mono">{record.hash}</p><button className="button" disabled={state.busy} onClick={() => void controller.observe()}>Check original transaction</button></>
       : <><label className="form-label" htmlFor="original-testnet-hash">Original transaction hash</label>
         <input id="original-testnet-hash" className="field mono" value={hash} onChange={e => setHash(e.target.value)} autoComplete="off" />
         <button className="button" disabled={state.busy || !/^0x[0-9a-fA-F]{64}$/.test(hash)} onClick={() => void controller.recoverHash(hash)}>Recover original hash</button></>}
     {o?.execution && <dl className="demo-preview">
-      {o.status === "confirmed" && record.action.kind === "swap" && <div><dt>Verified executed output</dt><dd>{testnetAmount(o.execution.amountOut!, record.intent.tokenOut)}</dd></div>}
-      {o.execution.approvedAmount !== undefined && <div><dt>Original approval event amount</dt><dd>{testnetAmount(o.execution.approvedAmount, record.intent.tokenIn)}</dd></div>}
-      <div><dt>Current allowance</dt><dd>{testnetAmount(o.execution.tokenAllowance, record.intent.tokenIn)}</dd></div>
+      {o.status === "confirmed" && record.action.kind === "swap" && <div><dt>Verified executed output</dt><dd>{amount(o.execution.amountOut!, record.intent.tokenOut)}</dd></div>}
+      {o.execution.approvedAmount !== undefined && <div><dt>Original approval event amount</dt><dd>{amount(o.execution.approvedAmount, record.intent.tokenIn)}</dd></div>}
+      <div><dt>Current allowance</dt><dd>{amount(o.execution.tokenAllowance, record.intent.tokenIn)}</dd></div>
       <div><dt>State block</dt><dd>{o.execution.stateBlockNumber}</dd></div>
       <div><dt>Confirmations</dt><dd>{o.confirmations}</dd></div>
       {o.executionModel && <><div><dt>Execution</dt><dd>MetaMask constrained delegation</dd></div><div><dt>Gas payer</dt><dd className="mono">{o.gasPayer}</dd></div></>}
@@ -42,7 +45,7 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
       <div><dt>Actual total fee</dt><dd>L1/operator charged fees not yet qualified</dd></div>
     </dl>}
     {o?.execution && !o.execution.allowanceMatchesExpected && <p role="alert">Allowance has changed since the original transaction. A new quote and review will check its current value.</p>}
-    {(state.stage === "unverified" || state.contextUnavailable) && record.hash && record.action.kind !== "swap" && <div className="manual-review-notice">
+    {config.policy.chainId === 84532 && (state.stage === "unverified" || state.contextUnavailable) && record.hash && record.action.kind !== "swap" && <div className="manual-review-notice">
       <h4>Approval needs review</h4>
       <button className="button" disabled={state.busy} onClick={() => void controller.reconcileHistoricalApproval()}>Verify historical approval</button>
       <p>This reads the original signed execution and approval event. It does not send a transaction or restore a missing API context.</p>
@@ -55,8 +58,8 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
     {state.historical && <section aria-label="Historical approval result" className="testnet-review">
       <h4>Verified historical approval</h4>
       <p>The signed on-chain approval is verified. Original API review unavailable. This is a separate historical result.</p>
-      <dl className="demo-preview"><div><dt>Approved amount</dt><dd>{testnetAmount(state.historical.approvedAmount,state.historical.token)}</dd></div>
-        <div><dt>Current allowance</dt><dd>{testnetAmount(state.historical.currentAllowance,state.historical.token)}</dd></div>
+      <dl className="demo-preview"><div><dt>Approved amount</dt><dd>{amount(state.historical.approvedAmount,state.historical.token)}</dd></div>
+        <div><dt>Current allowance</dt><dd>{amount(state.historical.currentAllowance,state.historical.token)}</dd></div>
         <div><dt>Receipt block</dt><dd>{state.historical.receiptBlockNumber}</dd></div><div><dt>Original hash</dt><dd className="mono">{state.historical.hash}</dd></div></dl>
       <button className="button" disabled={state.busy} onClick={() => void controller.acknowledgeHistoricalApproval()}>Acknowledge historical approval</button>
     </section>}

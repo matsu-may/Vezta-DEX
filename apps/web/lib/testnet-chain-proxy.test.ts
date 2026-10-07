@@ -1,0 +1,21 @@
+import { it, expect, vi } from "vitest";
+import { testnetChainConfig } from "@vezta-dex/core";
+import { createTestnetWalletProxy } from "./testnet-wallet-proxy";
+import { createTestnetLpWalletProxy } from "./testnet-lp-wallet-proxy";
+import { createTestnetLpProxy } from "./testnet-lp";
+const config = testnetChainConfig(1301);
+const request = (body: unknown) => new Request("http://127.0.0.1:3020/api/testnet-chains/unichain-sepolia/wallet/quote", { method:"POST", headers:{host:"127.0.0.1:3020",origin:"http://127.0.0.1:3020","content-type":"application/json"}, body:JSON.stringify(body) });
+it("routes selected-chain intents only to their namespace and rejects Base before upstream", async () => {
+  const fetcher = vi.fn(async (url: string | URL | Request, init?: RequestInit) => { expect(url).toBeTruthy(); expect(init?.method).toBe("POST"); return Response.json({code:"TESTNET_RPC_UNAVAILABLE"}, {status:503}); });
+  const swap = createTestnetWalletProxy({},fetcher,Date.now,1301);
+  const intent = {chainId:1301,wallet:"0x1111111111111111111111111111111111111111",tokenIn:config.candidate.USDC.address,tokenOut:config.candidate.WETH.address,amountIn:"1000000",slippageBps:50};
+  expect((await swap(request(intent),"quote")).status).toBe(503);
+  expect(fetcher.mock.calls[0][0]).toBe("http://127.0.0.1:3021/api/v1/testnet/unichain-sepolia/quote");
+  fetcher.mockClear(); expect((await swap(request({...intent,chainId:84532}),"quote")).status).toBe(400); expect(fetcher).not.toHaveBeenCalled();
+  const lp = createTestnetLpWalletProxy({},fetcher,Date.now,1301);
+  expect((await lp(request({intent:{chainId:1301,wallet:intent.wallet,kind:"mint",amount0Cap:"1000000",amount1Cap:"1000000000000000"}}),"study")).status).toBe(503);
+  expect(fetcher.mock.calls[0][0]).toBe("http://127.0.0.1:3021/api/v1/testnet/unichain-sepolia/lp/study");
+  fetcher.mockClear(); const positions = createTestnetLpProxy({},fetcher,Date.now,1301);
+  expect((await positions(request({chainId:1301,owner:intent.wallet,cursor:"0",limit:1}))).status).toBe(503);
+  expect(fetcher.mock.calls[0][0]).toBe("http://127.0.0.1:3021/api/v1/testnet/unichain-sepolia/lp/positions");
+});

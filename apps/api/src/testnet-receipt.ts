@@ -2,7 +2,7 @@ import { matchesTestnetFeeEnvelope, matchesTestnetReceiptGasPrice } from "./test
 import { verifyMetaMaskExecution } from "./testnet-metamask-execution";
 import { z } from "zod";
 import { decodeEventLog, erc20Abi, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_METAMASK as M } from "@vezta-dex/core";
+import { testnetChainConfig, type TestnetChainId, TESTNET_METAMASK as M } from "@vezta-dex/core";
 import { TestnetActionError, type TestnetActionContext, type TestnetActionStore } from "./testnet-action";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 
@@ -36,15 +36,17 @@ const querySchema = z.object({ contextId: z.string().regex(/^[a-f0-9]{48}$/),
   hash: z.string().refine(nonzeroHash) }).strict();
 export const parseTestnetReceiptRequest = (value: unknown) => querySchema.parse(value);
 
-function matchesOriginal(tx: TestnetObservedTransaction, c: TestnetActionContext, hash: string) {
+function matchesOriginal(tx: TestnetObservedTransaction, c: TestnetActionContext<TestnetChainId>, hash: string) {
   const expected = c.transaction;
+  const P = testnetChainConfig(c.intent.chainId).policy;
   return same(tx.hash, hash) && matchesTestnetFeeEnvelope(tx, expected) && tx.chainId === P.chainId && same(tx.from, c.intent.wallet)
     && same(tx.to, expected.to) && same(tx.input, expected.data) && tx.value === 0n
     && Number.isSafeInteger(tx.nonce) && tx.nonce >= 0 && String(tx.nonce) === expected.nonce
     && tx.gas === BigInt(expected.gas);
 }
 
-function reviewEvents(c: TestnetActionContext, r: TestnetObservedReceipt) {
+function reviewEvents(c: TestnetActionContext<TestnetChainId>, r: TestnetObservedReceipt) {
+  const P = testnetChainConfig(c.intent.chainId).policy;
   let spent = 0n; let received = 0n; let approvals = 0;
   const expectedApproval = c.kind === "reset" ? 0n : BigInt(c.intent.amountIn);
   for (const log of r.logs) {
@@ -78,10 +80,14 @@ function reviewEvents(c: TestnetActionContext, r: TestnetObservedReceipt) {
   return { amountIn: "0", amountOut: "0", approvedAmount: expectedApproval.toString() };
 }
 
-export class TestnetReceiptReader {
+export class TestnetReceiptReader<I extends TestnetChainId = 84532> {
+  private readonly config;
   private busy = false;
   constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaReceiptSource,
-    private readonly contexts: TestnetActionStore, private readonly now = Date.now) {}
+    private readonly contexts: TestnetActionStore<I>, private readonly now = Date.now, readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId);
+    if (contexts.chainId !== chainId) throw new Error("Receipt store chain mismatch");
+  }
   async observe(value: unknown) {
     let query: ReturnType<typeof parseTestnetReceiptRequest>;
     try { query = parseTestnetReceiptRequest(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
@@ -99,7 +105,8 @@ export class TestnetReceiptReader {
       return fail("TESTNET_RPC_UNAVAILABLE");
     } finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
-  private async probe(source: BaseSepoliaReceiptSource, c: TestnetActionContext, hash: Hex, signal: AbortSignal) {
+  private async probe(source: BaseSepoliaReceiptSource, c: TestnetActionContext<TestnetChainId>, hash: Hex, signal: AbortSignal) {
+    const {candidate: C, policy: P} = this.config;
     if (await source.getChainId() !== P.chainId) return fail("TESTNET_WRONG_CHAIN");
     signal.throwIfAborted(); const head = await source.getLatestBlock();
     const fresh = () => {
@@ -109,7 +116,7 @@ export class TestnetReceiptReader {
         || time > now + 10000 || now - time >= 30000 || head.number <= 0n || !nonzeroHash(head.hash)) return fail("TESTNET_RECEIPT_STALE");
     };
     fresh();
-    const base = { contextId: c.contextId, hash, kind: c.kind, chainId: P.chainId, source: "base-sepolia-rpc" as const,
+    const base = { contextId: c.contextId, hash, kind: c.kind, chainId: P.chainId, source: this.config.source,
       observedAt: new Date(Number(head.timestamp) * 1000).toISOString(), executionEnabled: false as const };
     type Diagnostic = "transaction-unavailable" | "unsupported-transaction-type" | "transaction-mismatch" | "receipt-mismatch" | "event-mismatch";
     const empty = (status: "unknown-original" | "pending" | "confirming" | "reorged" | "unverified", confirmations = "0", diagnostic?: Diagnostic) =>
@@ -126,6 +133,7 @@ export class TestnetReceiptReader {
     }
     let relay: { executionModel: "metamask-delegation"; gasPayer: string } | undefined;
     if (same(tx.to, M.manager) && same(tx.hash, hash)) {
+      if (this.chainId !== 84532) return empty("unverified", "0", "unsupported-transaction-type");
       // A manager destination alone cannot prove the owner or reviewed inner call.
       // Keep recovery candidates unbound until canonical inclusion proves execution.
       if (!receipt) return empty("unverified");
@@ -150,7 +158,7 @@ export class TestnetReceiptReader {
     if (!same(canonical, receipt.blockHash)) return empty("reorged");
     this.contexts.bindHash(c.contextId, hash);
     const confirmations = head.number - receipt.blockNumber + 1n;
-    if (confirmations < 2n) return empty("confirming", confirmations.toString());
+    if (confirmations < BigInt(this.config.inclusionConfirmations)) return empty("confirming", confirmations.toString());
     let economics: ReturnType<typeof reviewEvents> | null = null;
     if (receipt.status === "success") {
       try { economics = reviewEvents(c, receipt); } catch { return empty("unverified", confirmations.toString(), "event-mismatch"); }

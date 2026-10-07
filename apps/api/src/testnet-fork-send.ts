@@ -1,7 +1,7 @@
 import { toHex } from "viem";
-import { inspectTestnetSwapTransaction, planTestnetTokenApproval, parseTestnetSwapQuote, TESTNET_SWAP_POLICY as P,
+import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId,
   sameTestnetFeeFields, testnetRpcFeeFields, validateTestnetFeeFields,
-  type TestnetSwapIntent, type TestnetSwapQuote } from "@vezta-dex/core";
+  type TestnetChainSwapIntent, type TestnetChainSwapQuote } from "@vezta-dex/core";
 import type { ForkClientBoundary, TestnetForkReceiptEvidence } from "./testnet-fork";
 import { forkAssert, guardedForkRequest } from "./testnet-fork";
 import type { TestnetQuoteStore } from "./testnet-quote-store";
@@ -23,30 +23,32 @@ export async function sendReviewedForkTransaction(boundary: ForkClientBoundary, 
   }], () => {
     forkAssert(JSON.stringify(transaction) === JSON.stringify(reviewed), "FORK_TRANSACTION_CHANGED");
     beforeWrite();
-  });
+  }, transaction.chainId);
 }
 
 // Fork harness only. This is not an authenticated browser/public submission endpoint.
-export async function prepareForkSend(source: Source, store: TestnetQuoteStore,
-  request: { intent: TestnetSwapIntent; quoteId: string }, study: Study,
+export async function prepareForkSend<I extends TestnetChainId>(source: Source, store: TestnetQuoteStore<I>,
+  request: { intent: TestnetChainSwapIntent<I>; quoteId: string }, study: Study,
   kind: TestnetForkReceiptEvidence["kind"], signal: AbortSignal, now = Date.now) {
   return prepareBoundForkSend(source, request.intent, study, kind, signal, now,
     () => store.read(request.quoteId, request.intent), () => store.consume(request.quoteId, request.intent));
 }
 
-export async function prepareForkContextSend(source: Source, contexts: TestnetActionStore, contextId: string,
+export async function prepareForkContextSend<I extends TestnetChainId>(source: Source, contexts: TestnetActionStore<I>, contextId: string,
   signal: AbortSignal, now = Date.now) {
   const c = contexts.read(contextId);
   return prepareBoundForkSend(source, c.intent, c, c.kind, signal, now, () => {
     const context = contexts.read(contextId);
     forkAssert(!context.submissionAttempted && context.originalHash === null, "FORK_ALREADY_SUBMITTED");
-    return parseTestnetSwapQuote(context.quote, now());
+    return createTestnetSwapDomain(contexts.chainId).parseTestnetSwapQuote(context.quote, now());
   }, () => contexts.markSubmissionAttempted(contextId));
 }
 
-async function prepareBoundForkSend(source: Source, i: TestnetSwapIntent, study: Study,
+async function prepareBoundForkSend(source: Source, i: TestnetChainSwapIntent, study: Study,
   kind: TestnetForkReceiptEvidence["kind"], signal: AbortSignal, now: () => number,
-  readQuote: () => TestnetSwapQuote, consume: () => unknown) {
+  readQuote: () => TestnetChainSwapQuote, consume: () => unknown) {
+  const P = testnetChainConfig(i.chainId).policy;
+  const {inspectTestnetSwapTransaction, planTestnetTokenApproval} = createTestnetSwapDomain(i.chainId);
   const tx = study.transaction; const originalFees = { ...tx }; const quote = readQuote(); signal.throwIfAborted();
   const validate = () => {
     signal.throwIfAborted(); readQuote();

@@ -1,3 +1,4 @@
+import { createTestnetChainApi } from "./testnet-chain-api";
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
@@ -107,6 +108,9 @@ if (testnetRpcUrl) {
     process.stderr.write("TESTNET_LP_STORAGE_UNAVAILABLE\n");
   }
 }
+const unichain = createTestnetChainApi(1301, process.env.UNICHAIN_SEPOLIA_RPC_URL?.trim(), {
+  swap: `${directories.swap}-unichain-sepolia`, lp: `${directories.lp}-unichain-sepolia`,
+});
 createServer(async (request, response) => {
   const requestId = randomUUID();
   const started = performance.now();
@@ -150,7 +154,7 @@ createServer(async (request, response) => {
       body = Buffer.concat(chunks).toString("utf8");
     }
     const apiRequest = toApiRequest(url, request.method, body, request.headers);
-    const result = await handleTestnetHistoricalApprovalRequest(apiRequest, testnetHistoricalApprovals) ?? await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, executionEnabled, testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, executionEnabled)
+    const result = await unichain.handle(apiRequest, testnetHttpExecutionEnabled(process.env, host, port)) ?? await handleTestnetHistoricalApprovalRequest(apiRequest, testnetHistoricalApprovals) ?? await handleTestnetLpWalletRequest(apiRequest, testnetLpWallet, testnetLpWalletReceipts, executionEnabled, testnetLpWalletUnavailable) ?? await handleTestnetLpRequest(apiRequest, testnetLpPositions) ?? await handleTestnetRequest(apiRequest, testnet, testnetQuotes, testnetStates, testnetApprovals, testnetPreparer, testnetRechecker, testnetReceipts, executionEnabled)
       ?? await handleRequest(apiRequest, reader, quotes, trading, approval, permits, swaps, wallet, observations, positions, readiness);
     const resultBody = Buffer.from(await result.arrayBuffer());
     status = result.status;

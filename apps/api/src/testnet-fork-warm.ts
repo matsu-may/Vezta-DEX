@@ -1,11 +1,12 @@
 import { createPublicClient, http, isAddress, type Address, type Hex } from "viem";
-import { baseSepolia } from "viem/chains";
-import { BASE_SEPOLIA_CANDIDATE as C } from "@vezta-dex/core";
+import { baseSepolia, unichainSepolia } from "viem/chains";
+import { testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { assertTestnetForkOrigin, forkAssert, type ForkClientBoundary } from "./testnet-fork";
 
 /** Cache-only fixture warmup. Never supplies a gas estimate or execution proof. */
 export async function warmOwnedForkCall(boundary: ForkClientBoundary, origin: string,
-  transaction: { from: Address; to: Address; data: Hex; value: "0" }, blockNumber: bigint, signal: AbortSignal) {
+  transaction: { from: Address; to: Address; data: Hex; value: "0" }, blockNumber: bigint, signal: AbortSignal, chainId: TestnetChainId = 84532) {
+  const C = testnetChainConfig(chainId).candidate;
   signal.throwIfAborted();
   assertTestnetForkOrigin(origin);
   forkAssert(boundary.transport.type === "http" && boundary.transport.url === origin && blockNumber > 0n
@@ -14,9 +15,9 @@ export async function warmOwnedForkCall(boundary: ForkClientBoundary, origin: st
     && transaction.data.length <= 8194, "FORK_WARM_INVALID");
   const captured = { ...transaction };
   const [chain, version] = await Promise.all([boundary.getChainId(), boundary.getClientVersion()]);
-  forkAssert(chain === 84532 && /\banvil\b/i.test(version), "FORK_CLIENT_INVALID");
+  forkAssert(chain === chainId && /\banvil\b/i.test(version), "FORK_CLIENT_INVALID");
   signal.throwIfAborted();
-  const client = createPublicClient({ chain: baseSepolia, transport: http(origin, { timeout: 30000, retryCount: 0,
+  const client = createPublicClient({ chain: chainId === 84532 ? baseSepolia : unichainSepolia, transport: http(origin, { timeout: 30000, retryCount: 0,
     fetchFn: async (input, init) => {
       const abort = init?.signal ? AbortSignal.any([signal, init.signal]) : signal;
       const response = await fetch(input, { ...init, signal: abort });

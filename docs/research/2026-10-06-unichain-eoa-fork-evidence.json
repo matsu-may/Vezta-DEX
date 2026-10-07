@@ -1,0 +1,75 @@
+{
+  "chainId": 1301,
+  "localOnly": true,
+  "ownerFundsUsed": false,
+  "swap": {
+    "blockNumber": "64447049",
+    "executions": [
+      {
+        "stage": "swap",
+        "direction": "USDC_TO_WETH",
+        "localOnly": true,
+        "simulationSucceeded": true,
+        "snapshotFeeBudgetQualified": true,
+        "verified": true,
+        "amountIn": "1000000",
+        "amountOut": "116973791183800",
+        "l2GasCost": "117967929951884",
+        "actualTotalFeeQualified": false,
+        "confirmations": 2,
+        "contextBound": true,
+        "trackingVerified": true
+      },
+      {
+        "stage": "swap",
+        "direction": "WETH_TO_USDC",
+        "localOnly": true,
+        "simulationSucceeded": true,
+        "snapshotFeeBudgetQualified": true,
+        "verified": true,
+        "amountIn": "100000000000000",
+        "amountOut": "849791",
+        "l2GasCost": "136542202693944",
+        "actualTotalFeeQualified": false,
+        "confirmations": 2,
+        "contextBound": true,
+        "trackingVerified": true
+      }
+    ],
+    "result": {
+      "status": "testnet-fork-lifecycle-local-only",
+      "chainId": 1301,
+      "verified": true,
+      "snapshotReverted": true,
+      "ownerFundsUsed": false,
+      "actualTotalFeeQualified": false,
+      "executionEnabled": false
+    }
+  },
+  "lp": {
+    "blockNumber": "64447265",
+    "nftId": "418172",
+    "tickLower": 185160,
+    "tickUpper": 186420,
+    "result": {
+      "status": "testnet-lp-wallet-fork-lifecycle-local-only",
+      "chainId": 1301,
+      "verified": true,
+      "snapshotReverted": true,
+      "ownerFundsUsed": false,
+      "actualTotalFeeQualified": false,
+      "executionEnabled": false
+    },
+    "cleanup": {
+      "stage": "burn-and-clear",
+      "customRangeVerified": true,
+      "mintRestartVerified": true,
+      "localOnly": true,
+      "burned": true,
+      "allowancesCleared": true,
+      "restartVerified": true
+    }
+  },
+  "actualTotalFeeQualified": false,
+  "publicAcceptanceVerified": false
+}

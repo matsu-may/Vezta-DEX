@@ -1,5 +1,5 @@
 import { parseUnits } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C } from "./testnet";
+import { testnetChainConfig, type TestnetChainId } from "./testnet-chain-config";
 import { TESTNET_SWAP_POLICY as P } from "./testnet-swap";
 
 function decimal(value: string, places: number): bigint {
@@ -8,7 +8,8 @@ function decimal(value: string, places: number): bigint {
   return parseUnits(value, places);
 }
 
-export function parseTestnetSwapAmount(value: string, tokenIn: string): string {
+export function parseTestnetSwapAmount(value: string, tokenIn: string, chainId: TestnetChainId = 84532): string {
+  const {candidate: C} = testnetChainConfig(chainId);
   const usdc = tokenIn.toLowerCase() === C.USDC.address.toLowerCase();
   if (!usdc && tokenIn.toLowerCase() !== C.WETH.address.toLowerCase()) throw new Error("Unsupported input token");
   const amount = decimal(value, usdc ? 6 : 18);

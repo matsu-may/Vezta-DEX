@@ -1,8 +1,7 @@
-import { testnetQuoteExpiresAt } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig } from "@vezta-dex/core";
 import { z } from "zod";
 import type { Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, parseTestnetSwapIntent,
-  planTestnetTokenApproval, classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields } from "@vezta-dex/core";
+import {  classifyTestnetWalletCode, type TestnetSwapTransaction, type TestnetChainId, type TestnetFeeFields } from "@vezta-dex/core";
 import type { BaseSepoliaWalletSource } from "./testnet-wallet-state";
 import { TestnetQuoteStore } from "./testnet-quote-store";
 import { verifyTestnetRuntimeCodes } from "./testnet-runtime";
@@ -15,11 +14,11 @@ export interface BaseSepoliaApprovalSource extends BaseSepoliaWalletSource, Test
   getGasPrice(): Promise<bigint>;
 }
 const requestSchema = z.object({ intent: z.unknown(), quoteId: z.string().regex(/^[a-f0-9]{48}$/) }).strict();
-export function parseTestnetApprovalRequest(value: unknown) {
+export function parseTestnetApprovalRequest<I extends TestnetChainId = 84532>(value: unknown, chainId: I = 84532 as I) {
   const request = requestSchema.parse(value);
-  return { intent: parseTestnetSwapIntent(request.intent), quoteId: request.quoteId };
+  return { intent: createTestnetSwapDomain(chainId).parseTestnetSwapIntent(request.intent), quoteId: request.quoteId };
 }
-type RequestBody = ReturnType<typeof parseTestnetApprovalRequest>;
+type RequestBody<I extends TestnetChainId> = ReturnType<typeof parseTestnetApprovalRequest<I>>;
 type Code = "TESTNET_INTENT_INVALID" | "TESTNET_QUOTE_UNAVAILABLE" | "TESTNET_APPROVAL_BUSY"
   | "TESTNET_APPROVAL_TIMEOUT" | "TESTNET_RPC_UNAVAILABLE" | "TESTNET_WRONG_CHAIN"
   | "TESTNET_APPROVAL_STALE" | "TESTNET_CONFIGURATION_INVALID" | "TESTNET_EOA_REQUIRED"
@@ -33,16 +32,21 @@ const fail = (code: Code): never => { throw new TestnetApprovalError(code); };
 const uint = (value: bigint, bits = 256) => typeof value === "bigint" && value >= 0n && value < 2n ** BigInt(bits);
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 type GasStudy = ReturnType<typeof completeTestnetFeeBudget>;
-type UnsignedApproval = TestnetSwapTransaction & { nonce: string; gas: string } & TestnetFeeFields;
+type UnsignedApproval<I extends TestnetChainId> = TestnetSwapTransaction<I> & { nonce: string; gas: string } & TestnetFeeFields;
 
-export class TestnetApprovalReader {
+export class TestnetApprovalReader<I extends TestnetChainId = 84532> {
+  private readonly config;
+  private readonly domain;
   private busy = false;
   constructor(private readonly createSource: (signal: AbortSignal) => BaseSepoliaApprovalSource,
-    private readonly quotes: TestnetQuoteStore, private readonly now = Date.now) {}
+    private readonly quotes: TestnetQuoteStore<I>, private readonly now = Date.now, readonly chainId: I = 84532 as I) {
+    this.config = testnetChainConfig(chainId); this.domain = createTestnetSwapDomain(chainId);
+    if (quotes.chainId !== chainId) throw new Error("Quote store chain mismatch");
+  }
 
   async read(value: unknown) {
-    let request: RequestBody;
-    try { request = parseTestnetApprovalRequest(value); } catch { return fail("TESTNET_INTENT_INVALID"); }
+    let request: RequestBody<I>;
+    try { request = parseTestnetApprovalRequest(value, this.chainId); } catch { return fail("TESTNET_INTENT_INVALID"); }
     this.quote(request);
     if (this.busy) return fail("TESTNET_APPROVAL_BUSY");
     this.busy = true;
@@ -59,12 +63,13 @@ export class TestnetApprovalReader {
     } finally { clearTimeout(timer); controller.abort(); this.busy = false; }
   }
 
-  private quote(request: RequestBody) {
+  private quote(request: RequestBody<I>) {
     try { return this.quotes.read(request.quoteId, request.intent); }
     catch { return fail("TESTNET_QUOTE_UNAVAILABLE"); }
   }
 
-  private async probe(source: BaseSepoliaApprovalSource, request: RequestBody, signal: AbortSignal) {
+  private async probe(source: BaseSepoliaApprovalSource, request: RequestBody<I>, signal: AbortSignal) {
+    const { candidate: C, policy: P } = this.config;
     const i = request.intent; const quote = this.quote(request);
     if (await source.getChainId() !== P.chainId) return fail("TESTNET_WRONG_CHAIN");
     signal.throwIfAborted();
@@ -92,6 +97,7 @@ export class TestnetApprovalReader {
     let accountKind: ReturnType<typeof classifyTestnetWalletCode>;
     try { accountKind = classifyTestnetWalletCode(code); } catch { return fail("TESTNET_EOA_REQUIRED"); }
     if (accountKind === "metamask-delegated") {
+      if (this.chainId !== 84532) return fail("TESTNET_EOA_REQUIRED");
       try { await verifyTestnetMetaMaskRuntime(source, block.number); }
       catch { return fail("TESTNET_METAMASK_RUNTIME_MISMATCH"); }
       fresh();
@@ -103,12 +109,12 @@ export class TestnetApprovalReader {
     catch { return fail("TESTNET_RUNTIME_MISMATCH"); }
     if (![input, eth, allowance].every(v => uint(v)) || !uint(nonce, 64) || !uint(pending, 64)) return fail("TESTNET_STATE_INVALID");
     if (nonce !== pending) return fail("TESTNET_NONCE_CHANGED");
-    const plan = planTestnetTokenApproval(i, allowance);
+    const plan = this.domain.planTestnetTokenApproval(i, allowance);
     const funding = { inputBalanceSufficient: input >= BigInt(i.amountIn), nativeEthPositive: eth > 0n,
       l2BudgetCovered: null as boolean | null, totalBudgetCovered: null as boolean | null };
     let status: "blocked" | "allowance-ready" | "unsigned-prepared" = "blocked";
     let reason: "TESTNET_INPUT_BALANCE_LOW" | "TESTNET_NATIVE_BALANCE_LOW" | "TESTNET_L2_BUDGET_LOW" | "TESTNET_TOTAL_BUDGET_LOW" | null = null;
-    let gas: GasStudy | null = null; let transaction: UnsignedApproval | null = null;
+    let gas: GasStudy | null = null; let transaction: UnsignedApproval<I> | null = null;
     let simulation: { status: "success" } | null = null;
     if (plan.kind !== "reset" && !funding.inputBalanceSufficient) reason = "TESTNET_INPUT_BALANCE_LOW";
     else if (!funding.nativeEthPositive) reason = "TESTNET_NATIVE_BALANCE_LOW";
@@ -146,7 +152,7 @@ export class TestnetApprovalReader {
     return { status, reason, chainId: P.chainId, quoteId: request.quoteId, intent: i,
       blockNumber: block.number.toString(), blockHash: block.hash,
       observedAt: new Date(Number(block.timestamp) * 1000).toISOString(),
-      expiresAt: testnetQuoteExpiresAt(quote), source: "base-sepolia-rpc" as const,
+      expiresAt: this.domain.testnetQuoteExpiresAt(quote), source: this.config.source,
       accountNonce: nonce.toString(), inputBalance: input.toString(), nativeBalance: eth.toString(),
       currentAllowance: allowance.toString(), approvalKind: plan.kind, funding, simulation, gas, transaction,
       runtimeVerified: true as const, executionEnabled: false as const };

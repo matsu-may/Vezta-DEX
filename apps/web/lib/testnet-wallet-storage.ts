@@ -1,30 +1,43 @@
+import { type TestnetChainId, testnetChainConfig } from "@vezta-dex/core";
 import { parseHistoricalTestnetApproval, type HistoricalTestnetApproval } from "./testnet-wallet-historical";
-import { parseTestnetSubmission, type TestnetSubmission } from "./testnet-wallet-contracts";
+import { createTestnetWalletContracts, parseTestnetSubmission, type TestnetSubmission } from "./testnet-wallet-contracts";
 export const TESTNET_SUBMISSION_KEY = "vezta-dex:base-sepolia-submission:v1";
 export type TestnetSubmissionStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
-export function readTestnetSubmission(storage: Pick<Storage, "getItem">): { kind: "empty" } | { kind: "invalid" } | { kind: "record"; record: TestnetSubmission } {
-  try {
-    const raw = storage.getItem(TESTNET_SUBMISSION_KEY);
-    if (raw === null) return { kind: "empty" };
-    if (raw.length > 8192) return { kind: "invalid" };
-    return { kind: "record", record: parseTestnetSubmission(JSON.parse(raw)) };
-  } catch { return { kind: "invalid" }; }
+export function createTestnetSubmissionStorageDomain(chainId: TestnetChainId) {
+  const config = testnetChainConfig(chainId);
+  const TESTNET_SUBMISSION_KEY = `vezta-dex:${chainId === 84532 ? "base-sepolia" : "unichain-sepolia"}-submission:v1`;
+  const {parseTestnetSubmission} = createTestnetWalletContracts(config.policy.chainId);
+  function readTestnetSubmission(storage: Pick<Storage, "getItem">): { kind: "empty" } | { kind: "invalid" } | { kind: "record"; record: TestnetSubmission } {
+    try {
+      const raw = storage.getItem(TESTNET_SUBMISSION_KEY);
+      if (raw === null) return { kind: "empty" };
+      if (raw.length > 8192) return { kind: "invalid" };
+      return { kind: "record", record: parseTestnetSubmission(JSON.parse(raw)) };
+    } catch { return { kind: "invalid" }; }
+  }
+  function sameTestnetSubmission(a: TestnetSubmission | null, b: TestnetSubmission | null) {
+    return a === null || b === null ? a === b : JSON.stringify(parseTestnetSubmission(a)) === JSON.stringify(parseTestnetSubmission(b));
+  }
+  function owns(storage: TestnetSubmissionStorage, expected: TestnetSubmission | null) {
+    const current = readTestnetSubmission(storage);
+    if (current.kind === "invalid" || !sameTestnetSubmission(current.kind === "record" ? current.record : null, expected)) throw new Error("Original testnet recovery changed");
+  }
+  // Call under the origin-wide nonqueued Web Lock, without an await between compare and mutation.
+  function writeTestnetSubmission(storage: TestnetSubmissionStorage, record: TestnetSubmission, expected: TestnetSubmission | null = null) {
+    owns(storage, expected); const raw = JSON.stringify(parseTestnetSubmission(record));
+    if (raw.length > 8192) throw new Error("Testnet recovery too large");
+    storage.setItem(TESTNET_SUBMISSION_KEY, raw);
+  }
+  function clearTestnetSubmission(storage: TestnetSubmissionStorage, expected: TestnetSubmission) {
+    owns(storage, expected); storage.removeItem(TESTNET_SUBMISSION_KEY);
+  }
+
+  return Object.freeze({readTestnetSubmission, sameTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission});
 }
-export function sameTestnetSubmission(a: TestnetSubmission | null, b: TestnetSubmission | null) {
-  return a === null || b === null ? a === b : JSON.stringify(parseTestnetSubmission(a)) === JSON.stringify(parseTestnetSubmission(b));
-}
+export const {readTestnetSubmission, sameTestnetSubmission, writeTestnetSubmission, clearTestnetSubmission} = createTestnetSubmissionStorageDomain(84532);
 function owns(storage: TestnetSubmissionStorage, expected: TestnetSubmission | null) {
   const current = readTestnetSubmission(storage);
   if (current.kind === "invalid" || !sameTestnetSubmission(current.kind === "record" ? current.record : null, expected)) throw new Error("Original testnet recovery changed");
-}
-// Call under the origin-wide nonqueued Web Lock, without an await between compare and mutation.
-export function writeTestnetSubmission(storage: TestnetSubmissionStorage, record: TestnetSubmission, expected: TestnetSubmission | null = null) {
-  owns(storage, expected); const raw = JSON.stringify(parseTestnetSubmission(record));
-  if (raw.length > 8192) throw new Error("Testnet recovery too large");
-  storage.setItem(TESTNET_SUBMISSION_KEY, raw);
-}
-export function clearTestnetSubmission(storage: TestnetSubmissionStorage, expected: TestnetSubmission) {
-  owns(storage, expected); storage.removeItem(TESTNET_SUBMISSION_KEY);
 }
 
 export const TESTNET_MANUAL_REVIEW_KEY = "vezta-dex:base-sepolia-manual-review:v1";
@@ -85,13 +98,13 @@ export function acknowledgeTestnetHistoricalApproval(storage:TestnetSubmissionSt
   const history = readTestnetApprovalHistory(storage), acks = readTestnetHistoricalAcknowledgments(storage);
   if (!history.some(h=>sameTestnetSubmission(h,record))) {
     if (!active || history.length >= 16) throw new Error("Historical record unavailable");
-    history.push(record);
+    history.push(parseTestnetSubmission(record));
     storage.setItem(TESTNET_MANUAL_REVIEW_KEY,JSON.stringify(history));
     if (!readTestnetApprovalHistory(storage).some(h=>sameTestnetSubmission(h,record))) throw new Error("History write failed");
   }
   if (!acks.some(a=>sameTestnetSubmission(a.record,record))) {
     if (acks.length >= 16) throw new Error("Acknowledgment history full");
-    acks.push({record,reconciliation:checked,acknowledgedAt:now});
+    acks.push({record:parseTestnetSubmission(record),reconciliation:checked,acknowledgedAt:now});
     storage.setItem(TESTNET_HISTORICAL_ACK_KEY,JSON.stringify(acks));
     if (!readTestnetHistoricalAcknowledgments(storage).some(a=>sameTestnetSubmission(a.record,record))) throw new Error("Acknowledgment write failed");
   }

@@ -154,7 +154,7 @@ export class TestnetLpWalletReceiptReader<I extends TestnetChainId = 84532> {
     base.receiptBlockNumber=r.blockNumber.toString();base.receiptBlockHash=r.blockHash;base.confirmations=(head.number-r.blockNumber+1n).toString();
     base.l2GasCost=(r.gasUsed*r.effectiveGasPrice).toString();
     if(relay){base.executionModel=relay.executionModel;base.gasPayer=relay.gasPayer;}
-    if(BigInt(base.confirmations)<2n)return result("confirming");
+    if(BigInt(base.confirmations)<BigInt(this.config.inclusionConfirmations))return result("confirming");
     if(r.status==="reverted") {
       if(r.logs.length!==0)return result("unverified","receipt-mismatch");
       return this.domain.parseTestnetLpReceipt({...base,status:"reverted",verified:true,tokenId:"tokenId" in study.intent ? study.intent.tokenId : null},this.now());

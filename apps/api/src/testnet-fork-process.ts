@@ -1,12 +1,14 @@
+import { testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { createPublicClient, http } from "viem";
-import { baseSepolia } from "viem/chains";
+import { baseSepolia, unichainSepolia } from "viem/chains";
 import { assertTestnetForkOrigin, forkAssert, TestnetForkError, type ForkClientBoundary } from "./testnet-fork";
 
-export async function startOwnedTestnetAnvil(signal: AbortSignal, fork?: { url: string; block: bigint }) {
+export async function startOwnedTestnetAnvil(signal: AbortSignal, fork?: { url: string; block: bigint }, chainId: TestnetChainId = 84532) {
+  testnetChainConfig(chainId);
   signal.throwIfAborted();
   if (fork) {
     const url = new URL(fork.url);
@@ -25,7 +27,7 @@ export async function startOwnedTestnetAnvil(signal: AbortSignal, fork?: { url: 
   signal.throwIfAborted();
   const origin = assertTestnetForkOrigin(`http://127.0.0.1:${port}`);
   const executable = existsSync(`${homedir()}/.foundry/bin/anvil`) ? `${homedir()}/.foundry/bin/anvil` : "anvil";
-  const child = spawn(executable, ["--host", "127.0.0.1", "--port", String(port), "--chain-id", "84532", "--accounts", "0",
+  const child = spawn(executable, ["--host", "127.0.0.1", "--port", String(port), "--chain-id", String(chainId), "--accounts", "0",
     ...(fork ? ["--fork-url", fork.url, "--fork-block-number", fork.block.toString(), "--retries", "0", "--timeout", "8000", "--no-storage-caching"] : [])],
   { stdio: ["ignore", "pipe", "ignore"] });
   // Never echo child args/output: upstream URLs and generated account material are private.
@@ -60,14 +62,14 @@ export async function startOwnedTestnetAnvil(signal: AbortSignal, fork?: { url: 
       signal.addEventListener("abort", aborted, { once: true });
       if (signal.aborted) aborted();
     });
-    const client = createPublicClient({ chain: baseSepolia, transport: http(origin, { timeout: 8000, retryCount: 0 }) });
+    const client = createPublicClient({ chain: chainId === 84532 ? baseSepolia : unichainSepolia, transport: http(origin, { timeout: 8000, retryCount: 0 }) });
     const request = client.request as unknown as ForkClientBoundary["request"];
     const boundary: ForkClientBoundary = { transport: client.transport, getChainId: () => client.getChainId(),
       async getClientVersion() {
         const version = await request({ method: "web3_clientVersion" });
         forkAssert(typeof version === "string", "FORK_CLIENT_INVALID"); return version;
       }, request };
-    forkAssert(await boundary.getChainId() === 84532 && /\banvil\b/i.test(await boundary.getClientVersion()), "FORK_CLIENT_INVALID");
+    forkAssert(await boundary.getChainId() === chainId && /\banvil\b/i.test(await boundary.getClientVersion()), "FORK_CLIENT_INVALID");
     signal.throwIfAborted();
     return { client, boundary, origin, stop };
   } catch (error) { await stop(); throw error; }

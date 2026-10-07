@@ -40,7 +40,8 @@
     "testnet:routing-evidence": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-routing-evidence-cli.ts",
     "testnet:receipt-fees": "pnpm --filter @vezta-dex/api exec node --import tsx src/testnet-receipt-fee-evidence-cli.ts",
     "testnet:unichain-rebuild": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-rebuild-cli.ts",
-    "testnet:unichain-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-quote-cli.ts"
+    "testnet:unichain-quote": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-quote-cli.ts",
+    "testnet:unichain-fork": "pnpm --filter @vezta-dex/api exec node --import tsx src/unichain-fork-cli.ts"
   },
   "devDependencies": {
     "@types/node": "25.3.5",

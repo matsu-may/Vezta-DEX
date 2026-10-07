@@ -2,7 +2,7 @@
 import { TestnetFeeReview } from "./testnet-fee-review";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, testnetLpIntentSchema, TESTNET_LP_FULL_RANGE, lpRangeFromPrices, lpRangePrices, type TestnetLpRange, type TestnetLpIntent } from "@vezta-dex/core";
+import { testnetChainConfig, createTestnetLpDomain, type TestnetChainId, TESTNET_LP_FULL_RANGE, lpRangeFromPrices, lpRangePrices, type TestnetLpRange, type TestnetLpIntent } from "@vezta-dex/core";
 import { testnetLpMessage } from "../lib/testnet-lp-wallet-errors";
 import { TestnetLpWalletController, type TestnetLpWalletSnapshot } from "../lib/testnet-lp-wallet-controller";
 import { createTestnetLpWalletClient } from "../lib/testnet-lp-wallet-client";
@@ -13,7 +13,9 @@ import { TestnetLpPanel } from "./testnet-lp-panel";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
 const amount = (value: string, decimals: number) => formatUnits(BigInt(value), decimals);
 const names = { mint: "Create position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
-export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical" }: { executionEnabled: boolean; presentation?: "demo" | "technical" }) {
+export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical", chainId = 84532 }: { executionEnabled: boolean; presentation?: "demo" | "technical"; chainId?: TestnetChainId }) {
+  const config = testnetChainConfig(chainId), C = config.candidate;
+  const {testnetLpIntentSchema} = createTestnetLpDomain(chainId);
   const c = useRef<TestnetLpWalletController | null>(null); const provider = useRef<TestnetWallet | null>(null);
   const [mutationKey, setMutationKey] = useState<string | null>(null);
   const [actionOpen, setActionOpen] = useState(false);
@@ -33,9 +35,9 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   useEffect(() => {
     let alive = true; const wallet = injectedDemoWallet();
     const updateStartup = (message: string) => queueMicrotask(() => { if (alive) setStartup(message); });
-    if (!wallet) { updateStartup("Install MetaMask to connect a Base Sepolia wallet. Position reads remain available below."); return () => { alive = false; }; }
+    if (!wallet) { updateStartup(`Install MetaMask to connect a ${config.label} wallet. Position reads remain available below.`); return () => { alive = false; }; }
     try {
-      const controller = new TestnetLpWalletController(wallet, createTestnetLpWalletClient(), window.localStorage, Date.now, undefined, () => executionEnabled);
+      const controller = new TestnetLpWalletController(wallet, createTestnetLpWalletClient(fetch,chainId), window.localStorage, Date.now, undefined, () => executionEnabled,chainId);
       c.current = controller; provider.current = wallet;
       const update = () => { if (alive) {
         const snapshot = controller.snapshot(); const observed = snapshot.observation;
@@ -47,7 +49,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
       const unsubscribe = controller.subscribe(update); queueMicrotask(update); updateStartup("");
       return () => { alive = false; unsubscribe(); controller.dispose(); c.current = null; provider.current = null; };
     } catch { updateStartup("Local recovery storage is unavailable. Enable site storage before submitting."); return () => { alive = false; }; }
-  }, [executionEnabled]);
+  }, [executionEnabled,chainId,config.label]);
   useEffect(() => { if (!state?.study) return; const timer = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(timer); }, [state?.study]);
   const busy = !state || state.busy; const recovering = !!state?.submission || state?.stage === "recovery-blocked";
   const connect = useCallback(async () => {
@@ -58,7 +60,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   }, []);
   const headerWallet = useDemoWalletBinding({ account: state?.account ?? null, busy: !!state?.busy, blocked: recovering, connect });
   const s = state?.study; const fresh = !!s && now < Date.parse(s.expiresAt); const o = state?.observation; const rec = state?.submission;
-  const intent = testnetLpIntentSchema.safeParse({ chainId: 84532, wallet: state?.account, kind,
+  const intent = testnetLpIntentSchema.safeParse({ chainId, wallet: state?.account, kind,
     ...(kind !== "mint" ? { tokenId } : {}), ...(kind === "mint" && rangeMode === "custom" ? { range: selectedRange } : {}), ...(kind === "mint" || kind === "increase" ? { amount0Cap: amount0, amount1Cap: amount1 } : {}), ...(kind === "decrease" ? { percentage } : {}) });
   const edit = () => c.current?.invalidateInput();
   const select = (next: TestnetLpIntent["kind"], id: string) => { if (busy || recovering) return; origin.current = document.activeElement as HTMLElement; edit(); setKind(next); setTokenId(id); setActionOpen(true); };
@@ -72,7 +74,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
     {state && <>
       {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
       {!recovering && <>
-        {!headerWallet && <button className="button" disabled={busy} onClick={() => void connect()}>Connect Base Sepolia wallet</button>}
+        {!headerWallet && <button className="button" disabled={busy} onClick={() => void connect()}>Connect {config.label} wallet</button>}
         <div className="testnet-fields"><div><label className="form-label" htmlFor="lp-action">LP action</label><select id="lp-action" className="field" value={kind} disabled={busy} onChange={e => { edit(); setKind(e.target.value as TestnetLpIntent["kind"]); }}>
           {Object.entries(names).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div>
           {kind !== "mint" && <div><label className="form-label" htmlFor="lp-token-id">Position NFT ID</label><input id="lp-token-id" className="field mono" value={tokenId} disabled={busy} inputMode="numeric" onChange={e => { edit(); setTokenId(e.target.value); }} /></div>}
@@ -85,7 +87,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
         {kind === "burn" && <p className="form-help">Close only an empty NFT after all liquidity is removed and all owed tokens are collected.</p>}
         <button className="button" disabled={busy || !intent.success} onClick={() => { if (intent.success) void c.current!.study(intent.data); }}>Study LP action</button>
         {s && <section className="testnet-review" aria-label="LP action review"><h3>{s.status === "blocked" ? "Action unavailable" : `Review ${s.actionKind}${s.approvalToken ? ` ${s.approvalToken}` : ""}`}</h3>
-          {s.status === "blocked" && <p role="status">{testnetLpMessage(s.reason ?? "")}</p>}
+          {s.status === "blocked" && <p role="status">{testnetLpMessage(s.reason ?? "",false,chainId)}</p>}
           <dl className="demo-preview"><div><dt>Requested action</dt><dd>{names[s.intent.kind]}</dd></div>
             {s.intent.kind !== "mint" && <div><dt>Position NFT ID</dt><dd>#{s.intent.tokenId}</dd></div>}
             {s.approvalToken && <><div><dt>Authorization in this action</dt><dd>{s.actionKind === "reset" ? "0" : amount(s.approvalToken === "USDC" ? s.plan.amount0Cap : s.plan.amount1Cap, s.approvalToken === "USDC" ? 6 : 18)} {s.approvalToken}</dd></div><div><dt>Approval spender</dt><dd className="mono">{C.v3PositionManager}</dd></div></>}
@@ -98,14 +100,14 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
             {s.gas && <div><dt>Complete snapshot fee budget</dt><dd>{amount(s.gas.totalFeeBudget,18)} test ETH</dd></div>}
             <div><dt>Native gas balance</dt><dd>{amount(s.balances.ETH,18)} test ETH</dd></div><div><dt>Wallet balance</dt><dd>{amount(s.balances.USDC,6)} USDC / {amount(s.balances.WETH,18)} WETH</dd></div></dl>
           <p role="status" className="form-help">{fresh ? `Review expires in ${Math.max(0,Math.ceil((Date.parse(s.expiresAt)-now)/1000))}s.` : "Review expired. Request a fresh study."} Each approval and LP operation requires its own review.</p>
-          {s.status === "prepared" && <>{["approve", "reset"].includes(s.actionKind) && <p className="lp-next-step">Approval is a separate transaction. After verification, acknowledge the result and study again to continue to the next token or LP operation.</p>}<p className="form-help">Confirm the reviewed operation in MetaMask. A supported Smart Account may relay it with a separate outer nonce and gas payer.</p><button className="button testnet-submit" disabled={busy || !fresh || !executionEnabled || !s.executionEnabled} onClick={() => void c.current!.submit()}>Submit reviewed LP transaction</button></>}
-          {s.transaction && <details className="quote-provenance"><summary>Transaction and fee details</summary><dl className="demo-preview"><div><dt>Network</dt><dd>Base Sepolia · 84532</dd></div><div><dt>Transaction sender</dt><dd className="mono">{s.transaction.from}</dd></div><div><dt>Transaction target</dt><dd className="mono">{s.transaction.to}</dd></div><div><dt>Native value</dt><dd>0 test ETH</dd></div><div><dt>Prepared nonce</dt><dd>{s.transaction.nonce}</dd></div><div><dt>Gas limit</dt><dd>{s.transaction.gas}</dd></div><TestnetFeeReview fees={s.transaction} />{s.gas && <><div><dt>L2 fee ceiling</dt><dd>{amount(s.gas.l2FeeCeiling,18)} test ETH</dd></div><div><dt>L1 fee upper bound</dt><dd>{amount(s.gas.l1FeeUpperBound,18)} test ETH</dd></div><div><dt>Operator fee upper bound</dt><dd>{amount(s.gas.operatorFeeUpperBound,18)} test ETH</dd></div></>}<div><dt>Transaction deadline</dt><dd>{s.plan.deadline ? new Date(Number(s.plan.deadline)*1000).toISOString() : "No contract deadline"}</dd></div></dl><p className="form-help">The complete budget includes twice the L1/operator upper bounds. It is a snapshot ceiling, not the actual charged fee.</p></details>}
-          <details className="quote-provenance"><summary>Review provenance</summary><p>Base Sepolia RPC · verified runtime · block {s.blockNumber}</p><p className="mono">{s.blockHash}</p><p>Observed: {s.observedAt}</p><p className="mono">Context: {s.contextId ?? "blocked"}</p></details>
+          {s.status === "prepared" && <>{["approve", "reset"].includes(s.actionKind) && <p className="lp-next-step">Approval is a separate transaction. After verification, acknowledge the result and study again to continue to the next token or LP operation.</p>}<p className="form-help">Confirm the reviewed operation in MetaMask. {chainId === 84532 ? "A supported Smart Account may relay it with a separate outer nonce and gas payer." : "Unichain execution requires a standard EOA wallet."}</p><button className="button testnet-submit" disabled={busy || !fresh || !executionEnabled || !s.executionEnabled} onClick={() => void c.current!.submit()}>Submit reviewed LP transaction</button></>}
+          {s.transaction && <details className="quote-provenance"><summary>Transaction and fee details</summary><dl className="demo-preview"><div><dt>Network</dt><dd>{config.label} · {chainId}</dd></div><div><dt>Transaction sender</dt><dd className="mono">{s.transaction.from}</dd></div><div><dt>Transaction target</dt><dd className="mono">{s.transaction.to}</dd></div><div><dt>Native value</dt><dd>0 test ETH</dd></div><div><dt>Prepared nonce</dt><dd>{s.transaction.nonce}</dd></div><div><dt>Gas limit</dt><dd>{s.transaction.gas}</dd></div><TestnetFeeReview fees={s.transaction} />{s.gas && <><div><dt>L2 fee ceiling</dt><dd>{amount(s.gas.l2FeeCeiling,18)} test ETH</dd></div><div><dt>L1 fee upper bound</dt><dd>{amount(s.gas.l1FeeUpperBound,18)} test ETH</dd></div><div><dt>Operator fee upper bound</dt><dd>{amount(s.gas.operatorFeeUpperBound,18)} test ETH</dd></div></>}<div><dt>Transaction deadline</dt><dd>{s.plan.deadline ? new Date(Number(s.plan.deadline)*1000).toISOString() : "No contract deadline"}</dd></div></dl><p className="form-help">The complete budget includes twice the L1/operator upper bounds. It is a snapshot ceiling, not the actual charged fee.</p></details>}
+          <details className="quote-provenance"><summary>Review provenance</summary><p>{config.label} RPC · verified runtime · block {s.blockNumber}</p><p className="mono">{s.blockHash}</p><p>Observed: {s.observedAt}</p><p className="mono">Context: {s.contextId ?? "blocked"}</p></details>
         </section>}
       </>}
       {recovering && <section className="testnet-review" aria-label="Original LP transaction recovery"><h3>{rec?.hash ? "Original LP transaction" : state.stage === "recovery-blocked" ? "LP recovery blocked" : "LP submission outcome uncertain"}</h3><p>Keep the original context and hash. Do not resend. Reload preserves this record and never opens MetaMask automatically.</p>
         {rec && <><dl className="demo-preview"><div><dt>Original wallet</dt><dd className="mono">{rec.study.intent.wallet}</dd></div><div><dt>Original action</dt><dd>{rec.study.actionKind}{rec.study.approvalToken ? ` ${rec.study.approvalToken}` : ""}</dd></div><div><dt>Status</dt><dd>{state.stage}</dd></div><div><dt>Context</dt><dd className="mono">{rec.study.contextId}</dd></div></dl>
-          {rec.hash ? <><p className="mono"><a href={`https://sepolia.basescan.org/tx/${rec.hash}`} target="_blank" rel="noreferrer">{rec.hash}</a></p><button className="button" disabled={busy} onClick={() => void c.current!.observe()}>Check original LP transaction</button></>
+          {rec.hash ? <><p className="mono"><a href={`${config.explorer}/tx/${rec.hash}`} target="_blank" rel="noreferrer">{rec.hash}</a></p><button className="button" disabled={busy} onClick={() => void c.current!.observe()}>Check original LP transaction</button></>
             : <><label className="form-label" htmlFor="lp-original-hash">Original LP transaction hash</label><input id="lp-original-hash" className="field mono" value={hash} onChange={e => setHash(e.target.value)} autoComplete="off" /><button className="button" disabled={busy || !/^0x[a-fA-F0-9]{64}$/.test(hash)} onClick={() => void c.current!.recoverHash(hash)}>Recover original LP hash</button></>}
           {o && <><p role="status">{o.status === "confirming" ? "Included · wait for two confirmations, then check again." : o.status === "confirmed" ? "Original action verified with two confirmations." : o.status === "reverted" ? "Original transaction reverted. The result is verified." : "Original transaction remains unresolved. Preserve its hash and check again."}</p>
             {o.verified && <dl className="demo-preview"><div><dt>Position NFT</dt><dd>{o.tokenId ?? "Not created"}</dd></div><div><dt>{rec.study.actionKind === "collect" ? "Actual tokens collected" : rec.study.actionKind === "decrease" ? "Tokens added to NFT owed" : ["mint","increase"].includes(rec.study.actionKind) ? "Actual tokens deposited" : "Economic token payments"}</dt><dd>{amount(o.amount0,6)} USDC / {amount(o.amount1,18)} WETH</dd></div>{o.status === "confirmed" && ["approve", "reset"].includes(rec.study.actionKind) && rec.study.approvalToken && <div><dt>Verified authorization</dt><dd>{rec.study.actionKind === "reset" ? "0" : amount(rec.study.approvalToken === "USDC" ? rec.study.plan.amount0Cap : rec.study.plan.amount1Cap,rec.study.approvalToken === "USDC" ? 6 : 18)} {rec.study.approvalToken}</dd></div>}{o.executionModel && <><div><dt>Execution</dt><dd>MetaMask delegation</dd></div><div><dt>Gas payer</dt><dd className="mono">{o.gasPayer}</dd></div></>}{o.l2GasCost !== undefined && <div><dt>{o.executionModel ? "Observed outer L2 cost" : "Observed L2 cost"}</dt><dd>{amount(o.l2GasCost,18)} test ETH</dd></div>}<div><dt>Actual total fee</dt><dd>L1/operator charged fees not yet qualified</dd></div></dl>}
@@ -120,7 +122,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   const showControls = presentation !== "demo" || actionOpen || recovering;
   return <>
     {!showControls && startup && <p role="status" className="form-help">{startup}</p>}
-    <TestnetLpPanel walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
-    <TestnetActivity account={state?.account ?? state?.submission?.study.intent.wallet ?? null} />
+    <TestnetLpPanel chainId={chainId} walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
+    <TestnetActivity chainId={chainId} account={state?.account ?? state?.submission?.study.intent.wallet ?? null} />
   </>;
 }

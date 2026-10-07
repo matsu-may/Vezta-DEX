@@ -1,7 +1,7 @@
 import { encodeFunctionData, erc20Abi, parseAbi, toHex, type Hex } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_DIRECT_POOLS, parseTestnetSwapIntent, planTestnetTokenApproval } from "@vezta-dex/core";
+import { testnetChainConfig, createTestnetSwapDomain, type TestnetChainId } from "@vezta-dex/core";
 import type { TestnetForkRouting } from "./testnet-fork-routing";
-import { createBaseSepoliaPreflightSource } from "./base-sepolia-source";
+import { createTestnetChainSource } from "./base-sepolia-source";
 import { TestnetSwapQuoteReader } from "./testnet-swap-quote";
 import { TestnetApprovalReader } from "./testnet-approval";
 import { TestnetSwapPreparer } from "./testnet-swap-preparation";
@@ -18,13 +18,15 @@ type OwnedFork = Awaited<ReturnType<typeof startOwnedTestnetAnvil>>;
 type Row = Record<string, string | number | boolean>;
 const same = (a: string | null, b: string) => a?.toLowerCase() === b.toLowerCase();
 
-export async function runTestnetForkLifecycle(fork: OwnedFork,
+export async function runTestnetForkLifecycle<I extends TestnetChainId = 84532>(fork: OwnedFork,
   upstream: { number: bigint; hash: string; timestamp: bigint }, signal: AbortSignal, report: (row: Row) => void,
-  routing: TestnetForkRouting = {}) {
+  routing: TestnetForkRouting = {}, chainId: I = 84532 as I) {
+  const {candidate: C, policy: P, pools: TESTNET_DIRECT_POOLS} = testnetChainConfig(chainId);
+  const {parseTestnetSwapIntent, planTestnetTokenApproval} = createTestnetSwapDomain(chainId);
   const { client, boundary, origin } = fork;
   const mutate = (method: string, params: readonly unknown[], beforeWrite?: () => void) =>
-    guardedForkRequest(boundary, origin, method, params, () => { signal.throwIfAborted(); beforeWrite?.(); });
-  const source = (innerSignal: AbortSignal) => createBaseSepoliaPreflightSource(origin, AbortSignal.any([signal, innerSignal]));
+    guardedForkRequest(boundary, origin, method, params, () => { signal.throwIfAborted(); beforeWrite?.(); }, chainId);
+  const source = (innerSignal: AbortSignal) => createTestnetChainSource(chainId, origin, AbortSignal.any([signal, innerSignal]), 6);
   const reads = source(signal); const wallet = TESTNET_FORK_WALLET;
   const initial = await client.getBlock({ blockTag: "latest" });
   const age = Date.now() - Number(upstream.timestamp) * 1000;
@@ -58,15 +60,15 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
       && await reads.getTokenBalance(C.WETH.address, wallet, fundedBlock.number) >= 10n ** 16n, "FORK_FIXTURE_FAILED");
     report({ stage: "fixture-funded", localOnly: true, ownerFundsUsed: false });
 
-    const quotes = new TestnetSwapQuoteReader(source);
-    const approvals = new TestnetApprovalReader(source, quotes.store);
-    const preparer = new TestnetSwapPreparer(source, quotes.store);
-    const contexts = new TestnetActionStore();
-    const rechecker = new TestnetRechecker(approvals, preparer, quotes.store, contexts);
-    const tracker = new TestnetReceiptReader(source, contexts);
+    const quotes = new TestnetSwapQuoteReader(source, undefined, Date.now, chainId);
+    const approvals = new TestnetApprovalReader(source, quotes.store, Date.now, chainId);
+    const preparer = new TestnetSwapPreparer(source, quotes.store, Date.now, chainId);
+    const contexts = new TestnetActionStore(Date.now, 128, undefined, chainId);
+    const rechecker = new TestnetRechecker(approvals, preparer, quotes.store, contexts, chainId);
+    const tracker = new TestnetReceiptReader(source, contexts, Date.now, chainId);
     const freshMine = async () => {
       const block = await reads.getLatestBlock();
-      await mineFreshForkBlock(boundary, origin, block.timestamp, signal);
+      await mineFreshForkBlock(boundary, origin, block.timestamp, signal, Date.now, chainId);
     };
     // Warm Anvil's lazy upstream storage/code cache outside any executable quote's lifetime.
     // Every reader still revalidates its own fresh block, runtime and state afterward.
@@ -165,7 +167,7 @@ export async function runTestnetForkLifecycle(fork: OwnedFork,
     for (const token of [C.USDC.address, C.WETH.address]) {
       forkAssert(await reads.getTokenAllowance(token, wallet, P.router, last.number) === 0n, "FORK_ALLOWANCE_RESIDUAL");
     }
-  });
+  }, chainId);
   report({ status: "testnet-fork-lifecycle-local-only", chainId: P.chainId, verified: true,
     snapshotReverted: true, ownerFundsUsed: false, actualTotalFeeQualified: false, executionEnabled: false });
 }

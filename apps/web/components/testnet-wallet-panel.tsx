@@ -1,8 +1,8 @@
 "use client";
 import { TestnetActivity } from "./testnet-activity";
-import { testnetQuoteExpiresAt } from "@vezta-dex/core";
+import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, TESTNET_DIRECT_POOLS, parseTestnetSwapIntent, parseTestnetSwapAmount, parseTestnetSlippage } from "@vezta-dex/core";
+import { parseTestnetSwapAmount, parseTestnetSlippage } from "@vezta-dex/core";
 import { TestnetWalletController, type TestnetWallet, type TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
 import { createTestnetWalletClient } from "../lib/testnet-wallet-client";
 import { TestnetWalletReview } from "./testnet-wallet-review";
@@ -10,7 +10,9 @@ import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
 import { DemoSwapActions } from "./demo-swap-actions";
 import { DemoSwapInputs } from "./demo-swap-inputs";
 import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
-export function TestnetWalletPanel({ executionEnabled, presentation = "technical", initialPoolFee }: { executionEnabled: boolean; presentation?: "technical" | "demo"; initialPoolFee?: number | null }) {
+export function TestnetWalletPanel({ executionEnabled, presentation = "technical", initialPoolFee, chainId = 84532 }: { executionEnabled: boolean; presentation?: "technical" | "demo"; initialPoolFee?: number | null; chainId?: TestnetChainId }) {
+  const config = testnetChainConfig(chainId), C = config.candidate, P = config.policy;
+  const {parseTestnetSwapIntent} = createTestnetSwapDomain(chainId);
   const controller = useRef<TestnetWalletController | null>(null);
   const wallet = useRef<TestnetWallet | null>(null);
   const [state, setState] = useState<TestnetWalletSnapshot | null>(null);
@@ -23,20 +25,20 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
     let alive = true;
     const startupMessage = (message: string) => queueMicrotask(() => { if (alive) setStartup(message); });
     const provider = injectedDemoWallet();
-    if (!provider) { startupMessage("Install MetaMask in this browser to connect a Base Sepolia wallet."); return () => { alive = false; }; }
+    if (!provider) { startupMessage(`Install MetaMask in this browser to connect a ${config.label} wallet.`); return () => { alive = false; }; }
     try {
-      const c = new TestnetWalletController(provider, createTestnetWalletClient(), window.localStorage, Date.now, undefined, () => executionEnabled);
+      const c = new TestnetWalletController(provider, createTestnetWalletClient(fetch, chainId), window.localStorage, Date.now, undefined, () => executionEnabled, chainId);
       controller.current = c; wallet.current = provider;
       const update = () => { if (alive) { setState(c.snapshot()); setNow(Date.now()); } };
       const unsubscribe = c.subscribe(update); queueMicrotask(() => { if (alive) { update(); setRecoveryController(c); } }); startupMessage("");
       return () => { alive = false; unsubscribe(); c.dispose(); controller.current = null; wallet.current = null; };
     } catch { startupMessage("Local recovery storage is unavailable. Enable site storage before using this demo."); return () => { alive = false; }; }
-  }, [executionEnabled]);
+  }, [executionEnabled, chainId, config.label]);
   useEffect(() => {
     if (!state?.quote) return;
     const timer = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(timer);
   }, [state?.quote]);
-  const expiry = state?.quote ? Date.parse(testnetQuoteExpiresAt(state.quote.quote)) : 0;
+  const expiry = state?.quote ? Date.parse(createTestnetSwapDomain(state.quote.quote.chainId).testnetQuoteExpiresAt(state.quote.quote)) : 0;
   const fresh = !!state?.quote && now < expiry;
   const busy = !state || state.busy || switching;
   const recovering = !!state?.submission || state?.stage === "recovery-blocked";
@@ -51,12 +53,12 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   const canSubmit = executionEnabled && reviewFresh && fresh && state?.quote?.executionEnabled && state.action?.executionEnabled;
   async function switchChain() {
     if (busy || !wallet.current) return; setSwitching(true);
-    try { await wallet.current.request({ method: "wallet_switchEthereumChain", params: [{ chainId: "0x14a34" }] }); setStartup(""); }
-    catch { setStartup("Network switch rejected or unavailable. Add Base Sepolia in MetaMask using the owner guide."); }
+    try { await wallet.current.request({ method: "wallet_switchEthereumChain", params: [{ chainId: `0x${chainId.toString(16)}` }] }); setStartup(""); }
+    catch { setStartup(`Network switch rejected or unavailable. Add ${config.label} in MetaMask using the owner guide.`); }
     finally { setSwitching(false); }
   }
   let parsedAmount: string | null = null; let slippageBps: number | null = null;
-  try { parsedAmount = parseTestnetSwapAmount(amount, direction === "forward" ? C.USDC.address : C.WETH.address); slippageBps = parseTestnetSlippage(slippage); } catch {}
+  try { parsedAmount = parseTestnetSwapAmount(amount, direction === "forward" ? C.USDC.address : C.WETH.address, chainId); slippageBps = parseTestnetSlippage(slippage); } catch {}
   const inputValid = parsedAmount !== null && slippageBps !== null && routing !== "invalid";
   async function quote() {
     if (!state?.account || !controller.current || !inputValid) return;
@@ -72,11 +74,11 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   function changeAmount(next: string) { controller.current?.invalidateInput(); setAmount(next); }
   return <div className={`testnet-demo-grid ${presentation === "demo" ? "recording-grid" : ""}`}>
     {presentation !== "demo" && <aside className="section-card testnet-explore" aria-label="Demo pool">
-      <span className="eyebrow">EXPLORE · BASE SEPOLIA</span><h2>USDC / WETH</h2>
+      <span className="eyebrow">EXPLORE · {config.label.toUpperCase()}</span><h2>USDC / WETH</h2>
       <p>Uniswap v3 · {state?.quote ? `${state.quote.quote.feeTier / 10000}% selected fee pool` : "0.3% original pool"}</p><span className="badge badge-fresh">Test tokens only</span>
-      <dl className="demo-preview"><div><dt>Chain</dt><dd>Base Sepolia · 84532</dd></div>
-        <div><dt>Pool</dt><dd className="mono"><a href={`https://sepolia.basescan.org/address/${state?.quote?.quote.pool ?? P.pool}`} target="_blank" rel="noreferrer">{state?.quote?.quote.pool ?? P.pool}</a></dd></div>
-        <div><dt>Source</dt><dd>{state?.quote ? "Base Sepolia RPC · verified quote" : "Curated pool · request quote to verify"}</dd></div>
+      <dl className="demo-preview"><div><dt>Chain</dt><dd>{config.label} · {chainId}</dd></div>
+        <div><dt>Pool</dt><dd className="mono"><a href={`${config.explorer}/address/${state?.quote?.quote.pool ?? P.pool}`} target="_blank" rel="noreferrer">{state?.quote?.quote.pool ?? P.pool}</a></dd></div>
+        <div><dt>Source</dt><dd>{state?.quote ? `${config.label} RPC · verified quote` : "Curated pool · request quote to verify"}</dd></div>
         {state?.quote && <div><dt>Block</dt><dd>{state.quote.quote.blockNumber}</dd></div>}
       </dl>{state?.quote && <details className="quote-provenance"><summary>Block provenance</summary><p className="mono">{state.quote.quote.blockHash}</p></details>}<p className="form-help">Testnet prices have no monetary value. Swap settings can compare four curated direct pools; this is not global routing or inferred APR.</p>
       <a href="https://faucet.circle.com/" target="_blank" rel="noreferrer">Get test USDC ↗</a>
@@ -90,16 +92,16 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
       {state && <>
         {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
         {!recovering && <>
-          {!headerWallet && <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void connect()}>Connect Base Sepolia wallet</button>
-            <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to Base Sepolia</button></div>}
+          {!headerWallet && <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void connect()}>Connect {config.label} wallet</button>
+            <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to {config.label}</button></div>}
           <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} onDirection={changeDirection} onAmount={changeAmount} />
           <details className="swap-review-options"><summary>Swap settings · {slippage}% slippage</summary>
             <label className="form-label" htmlFor="testnet-routing">Routing preference</label>
             <select className="field" id="testnet-routing" value={routing} disabled={busy} onChange={e => { controller.current?.invalidateInput(); setRouting(e.target.value); }}>
               {routing === "invalid" && <option value="invalid">Invalid pool selection · choose a route</option>}
               <option value="legacy">Pinned pool · 0.3% (original)</option>
-              <option value="best-direct">Compare direct pools · greatest output</option>
-              {TESTNET_DIRECT_POOLS.map(p => <option key={p.feeTier} value={p.feeTier}>Selected pool · {p.feeTier / 10000}%</option>)}
+              {chainId === 84532 && <option value="best-direct">Compare direct pools · greatest output</option>}
+              {config.pools.map(p => <option key={p.feeTier} value={p.feeTier}>Selected pool · {p.feeTier / 10000}%</option>)}
             </select>
             <p className="form-help">Comparison excludes failed checks and impact above 1%. Selection uses output before gas; a reviewed quote never reroutes.</p>
             <label className="form-label" htmlFor="testnet-slippage">Slippage tolerance (%)</label>
@@ -114,7 +116,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
           {state.quote && <><p className="form-help" role="status">{fresh ? `Quote expires in ${Math.max(0, Math.ceil((expiry - now) / 1000))}s. Review and confirm before expiry.` : "Quote expired. Request a fresh quote before continuing."}</p>
             {presentation !== "demo" && <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
               <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div>}</>}
-          {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer.</p>
+          {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. {chainId === 84532 ? "MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer." : "Use a standard EOA wallet on Unichain; smart account execution is not qualified."}</p>
             {!reviewFresh && <p role="status">Review expired. Request a fresh quote and review before continuing.</p>}
             {presentation !== "demo" && <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button>}</>}
           {presentation === "demo" && <DemoSwapActions state={state} busy={busy || !inputValid} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onQuote={() => void quote()} onReview={kind => void controller.current!.review(kind)} onSubmit={() => void controller.current!.submit()} />}
@@ -122,12 +124,12 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
         {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
         {state.message && <p role="alert" className="form-error">{state.message}</p>}
         {!!state.archived?.length && <details className="archived-history"><summary>Original approvals awaiting manual review ({state.archived.length})</summary>
-          <p>Unverified history preserved. These wallets are blocked in this demo.</p>
+          <p>Base Sepolia history preserved. These wallets are blocked pending manual review.</p>
           {state.archived.map(record => <p key={record.hash}><a className="mono" href={`https://sepolia.basescan.org/tx/${record.hash}`} target="_blank" rel="noreferrer">{record.hash}</a> <button className="button demo-reset" disabled={busy} onClick={() => void controller.current!.reconcileHistoricalApproval(record.hash!)}>Verify historical approval</button></p>)}
         </details>}
         {!!state.resolvedHistory?.length && <details className="archived-history"><summary>Acknowledged historical approvals ({state.resolvedHistory.length})</summary><p>Original hashes retained. The original API review was unavailable.</p>{state.resolvedHistory.map(h => <p key={h.record.hash}><a className="mono" href={`https://sepolia.basescan.org/tx/${h.record.hash}`} target="_blank" rel="noreferrer">{h.record.hash}</a></p>)}</details>}
         {recoveryController && <TestnetWalletRecovery state={state} controller={recoveryController} />}
-        <TestnetActivity account={state.account ?? state.submission?.intent.wallet ?? null} />
+        <TestnetActivity chainId={chainId} account={state.account ?? state.submission?.intent.wallet ?? null} />
       </>}
     </section>
   </div>;

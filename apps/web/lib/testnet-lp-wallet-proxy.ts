@@ -1,6 +1,6 @@
 import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { z } from "zod";
-import { testnetLpStudyRequestSchema, testnetLpRecheckRequestSchema, testnetLpReceiptRequestSchema, parseTestnetLpStudy, parseTestnetLpReceipt } from "@vezta-dex/core";
+import { createTestnetLpDomain, testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { boundedJson } from "./rehearsal-client";
 
 import { testnetDemoEnabled } from "./testnet-demo-gate";
@@ -8,10 +8,13 @@ export { testnetDemoEnabled } from "./testnet-demo-gate";
 import { safeTestnetLpCode } from "./testnet-lp-wallet-errors";
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: { "Cache-Control": "no-store" } });
 
-export function createTestnetLpWalletProxy(env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch, now = Date.now) {
+export function createTestnetLpWalletProxy(env: Record<string, string | undefined> = process.env, fetcher: typeof fetch = fetch, now = Date.now, chainId: TestnetChainId = 84532) {
+  const config = testnetChainConfig(chainId);
+  const {testnetLpStudyRequestSchema, testnetLpRecheckRequestSchema, testnetLpReceiptRequestSchema, parseTestnetLpStudy, parseTestnetLpReceipt} = createTestnetLpDomain(chainId);
   let active = false; let starts: number[] = [];
   return async (request: Request, action: string): Promise<Response> => {
     if (!["study", "recheck", "receipt"].includes(action)) return json({ error: "Not found" }, 404);
+    if (env.DEX_HOSTED_MODE === "1" && chainId !== 84532) return json({ error: "Chain hosting unavailable" }, 403);
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
     const url = new URL(request.url);
     if (url.search) return json({ error: "Query parameters are not supported" }, 400);
@@ -30,7 +33,7 @@ export function createTestnetLpWalletProxy(env: Record<string, string | undefine
     if (active || starts.length >= 24) return json({ error: "Testnet read budget busy. Try an explicit fresh action later.", code: "TESTNET_BROWSER_BUSY" }, 429);
     active = true; starts.push(time);
     try {
-      const upstream = await fetcher(new URL(`/api/v1/testnet/base-sepolia/lp/${action}`, target.url).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers },
+      const upstream = await fetcher(new URL(`/api/v1/testnet/${config.source.replace("-rpc", "")}/lp/${action}`, target.url).href, { method: "POST", headers: { "Content-Type": "application/json", Accept: "application/json", ...target.headers },
         body: JSON.stringify(body), cache: "no-store", redirect: "error", signal: AbortSignal.timeout(28000) });
       const raw = await boundedJson(upstream, upstream.ok ? 65536 : 4096);
       if (!upstream.ok) return json({ error: "Testnet action unavailable", code: safeTestnetLpCode(typeof raw === "object" && raw !== null && "code" in raw ? raw.code : undefined) }, [400, 409, 410, 413, 415, 429, 503].includes(upstream.status) ? upstream.status : 503);

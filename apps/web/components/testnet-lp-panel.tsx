@@ -1,12 +1,14 @@
 "use client";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { formatUnits } from "viem";
-import { BASE_SEPOLIA_CANDIDATE as C, TESTNET_SWAP_POLICY as P, testnetLpRequestSchema, type TestnetLpPage } from "@vezta-dex/core";
+import { testnetChainConfig, createTestnetLpPositionDomain, type TestnetChainId, type TestnetChainLpPage } from "@vezta-dex/core";
 import { loadTestnetLpPositions } from "../lib/testnet-lp";
 const tokenAmount = (amount: string, token: "USDC" | "WETH") => `${formatUnits(BigInt(amount), token === "USDC" ? 6 : 18)} ${token}`;
-export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = false, connectedWallet, mutationKey = null }: { walletControls?: ReactNode; onSelectAction?: (kind: "mint" | "increase" | "decrease" | "collect" | "burn", tokenId: string) => void; walletBusy?: boolean; connectedWallet?: string | null; mutationKey?: string | null } = {}) {
-  const [owner, setOwner] = useState(""); const [page, setPage] = useState<TestnetLpPage | null>(null);
-  const [positions, setPositions] = useState<TestnetLpPage["positions"]>([]);
+export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = false, connectedWallet, mutationKey = null, chainId = 84532 }: { walletControls?: ReactNode; onSelectAction?: (kind: "mint" | "increase" | "decrease" | "collect" | "burn", tokenId: string) => void; walletBusy?: boolean; connectedWallet?: string | null; mutationKey?: string | null; chainId?: TestnetChainId } = {}) {
+  const config = testnetChainConfig(chainId), C = config.candidate, P = config.policy;
+  const {testnetLpRequestSchema} = createTestnetLpPositionDomain(chainId);
+  const [owner, setOwner] = useState(""); const [page, setPage] = useState<TestnetChainLpPage | null>(null);
+  const [positions, setPositions] = useState<TestnetChainLpPage["positions"]>([]);
   const [busy, setBusy] = useState(false); const [error, setError] = useState(""); const [now, setNow] = useState(0);
   const generation = useRef(0);
   const [scanMutation, setScanMutation] = useState(mutationKey); const previousMutation = useRef(mutationKey);
@@ -19,7 +21,7 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
   useEffect(() => () => { generation.current++; }, []);
   useEffect(() => { if (!page) return; const timer = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(timer); }, [page]);
   const matchingOwner = !!connectedWallet && owner.toLowerCase() === connectedWallet.toLowerCase();
-  const valid = testnetLpRequestSchema.safeParse({ chainId: 84532, owner, cursor: "0", limit: 1 }).success;
+  const valid = testnetLpRequestSchema.safeParse({ chainId, owner, cursor: "0", limit: 1 }).success;
   const historical = !!page && scanMutation !== mutationKey;
   const stale = historical || (!!page && now - Date.parse(page.snapshot.observedAt) >= 120000);
   function edit(value: string) { generation.current++; setOwner(value); setPage(null); setPositions([]); setBusy(false); setError(""); }
@@ -28,23 +30,23 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
     const token = ++generation.current; setBusy(true); setError("");
     if (!next) { setPage(null); setPositions([]); }
     try {
-      const result = await loadTestnetLpPositions({ chainId: 84532, owner,
-        cursor: next ? page!.nextCursor : "0", limit: 1, ...(next ? { snapshot: page!.snapshot } : {}) });
+      const result = await loadTestnetLpPositions({ chainId, owner,
+        cursor: next ? page!.nextCursor : "0", limit: 1, ...(next ? { snapshot: page!.snapshot } : {}) },fetch,Date.now,chainId);
       if (generation.current !== token) return;
       if (next && positions.some(p => result.positions.some(q => q.tokenId === p.tokenId))) throw new Error("Repeated NFT in scan");
       setScanMutation(mutationKey); setPage(result); setPositions(next ? [...positions, ...result.positions] : result.positions); setNow(Date.now());
     } catch {
       if (generation.current !== token) return;
-      setPage(null); setPositions([]); setError("Testnet LP data unavailable. Refresh the read; check Base Sepolia RPC if it persists.");
+      setPage(null); setPositions([]); setError(`Testnet LP data unavailable. Refresh the read; check ${config.label} RPC if it persists.`);
     } finally { if (generation.current === token) setBusy(false); }
   }
   return <div className={`testnet-demo-grid recording-grid lp-recording-grid lp-catalog ${walletControls ? "lp-position-workspace" : ""}`}><div className="lp-position-column">
-    <section className="section-card lp-position-list" aria-label="Base Sepolia LP positions"><div className="positions-list-heading"><div><h2>Your positions</h2><p className="form-help">USDC / WETH · Uniswap v3 · 0.3% · Base Sepolia</p></div>{onSelectAction && <button className="button" disabled={walletBusy} onClick={() => onSelectAction("mint", "")}>Create position</button>}</div>
+    <section className="section-card lp-position-list" aria-label={`${config.label} LP positions`}><div className="positions-list-heading"><div><h2>Your positions</h2><p className="form-help">USDC / WETH · Uniswap v3 · 0.3% · {config.label}</p></div>{onSelectAction && <button className="button" disabled={walletBusy} onClick={() => onSelectAction("mint", "")}>Create position</button>}</div>
       <p className="form-help">Read any wallet address. No connection, signature or transaction is requested.</p>
       <div className="position-owner-search"><label className="form-label" htmlFor="lp-owner">Position owner address</label>
       <input className="field mono" id="lp-owner" value={owner} onChange={event => edit(event.target.value.trim())} placeholder="0x…" spellCheck={false} autoComplete="off" />
       <div className="testnet-actions">{connectedWallet && <button className="button demo-reset" disabled={busy || walletBusy} onClick={() => edit(connectedWallet)}>Use connected wallet</button>}<button className="button" disabled={!valid || busy} onClick={() => void read()}>Read LP positions</button>{!onSelectAction && <button className="button demo-reset" disabled>Create position</button>}</div></div>
-      {busy && <p role="status">Reading a pinned Base Sepolia block…</p>}
+      {busy && <p role="status">Reading a pinned {config.label} block…</p>}
       {error && <p role="alert" className="demo-error">{error}</p>}
       {!page && !busy && !error && <div className="demo-empty"><strong>Your positions appear here</strong><p>Enter a wallet address and read its NFTs. Create a position to start providing liquidity to this pool.</p></div>}
       {page && <>

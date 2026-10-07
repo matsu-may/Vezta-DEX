@@ -24,6 +24,7 @@ export const TESTNET_CHAIN_CONFIGS = Object.freeze({
     candidate: BASE_SEPOLIA_CANDIDATE, policy: TESTNET_SWAP_POLICY, pools: TESTNET_DIRECT_POOLS,
     label: "Base Sepolia", source: "base-sepolia-rpc", explorer: "https://sepolia.basescan.org",
     rpcEnvironment: "BASE_SEPOLIA_RPC_URL",
+    inclusionConfirmations: 2, walletProfile: "eoa-and-qualified-metamask",
   } as const),
   1301: Object.freeze({
     candidate: unichainCandidate,
@@ -33,6 +34,8 @@ export const TESTNET_CHAIN_CONFIGS = Object.freeze({
     pools: Object.freeze([Object.freeze({pool:"0x8F463126bBEA80A10DF9Bf6FF5455B6B0292B34e",feeTier:3000,tickSpacing:60} as const)]),
     label: "Unichain Sepolia", source: "unichain-sepolia-rpc", explorer: "https://unichain-sepolia.blockscout.com",
     rpcEnvironment: "UNICHAIN_SEPOLIA_RPC_URL",
+    // Testnet inclusion policy, not Ethereum finality; independently observed canonical receipt blocks.
+    inclusionConfirmations: 2, walletProfile: "eoa-only",
   } as const),
 });
 export type TestnetChainId = keyof typeof TESTNET_CHAIN_CONFIGS;

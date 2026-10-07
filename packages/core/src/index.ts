@@ -119,7 +119,7 @@ export { parseTestnetDepth, testnetDepthSchema, type TestnetDepthReport } from "
 export { createTestnetSwapDomain, TESTNET_SWAP_POLICY, testnetQuoteExpiresAt, buildTestnetSwapTransaction, inspectTestnetSwapTransaction,
   planTestnetTokenApproval, parseTestnetSwapIntent, parseTestnetSwapQuote, testnetSwapIntentFromQuote, type TestnetSwapIntent, type TestnetSwapQuote, type TestnetChainSwapIntent, type TestnetChainSwapQuote,
   type TestnetSwapTransaction, type TestnetApprovalPlan } from "./testnet-swap";
-export { testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";
+export { createTestnetLpPositionDomain, type TestnetChainLpRequest, type TestnetChainLpPage, testnetLpRequestSchema, testnetLpPageSchema, parseTestnetLpPage, type TestnetLpPage, type TestnetLpRequest } from "./testnet-lp";
 
 export * from "./testnet-lp-wallet";
 export * from "./testnet-transaction-fees";
