@@ -13,7 +13,7 @@ Use the original checkout's existing local server configuration. Credentials and
 
 Ports are web `3020`, API `3021`. If occupied, use your existing session only if it runs this checkout. Preserve an API that is still tracking an unresolved swap; finish recovery before changing servers. The browser preview used for this session was separately owned on `3120` and has been stopped.
 
-Open `http://127.0.0.1:3020/networks/base-sepolia/swap` at desktop width 1280–1920. All subsequent paths below start with `/networks/base-sepolia`; use `/networks/unichain-sepolia` for the other workspace. Unichain requires a standard EOA without active delegation.
+Open `http://127.0.0.1:3020/swap` at desktop width 1280–1920. The paths below are primary root routes; Base Sepolia is the default. Select Unichain in the header or append `?network=unichain-sepolia`. The old `/networks/{slug}/...` URLs still work. Unichain requires a standard EOA without active delegation.
 
 ## 1. Header and wallet
 

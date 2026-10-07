@@ -24,8 +24,12 @@ export function parseProductRoute(network: string, section: string, segments: st
   if (section === "liquidity" && id === "launch-auction") return { chainId, view: "launch-auction" };
   return null;
 }
+export function parsePrimaryProductRoute(section:string,query:Record<string,string|string[]|undefined>,segments:string[]=[]):ProductRoute|null {
+ if(query.network!==undefined&&typeof query.network!=="string")return null;
+ return parseProductRoute(query.network??"base-sepolia",section,segments);
+}
 export function switchProductNetwork(pathname: string, chainId: TestnetChainId): string {
-  const parts = pathname.split("/"), section = parts[3] ?? "swap", rest = parts.slice(4);
+  const parts = pathname.split("/"), offset=pathname.startsWith("/networks/")?3:1, section = parts[offset] ?? "swap", rest = parts.slice(offset+1);
   const view = section === "positions" && rest[0] && rest[0] !== "create" ? "positions"
     : ["pool", "pools"].includes(section) ? "explore/pools"
     : ["swap", "explore", "positions", "liquidity"].includes(section) ? [section,...rest].join("/") : "swap";

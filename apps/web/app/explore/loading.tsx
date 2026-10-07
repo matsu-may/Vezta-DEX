@@ -1,1 +1,1 @@
-export default function Loading() { return <div className="empty-state" role="status">Loading Polygon pool data…</div>; }
+export default function Loading() { return <div className="empty-state" role="status">Loading Explore…</div>; }

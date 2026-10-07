@@ -22,7 +22,7 @@ export function PoolList({ pools, now }: { pools: PoolRecord[]; now: number }) {
           {pools.map((pool) => (
             <tr key={pool.id}>
               <td>
-                <Link className="pool-link" href={`/pools/${encodeURIComponent(pool.id)}`}>
+                <Link className="pool-link" href={`/polygon/pools/${encodeURIComponent(pool.id)}`}>
                   {pool.token0.symbol} / {pool.token1.symbol}
                 </Link>
                 <span className="subline">Uniswap v3 · Polygon</span>

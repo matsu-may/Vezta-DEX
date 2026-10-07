@@ -1,18 +1,18 @@
 "use client";
 import Link from "next/link";
 import {ProductNetworkIcon} from "./product-token";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { testnetChainConfig } from "@vezta-dex/core";
-import {pendingTestnetWorkspaces,testnetNetworkId} from "../lib/testnet-network-selection";
+import {pendingTestnetWorkspaces,productWorkspaceChain} from "../lib/testnet-network-selection";
 import {switchProductNetwork} from "../lib/product-routes";
 export function TestnetNetworkSelector() {
- const path=usePathname() ?? "";
- return /^\/(?:demo\/[1-4]|networks\/(?:base-sepolia|unichain-sepolia))(?:\/|$)/.test(path) ? <TestnetNetworkSelectorControl/> : null;
+ const path=usePathname() ?? "",query=useSearchParams();
+ return (productWorkspaceChain(path,query.get("network"))!==null || /^\/demo\/[1-4](?:\/|$)/.test(path)) ? <TestnetNetworkSelectorControl/> : null;
 }
 function TestnetNetworkSelectorControl() {
  const pathname=usePathname() ?? "", router=useRouter();
- const chainId=testnetNetworkId(pathname.split("/")[2] ?? "") ?? 84532;
+ const chainId=productWorkspaceChain(pathname,useSearchParams().get("network")) ?? 84532;
  const [pending,setPending]=useState<ReturnType<typeof pendingTestnetWorkspaces>>([]),[unavailable,setUnavailable]=useState(true);
  useEffect(()=>{
   const update=()=>{try {setPending(pendingTestnetWorkspaces(window.localStorage));setUnavailable(false);} catch {setUnavailable(true);}};

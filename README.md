@@ -1,5 +1,13 @@
 # Vezta DEX
 
+## Primary product routes
+
+The current Uniswap-style testnet UI is available directly at `/swap`, `/explore`, `/explore/{tokens,pools,transactions,auctions}`, `/pools/{address}`, `/positions`, and `/positions/{create|NFT-ID}`. `/` opens `/swap`.
+
+Base Sepolia is the default. Select Unichain in the header or use `?network=unichain-sepolia`; navigation retains network identity, while changing networks clears pool/NFT selections. Existing `/networks/{slug}/...` URLs remain compatible. Historical Polygon research pages are now `/polygon/{swap,explore,pools,positions}` and `/polygon/pools/{pool-ID}`. The Polygon sections below describe those historical routes, not the primary testnet swap.
+
+Run `pnpm dev:testnet` for local wallet acceptance; `pnpm dev` remains read-only unless the existing execution gates are configured. See [route handoff](docs/reports/primary-routes-2026-10-07/README.md).
+
 Standalone development project for Vezta's Uniswap spot trading and liquidity experience. The desktop demo uses Base Sepolia test USDC/WETH with existing Uniswap v3 contracts. Polygon remains a separate historical/read-only workspace; no mainnet pool is approved for live trading.
 
 Read the Vezta DEX mechanism & demo report in [English](docs/reports/2026-10-04-vezta-dex-mechanism-report.en.md) or [Vietnamese](docs/reports/2026-10-04-vezta-dex-mechanism-report.md) for architecture, AMM/CLMM/DLMM concepts, swap/LP flows, desktop screenshots and current delivery status. The owner reports the local desktop wallet checklist passed; compact UI visual acceptance and public hosting remain separate. Dated acceptance notes below preserve earlier checkpoints; use the report and [current roadmap](docs/roadmap.md) for present status.
@@ -53,9 +61,9 @@ pnpm lint       # ESLint/Next rules
 pnpm build      # Production Next.js build
 ```
 
-Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. `/swap` now distinguishes the single-pool comparison from the Trading API's best-price Uniswap AMM route across v2/v3/v4; neither quote enables wallet execution yet. Polygon volume/APR and public LP actions remain outside the qualified demo. Base Sepolia positions and reviewed LP actions are available through `/demo/2`; public MetaMask acceptance remains pending.
+Pool discovery is intentionally limited to the native-USDC/WETH pair and four v3 fee tiers. The on-chain `liquidity()` value is shown as raw protocol data, never as TVL. `/polygon/swap` distinguishes the single-pool comparison from the Trading API's best-price Uniswap AMM route across v2/v3/v4; neither quote enables wallet execution yet. Polygon volume/APR and public LP actions remain outside the qualified demo. Base Sepolia positions and reviewed LP actions are available through `/demo/2`; public MetaMask acceptance remains pending.
 
-The routed Trading API preview returns a validated summary and an opaque `quoteId`. Its full upstream response stays in a bounded, 30-second, single-process server store. `POST /api/v1/swap-preparation` now consumes it once, verifies the saved PermitSingle signature or exact existing permission, validates router effects, rechecks account/nonce/allowance/balances and simulates at explicit Polygon blocks. It returns an unsigned transaction and provenance; no server signing/broadcast occurs. The public `/swap` displays only the summary and cannot submit a swap. The separately approved local rehearsal can request owner-signed actions; see below. See [rebuild/preparation evidence and remaining wallet gates](docs/research/2026-09-28-eoa-signer-validation.md).
+The routed Trading API preview returns a validated summary and an opaque `quoteId`. Its full upstream response stays in a bounded, 30-second, single-process server store. `POST /api/v1/swap-preparation` now consumes it once, verifies the saved PermitSingle signature or exact existing permission, validates router effects, rechecks account/nonce/allowance/balances and simulates at explicit Polygon blocks. It returns an unsigned transaction and provenance; no server signing/broadcast occurs. The historical `/polygon/swap` displays only the summary and cannot submit a swap. The separately approved local rehearsal can request owner-signed actions; see below. See [rebuild/preparation evidence and remaining wallet gates](docs/research/2026-09-28-eoa-signer-validation.md).
 
 Receipt helpers in `apps/web/lib/transaction-receipt.ts` and `receipt-tracking.ts` validate a submitted transaction against Polygon receipt/block data and preserve its original hash/account through timeout or changed intent. They request balance refresh only for a successful receipt at an explicit confirmation threshold. The opt-in local controller now wires receipt observation, original-account economic verification and balances after confirmed success or revert. Production confirmation/replacement policy and funded checks remain open. See [receipt validation](docs/research/2026-09-29-receipt-tracking-validation.md).
 

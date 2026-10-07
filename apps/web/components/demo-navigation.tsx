@@ -1,8 +1,8 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { testnetNetworkId, testnetNetworkHref } from "../lib/testnet-network-selection";
+import { productWorkspaceChain, testnetNetworkHref } from "../lib/testnet-network-selection";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 
 function NavGroup({label,items,active}:{label:string;items:{label:string;href:string;unsupported?:boolean}[];active:boolean}) {
   const [open,setOpen]=useState(false), id=useId(), root=useRef<HTMLDivElement>(null), trigger=useRef<HTMLButtonElement>(null), focusMenu=useRef(false);
@@ -16,8 +16,8 @@ function NavGroup({label,items,active}:{label:string;items:{label:string;href:st
   </div>;
 }
 export function DemoNavigation() {
-  const pathname=usePathname() ?? "", network=testnetNetworkId(pathname.split("/")[2] ?? "");
-  if(pathname.startsWith("/networks/")&&network){const href=(view:string)=>testnetNetworkHref(network,view);return <nav className="demo-top-nav product-navigation" aria-label="DEX navigation">
+  const pathname=usePathname() ?? "", network=productWorkspaceChain(pathname,useSearchParams().get("network"));
+  if(network){const href=(view:string)=>testnetNetworkHref(network,view);return <nav className="demo-top-nav product-navigation" aria-label="DEX navigation">
     <Link href={href("swap")} aria-current={pathname.endsWith("/swap")?"page":undefined}>Swap</Link>
     <NavGroup label="Explore" active={pathname.includes("/explore/")||pathname.includes("/pools/")} items={[
       {label:"Tokens",href:href("explore/tokens")},{label:"Auctions",href:href("explore/auctions"),unsupported:true},{label:"Pools",href:href("explore/pools")},{label:"Transactions",href:href("explore/transactions")},

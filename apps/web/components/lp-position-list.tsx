@@ -3,7 +3,7 @@ import { isStale, type LpPositionPage } from "../lib/api";
 
 export function LpPositionList({ page, owner, now }: { page: LpPositionPage; owner: string; now: number }) {
   const nextHref = page.nextCursor === null ? null
-    : `/positions?${new URLSearchParams({ owner, cursor: page.nextCursor })}`;
+    : `/polygon/positions?${new URLSearchParams({ owner, cursor: page.nextCursor })}`;
   return (
     <>
       <div className="position-meta">
