@@ -9,7 +9,9 @@ cd /Users/thongtran/Vezta/.worktrees/vezta-dex-testnet-product
 pnpm dev:testnet
 ```
 
-Trước khi chạy, dừng **server DEX cũ do bạn đang chạy** nếu đang chiếm 3020/3021.
+Nếu còn giao dịch có hash chưa xác minh, giữ server/API gốc để check và
+acknowledge trước khi đổi bản chạy; không xóa recovery record.
+Sau đó dừng **server DEX cũ do bạn đang chạy** nếu đang chiếm 3020/3021.
 Trong `apps/api/.env`, giữ `BASE_SEPOLIA_RPC_URL` và thêm server-only
 `UNICHAIN_SEPOLIA_RPC_URL` của provider hỗ trợ chain1301. Public endpoint
 `https://sepolia.unichain.org` dùng thử được nhưng không phù hợp production;
