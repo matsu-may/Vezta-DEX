@@ -9,7 +9,7 @@ import { TestnetWalletReview } from "./testnet-wallet-review";
 import { TestnetWalletRecovery } from "./testnet-wallet-recovery";
 import { DemoSwapActions } from "./demo-swap-actions";
 import { DemoSwapInputs } from "./demo-swap-inputs";
-import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
+import { injectedDemoWallet, useDemoWalletBinding, useProductWalletDialog, useProductWalletSession } from "./demo-wallet-header";
 export function TestnetWalletPanel({ executionEnabled, presentation = "technical", initialPoolFee, chainId = 84532 }: { executionEnabled: boolean; presentation?: "technical" | "demo"; initialPoolFee?: number | null; chainId?: TestnetChainId }) {
   const config = testnetChainConfig(chainId), C = config.candidate, P = config.policy;
   const {parseTestnetSwapIntent} = createTestnetSwapDomain(chainId);
@@ -18,6 +18,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   const [state, setState] = useState<TestnetWalletSnapshot | null>(null);
   const [recoveryController, setRecoveryController] = useState<TestnetWalletController | null>(null);
   const [startup, setStartup] = useState("Loading wallet interface…");
+  const openWallet = useProductWalletDialog();
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
   const [routing, setRouting] = useState(initialPoolFee === null ? "invalid" : initialPoolFee === undefined ? "legacy" : String(initialPoolFee));
   const [amount, setAmount] = useState("1"); const [slippage, setSlippage] = useState("0.5"); const [now, setNow] = useState(0); const [switching, setSwitching] = useState(false);
@@ -42,6 +43,10 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   const fresh = !!state?.quote && now < expiry;
   const busy = !state || state.busy || switching;
   const recovering = !!state?.submission || state?.stage === "recovery-blocked";
+  const sessionAccount = useProductWalletSession();
+  useEffect(() => {
+    if (sessionAccount && state?.stage === "disconnected" && !recovering) void controller.current?.restoreConnection(sessionAccount);
+  }, [sessionAccount, state?.stage, recovering]);
   const connect = useCallback(async () => {
     setStartup(""); const c = controller.current;
     if (!c) return { account: null, error: "Install MetaMask and enable site storage, then reload this page." };
@@ -94,7 +99,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
         {!recovering && <>
           {!headerWallet && <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void connect()}>Connect {config.label} wallet</button>
             <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to {config.label}</button></div>}
-          <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} onDirection={changeDirection} onAmount={changeAmount} />
+          <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} inputBalance={state.review?.inputBalance} onDirection={changeDirection} onAmount={changeAmount} />
           <details className="swap-review-options"><summary>Swap settings · {slippage}% slippage</summary>
             <label className="form-label" htmlFor="testnet-routing">Routing preference</label>
             <select className="field" id="testnet-routing" value={routing} disabled={busy} onChange={e => { controller.current?.invalidateInput(); setRouting(e.target.value); }}>
@@ -119,7 +124,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
           {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. {chainId === 84532 ? "MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer." : "Use a standard EOA wallet on Unichain; smart account execution is not qualified."}</p>
             {!reviewFresh && <p role="status">Review expired. Request a fresh quote and review before continuing.</p>}
             {presentation !== "demo" && <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button>}</>}
-          {presentation === "demo" && <DemoSwapActions state={state} busy={busy || !inputValid} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onQuote={() => void quote()} onReview={kind => void controller.current!.review(kind)} onSubmit={() => void controller.current!.submit()} />}
+          {presentation === "demo" && <DemoSwapActions state={state} busy={busy || (!!state.account && !inputValid)} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onConnect={openWallet} onQuote={() => void quote()} onReview={kind => void controller.current!.review(kind)} onSubmit={() => void controller.current!.submit()} />}
         </>}
         {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
         {state.message && <p role="alert" className="form-error">{state.message}</p>}

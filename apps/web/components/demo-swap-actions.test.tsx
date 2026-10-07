@@ -5,6 +5,13 @@ import { DemoSwapActions } from "./demo-swap-actions";
 import type { TestnetWalletSnapshot } from "../lib/testnet-wallet-controller";
 import fixtures from "../lib/fixtures/testnet-wallet-browser.json";
 afterEach(cleanup);
+it('opens wallet selection from the primary action without quoting or submitting', () => {
+  const onConnect = vi.fn();
+  const calls = mount({account:null, quote:null}, {onConnect});
+  fireEvent.click(screen.getByRole('button', {name:'Connect wallet'}));
+  expect(onConnect).toHaveBeenCalledOnce();
+  expect(calls.quote).not.toHaveBeenCalled(); expect(calls.submit).not.toHaveBeenCalled();
+});
 function mount(patch: Partial<TestnetWalletSnapshot> = {}, options = {}) {
   const f = fixtures['forward-swap'];
   const state = { account: f.intent.wallet, quote: f.quote, action: null, review: null, busy: false, ...patch } as unknown as TestnetWalletSnapshot;

@@ -1,4 +1,6 @@
 "use client";
+import { ProductTokenIcon } from "./product-token";
+import { ProductLpCreate } from "./product-lp-create";
 import { TestnetFeeReview } from "./testnet-fee-review";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatUnits } from "viem";
@@ -10,19 +12,19 @@ import type { TestnetWallet } from "../lib/testnet-wallet-controller";
 import { TestnetActivity } from "./testnet-activity";
 import { TestnetLpRangeFields } from "./testnet-lp-range-fields";
 import { TestnetLpPanel } from "./testnet-lp-panel";
-import { injectedDemoWallet, useDemoWalletBinding } from "./demo-wallet-header";
+import { injectedDemoWallet, useDemoWalletBinding, useProductWalletSession } from "./demo-wallet-header";
 const amount = (value: string, decimals: number) => formatUnits(BigInt(value), decimals);
 const names = { mint: "Create position", increase: "Add liquidity", decrease: "Remove liquidity", collect: "Collect tokens", burn: "Close empty position" } as const;
-export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical", chainId = 84532 }: { executionEnabled: boolean; presentation?: "demo" | "technical"; chainId?: TestnetChainId }) {
+export function TestnetLpWalletPanel({ executionEnabled, presentation = "technical", chainId = 84532, productMode, selectedTokenId, initialOwner }: { productMode?: "list" | "create" | "detail"; selectedTokenId?: string; initialOwner?:string; executionEnabled: boolean; presentation?: "demo" | "technical"; chainId?: TestnetChainId }) {
   const config = testnetChainConfig(chainId), C = config.candidate;
   const {testnetLpIntentSchema} = createTestnetLpDomain(chainId);
   const c = useRef<TestnetLpWalletController | null>(null); const provider = useRef<TestnetWallet | null>(null);
   const [mutationKey, setMutationKey] = useState<string | null>(null);
-  const [actionOpen, setActionOpen] = useState(false);
+  const [actionOpen, setActionOpen] = useState(productMode === "create");
   const origin = useRef<HTMLElement | null>(null); const heading = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (actionOpen) heading.current?.focus(); }, [actionOpen]);
   const [state, setState] = useState<TestnetLpWalletSnapshot | null>(null); const [startup, setStartup] = useState("Loading wallet interface…");
-  const [kind, setKind] = useState<TestnetLpIntent["kind"]>("mint"); const [tokenId, setTokenId] = useState("");
+  const [kind, setKind] = useState<TestnetLpIntent["kind"]>("mint"); const [tokenId, setTokenId] = useState(selectedTokenId ?? "");
   const [amount0, setAmount0] = useState("1000000"); const [amount1, setAmount1] = useState("1000000000000000");
   const [rangeMode, setRangeMode] = useState<"full" | "custom">("full");
   const [lowerPrice, setLowerPrice] = useState(""), [upperPrice, setUpperPrice] = useState("");
@@ -52,6 +54,10 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   }, [executionEnabled,chainId,config.label]);
   useEffect(() => { if (!state?.study) return; const timer = setInterval(() => setNow(Date.now()), 500); return () => clearInterval(timer); }, [state?.study]);
   const busy = !state || state.busy; const recovering = !!state?.submission || state?.stage === "recovery-blocked";
+  const sessionAccount = useProductWalletSession();
+  useEffect(() => {
+    if (sessionAccount && state?.stage === "disconnected" && !recovering) void c.current?.restoreConnection(sessionAccount);
+  }, [sessionAccount, state?.stage, recovering]);
   const connect = useCallback(async () => {
     const controller = c.current;
     if (!controller) return { account: null, error: "Install MetaMask and enable site storage, then reload this page." };
@@ -66,7 +72,7 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
   const select = (next: TestnetLpIntent["kind"], id: string) => { if (busy || recovering) return; origin.current = document.activeElement as HTMLElement; edit(); setKind(next); setTokenId(id); setActionOpen(true); };
   const closeAction = () => { if (busy || recovering) return; edit(); setActionOpen(false); origin.current?.focus(); };
   const controls = <section aria-label="Testnet LP wallet">
-    {presentation === "demo" && !recovering && <button className="text-action lp-back-action" disabled={busy} onClick={closeAction}>Back to positions</button>}
+    {presentation === "demo" && !productMode && !recovering && <button className="text-action lp-back-action" disabled={busy} onClick={closeAction}>Back to positions</button>}
     <h2 ref={heading} tabIndex={-1}>{presentation === "demo" ? names[kind] : "Manage liquidity"}</h2>
     <p className="testnet-mode">{executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled"}</p>
     {startup && <p role="status">{startup}</p>}
@@ -75,13 +81,13 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
       {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
       {!recovering && <>
         {!headerWallet && <button className="button" disabled={busy} onClick={() => void connect()}>Connect {config.label} wallet</button>}
-        <div className="testnet-fields"><div><label className="form-label" htmlFor="lp-action">LP action</label><select id="lp-action" className="field" value={kind} disabled={busy} onChange={e => { edit(); setKind(e.target.value as TestnetLpIntent["kind"]); }}>
+        <div className={`testnet-fields ${productMode ? "product-action-fields" : ""}`}><div hidden={!!productMode}><label className="form-label" htmlFor="lp-action">LP action</label><select id="lp-action" className="field" value={kind} disabled={busy} onChange={e => { edit(); setKind(e.target.value as TestnetLpIntent["kind"]); }}>
           {Object.entries(names).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div>
-          {kind !== "mint" && <div><label className="form-label" htmlFor="lp-token-id">Position NFT ID</label><input id="lp-token-id" className="field mono" value={tokenId} disabled={busy} inputMode="numeric" onChange={e => { edit(); setTokenId(e.target.value); }} /></div>}
+          {kind !== "mint" && <div><label className="form-label" htmlFor="lp-token-id">Position NFT ID</label><input id="lp-token-id" className="field mono" value={tokenId} disabled={busy || !!selectedTokenId} inputMode="numeric" onChange={e => { edit(); setTokenId(e.target.value); }} /></div>}
           {kind === "decrease" && <div><label className="form-label" htmlFor="lp-percentage">Remove percentage</label><select id="lp-percentage" className="field" value={percentage} disabled={busy} onChange={e => { edit(); setPercentage(Number(e.target.value) as 25 | 50 | 100); }}>{[25,50,100].map(v => <option key={v} value={v}>{v}%</option>)}</select></div>}
         </div>
-        {(kind === "mint" || kind === "increase") && <>{kind === "mint" && <TestnetLpRangeFields mode={rangeMode} lower={lowerPrice} upper={upperPrice} range={selectedRange} error={rangeError} disabled={busy} onMode={value=>{edit();setRangeMode(value);}} onLower={value=>{edit();setLowerPrice(value);}} onUpper={value=>{edit();setUpperPrice(value);}} />}<div className="testnet-fields"><div><label className="form-label" htmlFor="lp-usdc-cap">Maximum USDC authorization</label><select id="lp-usdc-cap" className="field" value={amount0} disabled={busy} onChange={e => { edit(); setAmount0(e.target.value); }}>{["0", "100000", "1000000", "5000000"].map(v => <option value={v} key={v}>{amount(v,6)} USDC</option>)}</select></div>
-          <div><label className="form-label" htmlFor="lp-weth-cap">Maximum WETH authorization</label><select id="lp-weth-cap" className="field" value={amount1} disabled={busy} onChange={e => { edit(); setAmount1(e.target.value); }}>{["0", "100000000000000", "1000000000000000", "10000000000000000", "50000000000000000"].map(v => <option value={v} key={v}>{amount(v,18)} WETH</option>)}</select></div></div><p className="form-help">Adding uses the existing position range. A zero cap permits no deposit or authorization for that token. Approvals authorize these caps; the planned deposit may use less. Any unused allowance can remain after execution.</p></>}
+        {(kind === "mint" || kind === "increase") && <>{kind === "mint" && <TestnetLpRangeFields mode={rangeMode} lower={lowerPrice} upper={upperPrice} range={selectedRange} error={rangeError} disabled={busy} onMode={value=>{edit();setRangeMode(value);}} product={!!productMode} onLower={value=>{edit();setLowerPrice(value);}} onUpper={value=>{edit();setUpperPrice(value);}} />}<div className={`testnet-fields ${productMode ? "product-deposit-cards" : ""}`}><div>{productMode && <><ProductTokenIcon token="USDC"/>{s&&<p className="product-subtle">Balance at study: {amount(s.balances.USDC,6)} USDC</p>}</>}<label className="form-label" htmlFor="lp-usdc-cap">Maximum USDC authorization</label><select id="lp-usdc-cap" className="field" value={amount0} disabled={busy} onChange={e => { edit(); setAmount0(e.target.value); }}>{["0", "100000", "1000000", "5000000"].map(v => <option value={v} key={v}>{amount(v,6)} USDC</option>)}</select></div>
+          <div>{productMode && <><ProductTokenIcon token="WETH"/>{s&&<p className="product-subtle">Balance at study: {amount(s.balances.WETH,18)} WETH</p>}</>}<label className="form-label" htmlFor="lp-weth-cap">Maximum WETH authorization</label><select id="lp-weth-cap" className="field" value={amount1} disabled={busy} onChange={e => { edit(); setAmount1(e.target.value); }}>{["0", "100000000000000", "1000000000000000", "10000000000000000", "50000000000000000"].map(v => <option value={v} key={v}>{amount(v,18)} WETH</option>)}</select></div></div><p className="form-help">{kind === "increase" ? "Adding uses the existing position range. " : "Deposits follow the selected price range. "}A zero cap permits no deposit or authorization for that token. Approvals authorize these caps; the planned deposit may use less. Any unused allowance can remain after execution.</p></>}
         {kind === "decrease" && <p className="form-help">Removing liquidity records owed tokens in the NFT. Collect is a separate reviewed action to transfer them to your wallet.</p>}
         {kind === "collect" && <p className="form-help">Collect transfers available owed tokens, which can include withdrawn principal and fees. It is not a profit measure.</p>}
         {kind === "burn" && <p className="form-help">Close only an empty NFT after all liquidity is removed and all owed tokens are collected.</p>}
@@ -120,9 +126,10 @@ export function TestnetLpWalletPanel({ executionEnabled, presentation = "technic
     </>}
   </section>;
   const showControls = presentation !== "demo" || actionOpen || recovering;
+  if (productMode === "create") return <ProductLpCreate chainId={chainId} controls={controls} range={selectedRange} reviewing={!!s} blocked={recovering} onBack={edit}/>;
   return <>
     {!showControls && startup && <p role="status" className="form-help">{startup}</p>}
-    <TestnetLpPanel chainId={chainId} walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
+    <TestnetLpPanel initialOwner={initialOwner} productMode={productMode} selectedTokenId={selectedTokenId} chainId={chainId} walletControls={showControls ? controls : undefined} onSelectAction={select} walletBusy={busy || recovering} connectedWallet={state?.account} mutationKey={mutationKey} />
     <TestnetActivity chainId={chainId} account={state?.account ?? state?.submission?.study.intent.wallet ?? null} />
   </>;
 }

@@ -257,3 +257,8 @@ it("does not send if recovery storage crosses the study freshness boundary", asy
   expect(s.methods).not.toContain("eth_sendTransaction");
   expect(s.controller.snapshot().stage).toBe("uncertain");
 });
+it('restores only the expected authorized session without prompts and retains recovery blocking',async()=>{
+ const s=await setup();await s.controller.restoreConnection(s.f.request.intent.wallet);expect(s.controller.snapshot().account).toBe(s.f.request.intent.wallet);expect(s.methods).not.toContain('eth_requestAccounts');expect(s.methods).not.toContain('eth_sendTransaction');
+ const other=await setup();await other.controller.restoreConnection('0x1111111111111111111111111111111111111111');expect(other.controller.snapshot().account).toBeNull();
+ const pending=await setup();await pending.reviewed();await pending.controller.submit();const fresh=pending.make(),count=pending.methods.length;await fresh.restoreConnection(pending.f.request.intent.wallet);expect(fresh.snapshot().account).toBeNull();expect(pending.methods.length).toBe(count);
+});

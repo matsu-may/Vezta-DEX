@@ -3,11 +3,12 @@ import {testnetChainConfig, type TestnetChainId} from "@vezta-dex/core";
 import Image from "next/image";
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import {pendingTestnetWorkspaces} from "../lib/testnet-network-selection";
 import type { TestnetWallet } from "../lib/testnet-wallet-controller";
 
 type Connection = { account: string | null; error?: string };
 type Binding = { account: string | null; busy: boolean; blocked: boolean; connect: () => Promise<Connection> };
-type Registry = { chainId: TestnetChainId; enabled: boolean; binding: Binding | null; register: (id: symbol, value: Binding | null) => void };
+type Registry = { chainId: TestnetChainId; enabled: boolean; account: string | null; setAccount: (account: string | null) => void; walletDialogOpen: boolean; setWalletDialogOpen: (open: boolean) => void; binding: Binding | null; register: (id: symbol, value: Binding | null) => void };
 const Context = createContext<Registry | null>(null);
 
 // Select the same injected provider for the header and the guarded action controllers.
@@ -18,11 +19,17 @@ export function injectedDemoWallet(): TestnetWallet | undefined {
 
 export function DemoWalletProvider({ children, enabled = true, chainId = 84532 }: { children: ReactNode; enabled?: boolean; chainId?: TestnetChainId }) {
   const [entry, setEntry] = useState<{ id: symbol; value: Binding } | null>(null);
+  const [account,setAccount]=useState<string|null>(null);
+  const [walletDialogOpen,setWalletDialogOpen]=useState(false);
   const register = useCallback((id: symbol, value: Binding | null) => {
     setEntry(current => value ? { id, value } : current?.id === id ? null : current);
   }, []);
-  return <Context.Provider value={{ chainId, enabled, binding: entry?.value ?? null, register }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ chainId, enabled, account, setAccount, walletDialogOpen, setWalletDialogOpen, binding: entry?.value ?? null, register }}>{children}</Context.Provider>;
 }
+
+export function useProductWalletAccount() { const context=useContext(Context); return context?.binding?.account ?? context?.account ?? null; }
+export function useProductWalletSession() { return useContext(Context)?.account ?? null; }
+export function useProductWalletDialog() { const context=useContext(Context); return context?.enabled ? () => context.setWalletDialogOpen(true) : undefined; }
 
 export function useDemoWalletBinding(value: Binding, enabled = true) {
   const context = useContext(Context); const id = useRef(Symbol("wallet-panel"));
@@ -44,21 +51,24 @@ export function DemoWalletHeader() {
 function DemoWalletHeaderControl() {
   const context = useContext(Context);
   const config = testnetChainConfig(context?.chainId ?? 84532), chainHex = `0x${config.policy.chainId.toString(16)}`;
-  const [account, setAccount] = useState<string | null>(null);
-  const [open, setOpen] = useState(false); const [connecting, setConnecting] = useState(false);
+  const account=context?.account ?? null, setAccount=context!.setAccount;
+  const open=context!.walletDialogOpen, setOpen=context!.setWalletDialogOpen;
+  const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(""); const [switching, setSwitching] = useState(false);
   const dialog = useRef<HTMLDialogElement>(null); const trigger = useRef<HTMLButtonElement>(null);
   const titleId = useId(); const descriptionId = useId(); const alive = useRef(true);
   const generation = useRef(0);
   const active = context?.binding;
   const currentAccount = active ? active.account : account;
-  const blocked = !!active?.blocked; const busy = connecting || switching || !!active?.busy;
+  const [pending,setPending]=useState(false);
+  useEffect(()=>{const update=()=>{try {setPending(pendingTestnetWorkspaces(window.localStorage).length>0);}catch {setPending(true);}};queueMicrotask(update);const timer=setInterval(update,500);window.addEventListener("storage",update);return()=>{clearInterval(timer);window.removeEventListener("storage",update);};},[]);
+  const blocked = !!active?.blocked || pending; const busy = connecting || switching || !!active?.busy;
   useEffect(() => {
     alive.current = true;
     const wallet = injectedDemoWallet(); const clear = () => { generation.current++; setAccount(null); };
     for (const event of ["accountsChanged", "chainChanged", "disconnect"]) wallet?.on?.(event, clear);
-    return () => { alive.current = false; for (const event of ["accountsChanged", "chainChanged", "disconnect"]) wallet?.removeListener?.(event, clear); };
-  }, []);
+    return () => { alive.current = false; setOpen(false); for (const event of ["accountsChanged", "chainChanged", "disconnect"]) wallet?.removeListener?.(event, clear); };
+  }, [setAccount, setOpen]);
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;

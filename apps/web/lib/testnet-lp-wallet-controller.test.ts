@@ -113,3 +113,10 @@ it("rejects an unknown delegation indicator during final LP recheck without a pr
   const s=await setup();await s.reviewed();const call=s.api.call;s.api.call=async(action,body)=>{const result=await call(action,body);if(action==="recheck")s.setCode("0xef01001111111111111111111111111111111111111111");return result;};
   await s.controller.submit();expect(s.sends).toHaveLength(0);expect(s.storage.getItem(TESTNET_LP_SUBMISSION_KEY)).toBeNull();
 });
+it('restores an explicitly authorized session with read-only wallet checks and refuses mismatches or recovery',async()=>{
+ const s=await setup();await s.controller.restoreConnection(s.f.intent.wallet);
+ expect(s.controller.snapshot().account).toBe(s.f.intent.wallet);expect(s.methods).not.toContain('eth_requestAccounts');expect(s.methods).not.toContain('eth_sendTransaction');
+ const wrong=await setup();wrong.wrongChain();await wrong.controller.restoreConnection(wrong.f.intent.wallet);expect(wrong.controller.snapshot().account).toBeNull();
+ const changed=await setup();changed.change();await changed.controller.restoreConnection(changed.f.intent.wallet);expect(changed.controller.snapshot().account).toBeNull();
+ const pending=await setup();await pending.reviewed();await pending.controller.submit();const fresh=pending.make(),count=pending.methods.length;await fresh.restoreConnection(pending.f.intent.wallet);expect(fresh.snapshot().account).toBeNull();expect(pending.methods.length).toBe(count);
+});

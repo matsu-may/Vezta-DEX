@@ -1,0 +1,17 @@
+"use client";
+import {useEffect,useState} from "react";
+import {isAddress,formatUnits} from "viem";
+import {testnetChainConfig,type TestnetChainId} from "@vezta-dex/core";
+import {readTestnetActivity,subscribeTestnetActivity,type TestnetActivityEntry} from "../lib/testnet-activity";
+import {useProductWalletAccount} from "./demo-wallet-header";
+export function ProductActivity({chainId}:{chainId:TestnetChainId}) {
+ const account=useProductWalletAccount(),config=testnetChainConfig(chainId),[owner,setOwner]=useState(""),[filter,setFilter]=useState("all"),[history,setHistory]=useState<{available:boolean;entries:TestnetActivityEntry[]}>({available:true,entries:[]});
+ const selected=owner || account || "";
+ useEffect(()=>{let alive=true;const update=()=>{if(!alive)return;try{setHistory(isAddress(selected)?readTestnetActivity(window.localStorage,selected):{available:true,entries:[]});}catch{setHistory({available:false,entries:[]});}};queueMicrotask(update);const unsubscribe=subscribeTestnetActivity(update);window.addEventListener("storage",update);return()=>{alive=false;unsubscribe();window.removeEventListener("storage",update);};},[selected]);
+ const entries=history.entries.filter(e=>e.chainId===chainId && (filter==="all"||e.kind===filter));
+ const amounts=(e:TestnetActivityEntry)=>e.kind==="swap"&&e.amountIn&&e.amountOut&&e.tokenIn&&e.tokenOut?`${formatUnits(BigInt(e.amountIn),e.tokenIn==="USDC"?6:18)} ${e.tokenIn} → ${formatUnits(BigInt(e.amountOut),e.tokenOut==="USDC"?6:18)} ${e.tokenOut}`:e.tokenId?`NFT #${e.tokenId}`:"—";
+ return <section><div className="product-toolbar"><p>Your activity · {config.label}</p><div><label className="product-search"><span className="sr-only">Activity wallet address</span><input value={owner} onChange={e=>setOwner(e.target.value.trim())} placeholder={account ?? "Wallet address · 0x…"}/></label><label><span className="sr-only">Filter activity</span><select className="field" value={filter} onChange={e=>setFilter(e.target.value)}>{["all","swap","approve","reset","mint","increase","decrease","collect","burn"].map(v=><option key={v} value={v}>{v==="all"?"All actions":v}</option>)}</select></label></div></div>
+ <p className="product-data-note">Recorded in this browser for this wallet. This is not a complete on-chain or global transaction history. Status is the last observation; opening an explorer does not verify execution.</p>
+ {!isAddress(selected)?<div className="product-empty"><h2>Your activity appears here</h2><p>Connect your wallet or enter its address to view transactions recorded in this browser.</p></div>:!history.available?<p role="alert">Local activity storage is unavailable. Original transaction recovery remains separate.</p>:entries.length===0?<p className="product-empty" role="status">No activity recorded for this wallet and network.</p>:<div className="table-wrap"><table className="product-table"><thead><tr><th>Observed</th><th>Action</th><th>Token amount / position</th><th>Status</th><th>Transaction</th></tr></thead><tbody>{entries.map(e=><tr key={`${e.flow}:${e.hash}`}><td><time dateTime={e.observedAt}>{new Date(e.observedAt).toLocaleString()}</time></td><td>{e.kind}</td><td className="mono">{amounts(e)}</td><td><span className={`badge ${e.status==="confirmed"?"badge-fresh":"badge-warning"}`}>{e.status}</span></td><td><a className="mono" href={`${config.explorer}/tx/${e.hash}`} target="_blank" rel="noreferrer">{e.hash.slice(0,10)}…{e.hash.slice(-6)} ↗</a></td></tr>)}</tbody></table></div>}
+ </section>;
+}

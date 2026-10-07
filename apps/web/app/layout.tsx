@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
+import { ProductBrand } from "../components/product-brand";
 import { DemoWalletWorkspace } from "../components/demo-wallet-workspace";
 import { DemoNavigation } from "../components/demo-navigation";
 import {TestnetNetworkSelector} from "../components/testnet-network-selector";
@@ -13,7 +14,7 @@ const dataFont = localFont({ src: "../public/fonts/JetBrainsMono[wght].ttf", var
 
 export const metadata: Metadata = {
   title: "Vezta DEX — Swap, explore and provide liquidity",
-  description: "An independent Uniswap workspace with a Base Sepolia swap and liquidity demo.",
+  description: "An independent Uniswap workspace for Base Sepolia and Unichain Sepolia swaps and liquidity.",
   icons: { icon: "/icon.svg" },
 };
 
@@ -24,10 +25,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <DemoWalletWorkspace>
           <div className="site-shell">
             <header className="site-header">
-              <Link href="/explore" className="brand" aria-label="Vezta DEX home">
-                <span className="brand-mark">V</span>
-                <span>VEZTA <em>DEX</em></span>
-              </Link>
+              <ProductBrand />
               <DemoNavigation />
               <nav aria-label="Main navigation" className="main-nav">
                 <Link href="/demo">Demo</Link>

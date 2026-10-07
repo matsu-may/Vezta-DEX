@@ -130,6 +130,11 @@ export class TestnetWalletController {
   private free() { requireNoOtherTestnetSubmission(this.storage, "swap", this.chainId); require(!this.state.submission && this.state.stage !== "recovery-blocked"); }
   private current() { require(this.state.quote && this.state.account); const q = this.state.quote!;
     this.domain.parseTestnetSwapQuote(q.quote, this.now()); require(same(this.state.account!, q.quote.wallet)); return q; }
+  /** Read-only validation of a session already authorized in this workspace. */
+  async restoreConnection(expectedOwner: string) { return this.run(async () => {
+    this.free(); const g = this.generation, owner = getAddress(expectedOwner);
+    await this.walletCheck(owner, g); this.publish({ account: owner, stage: "connected" });
+  }, "connect"); }
   async connect() { return this.run(async () => {
     const g = this.generation; this.connecting = true; this.grantAccount = null;
     try {

@@ -83,3 +83,9 @@ it("wraps keyboard focus at both ends of the chooser", () => {
   first.focus(); fireEvent.keyDown(chooser, { key: "Tab", shiftKey: true }); expect(document.activeElement).toBe(last);
   fireEvent.keyDown(chooser, { key: "Tab" }); expect(document.activeElement).toBe(first);
 });
+it('keeps wallet selection locked on discovery routes while an original record needs recovery',async()=>{
+ mount();localStorage.setItem('vezta-dex:base-sepolia-submission:v1','invalid-original-record');
+ try {const request=vi.fn();vi.stubGlobal('ethereum',{isMetaMask:true,request});render(<DemoWalletProvider><DemoWalletHeader/></DemoWalletProvider>);
+ const trigger=await screen.findByRole('button',{name:'Wallet · tracking'});expect(trigger.hasAttribute('disabled')).toBe(true);expect(request).not.toHaveBeenCalled();}
+ finally {localStorage.clear();}
+});

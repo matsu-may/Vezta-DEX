@@ -3,7 +3,8 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { testnetChainConfig } from "@vezta-dex/core";
-import {pendingTestnetWorkspaces,testnetNetworkHref,testnetNetworkId} from "../lib/testnet-network-selection";
+import {pendingTestnetWorkspaces,testnetNetworkId} from "../lib/testnet-network-selection";
+import {switchProductNetwork} from "../lib/product-routes";
 export function TestnetNetworkSelector() {
  const path=usePathname() ?? "";
  return /^\/(?:demo\/[1-4]|networks\/(?:base-sepolia|unichain-sepolia))(?:\/|$)/.test(path) ? <TestnetNetworkSelectorControl/> : null;
@@ -20,7 +21,7 @@ function TestnetNetworkSelectorControl() {
  return <div className="testnet-network-control"><label className="sr-only" htmlFor="workspace-chain">Testnet network</label>
  <select id="workspace-chain" className="field" value={chainId} disabled={unavailable || pending.length>0} onChange={event=>{
   try {if(pendingTestnetWorkspaces(window.localStorage).length) return; } catch {setUnavailable(true);return;}
-  router.push(testnetNetworkHref(Number(event.target.value) as 84532|1301,pathname.split("/")[3] || "swap"));
+  router.push(switchProductNetwork(pathname,Number(event.target.value) as 84532|1301));
  }}><option value={84532}>Base Sepolia</option><option value={1301}>Unichain Sepolia · EOA</option></select>
  {pending.length>0 && <span role="status">Original transaction needs recovery: {pending.map(p=><Link key={`${p.chainId}:${p.flow}`} href={p.href}>{testnetChainConfig(p.chainId).label} {p.flow} ↗ </Link>)}</span>}
  {unavailable && <span role="status">Checking recovery storage…</span>}

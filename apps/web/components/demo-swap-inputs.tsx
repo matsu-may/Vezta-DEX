@@ -1,37 +1,22 @@
+"use client";
+import {useState} from "react";
 import { formatUnits } from "viem";
-
+import {ProductTokenIcon} from "./product-token";
 type Direction = "forward" | "reverse";
-
-/** Presentation only. The parent invalidates the controller before changing any input. */
-export function DemoSwapInputs({ direction, amount, disabled, amountOut, onDirection, onAmount }: {
-  direction: Direction; amount: string; disabled: boolean; amountOut?: string;
-  onDirection: (direction: Direction) => void; onAmount: (amount: string) => void;
-}) {
-  const input = direction === "forward" ? "USDC" : "WETH";
-  const output = direction === "forward" ? "WETH" : "USDC";
-  return <div className="swap-inputs">
-    <div className="swap-direction"><label htmlFor="testnet-direction">Direction</label>
-      <select id="testnet-direction" value={direction} disabled={disabled} onChange={e => onDirection(e.target.value as Direction)}>
-        <option value="forward">USDC → WETH</option><option value="reverse">WETH → USDC</option>
-      </select>
-    </div>
-    <div className="swap-token-block">
-      <label className="swap-block-label" htmlFor="testnet-amount">You pay <span className="sr-only">· Input amount</span></label>
-      <div className="swap-token-line"><input id="testnet-amount" aria-label="Input amount" inputMode="decimal" autoComplete="off" maxLength={80} value={amount} disabled={disabled} onChange={e => onAmount(e.target.value)} />
-        <span className="swap-token-name"><TokenIcon token={input} />{input}</span></div>
-      <span className="swap-block-caption">Testnet token · maximum {direction === "forward" ? "5 USDC" : "0.001 WETH"}</span>
-    </div>
-    <div className="swap-reverse-row"><button type="button" className="swap-reverse" aria-label="Reverse token pair" disabled={disabled} onClick={() => onDirection(direction === "forward" ? "reverse" : "forward")}>
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true"><path d="M8 4v16m-4-4 4 4 4-4M16 20V4m-4 4 4-4 4 4" /></svg>
-    </button></div>
-    <div className="swap-token-block swap-output-block"><span className="swap-block-label">You receive</span>
-      <div className="swap-token-line"><output className="swap-output" aria-label="Quoted token output">{amountOut ? formatUnits(BigInt(amountOut), direction === "forward" ? 18 : 6) : "—"}</output>
-        <span className="swap-token-name"><TokenIcon token={output} />{output}</span></div>
-      <span className="swap-block-caption">{amountOut ? "Estimated received · minimum shown below" : "Get a quote to see the estimated output"}</span>
-    </div>
-  </div>;
+function TokenPicker({token,disabled,label,onPick}:{token:"USDC"|"WETH";disabled:boolean;label:string;onPick:(token:"USDC"|"WETH")=>void}) {
+ const [open,setOpen]=useState(false);
+ return <div className="product-token-picker" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setOpen(false);}} onKeyDown={e=>{if(e.key==="Escape")setOpen(false);}}><button type="button" disabled={disabled} className="product-token-trigger" aria-label={label} aria-expanded={open} onClick={()=>setOpen(v=>!v)}><ProductTokenIcon token={token}/>{token}<span aria-hidden="true">⌄</span></button>{open&&!disabled&&<div className="product-token-options">{(["USDC","WETH"] as const).map(t=><button type="button" key={t} aria-label={`Choose ${t}`} onClick={()=>{onPick(t);setOpen(false);}}><ProductTokenIcon token={t}/>{t}<small>Supported testnet asset</small></button>)}</div>}</div>;
 }
-
-function TokenIcon({ token }: { token: "USDC" | "WETH" }) {
-  return <span className={`swap-token-icon ${token === "WETH" ? "swap-token-eth" : ""}`} aria-hidden="true">{token === "USDC" ? "$" : "Ξ"}</span>;
+/** Presentation only. The parent invalidates the controller before changing any input. */
+export function DemoSwapInputs({ direction, amount, disabled, amountOut, inputBalance, onDirection, onAmount }: {
+ direction:Direction;amount:string;disabled:boolean;amountOut?:string;inputBalance?:string;onDirection:(direction:Direction)=>void;onAmount:(amount:string)=>void;
+}) {
+ const input=direction==="forward"?"USDC":"WETH",output=direction==="forward"?"WETH":"USDC";
+ const received=amountOut?formatUnits(BigInt(amountOut),direction==="forward"?18:6):"0";
+ return <div className="swap-inputs">
+ <div className="swap-direction" hidden><label htmlFor="testnet-direction">Direction</label><select id="testnet-direction" value={direction} disabled={disabled} onChange={e=>onDirection(e.target.value as Direction)}><option value="forward">USDC → WETH</option><option value="reverse">WETH → USDC</option></select></div>
+ <div className="swap-token-block"><label className="swap-block-label" htmlFor="testnet-amount">Sell <span className="sr-only">· Input amount</span></label><div className="swap-token-line"><input id="testnet-amount" aria-label="Input amount" inputMode="decimal" autoComplete="off" maxLength={80} value={amount} disabled={disabled} onChange={e=>onAmount(e.target.value)}/><TokenPicker token={input} disabled={disabled} label="Select input token" onPick={token=>{if(token!==input)onDirection(direction==="forward"?"reverse":"forward");}}/></div><span className="swap-block-caption">Test token · maximum {direction==="forward"?"5 USDC":"0.001 WETH"}{inputBalance!==undefined&&<> · Balance at review: {formatUnits(BigInt(inputBalance),direction==="forward"?6:18)} {input}</>}</span></div>
+ <div className="swap-reverse-row"><button type="button" className="swap-reverse" aria-label="Reverse token pair" disabled={disabled} onClick={()=>onDirection(direction==="forward"?"reverse":"forward")}><span aria-hidden="true">↓</span></button></div>
+ <div className="swap-token-block swap-output-block"><span className="swap-block-label">Buy</span><div className="swap-token-line"><output className={`swap-output ${received.length>16?"swap-output-long":""}`} aria-label="Quoted token output">{received}</output><TokenPicker token={output} disabled={disabled} label="Select output token" onPick={token=>{if(token!==output)onDirection(direction==="forward"?"reverse":"forward");}}/></div><span className="swap-block-caption">{amountOut?"Estimated received · minimum shown below":"Request a quote to see the estimated output"}</span></div>
+ </div>;
 }

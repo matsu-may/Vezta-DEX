@@ -81,6 +81,11 @@ export class TestnetLpWalletController {
     // The API separately verifies the runtime behind the recognized delegation indicator.
     try { const kind = classifyTestnetWalletCode(code); if (this.chainId !== 84532 && kind !== "eoa") throw new Error("Unsupported wallet"); } catch { throw new Error("Unsupported wallet"); }
   }
+  /** Revalidate a session authorized in this mounted workspace. Never opens a permission prompt. */
+  async restoreConnection(expectedOwner: string) { return this.run(async () => {
+    this.free(); const g = this.generation, owner = getAddress(expectedOwner);
+    await this.walletCheck(owner, g); this.publish({ account: owner, stage: "connected" });
+  }); }
   async connect() { return this.run(async () => { this.free(); const g = this.generation; this.connecting = true; this.grant = null;
     try { const owner = account(await this.wallet.request({ method: "eth_requestAccounts" })); this.generationCheck(g); bound(!this.grant || same(owner, this.grant));
       await this.walletCheck(owner, g); this.publish({ account: owner, stage: "connected" });

@@ -1,12 +1,13 @@
 "use client";
 import { TESTNET_LP_FULL_RANGE, lpRangePrices, type TestnetLpRange } from "@vezta-dex/core";
-export function TestnetLpRangeFields({ mode, lower, upper, range, error, disabled, onMode, onLower, onUpper }: {
-  mode:"full"|"custom"; lower:string; upper:string; range:TestnetLpRange|null; error:string|null; disabled:boolean;
+export function TestnetLpRangeFields({ mode, lower, upper, range, error, disabled, onMode, onLower, onUpper, product = false }: {
+  product?:boolean; mode:"full"|"custom"; lower:string; upper:string; range:TestnetLpRange|null; error:string|null; disabled:boolean;
   onMode:(value:"full"|"custom")=>void; onLower:(value:string)=>void; onUpper:(value:string)=>void;
 }) {
   const actual = range ? lpRangePrices(range) : null;
   return <>
-    <div className="testnet-fields"><div><label className="form-label" htmlFor="lp-range-mode">Position range</label>
+    {product && <div className="product-segmented" role="group" aria-label="Position range">{(["full","custom"] as const).map(value=><button key={value} type="button" disabled={disabled} aria-pressed={mode===value} onClick={()=>onMode(value)}>{value==="full"?"Full range":"Custom range"}</button>)}</div>}
+    <div className="testnet-fields" hidden={product}><div><label className="form-label" htmlFor="lp-range-mode">Position range</label>
       <select id="lp-range-mode" className="field" value={mode} disabled={disabled} onChange={e=>onMode(e.target.value as "full"|"custom")}>
         <option value="full">Full range</option><option value="custom">Custom price range</option>
       </select></div></div>
