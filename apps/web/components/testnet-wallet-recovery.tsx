@@ -16,7 +16,7 @@ export function TestnetWalletRecovery({ state, controller }: { state: TestnetWal
   const config = testnetChainConfig(record?.intent.chainId ?? 84532);
   const amount = (raw: string, token: string) => testnetAmount(raw,token,config.policy.chainId);
   if (!record && !state.historical && state.stage !== "recovery-blocked") return null;
-  return <section className="testnet-review" aria-label="Original transaction recovery">
+  return <section className={`testnet-review product-recovery-card status-${state.stage}`} aria-label="Original transaction recovery">
     <h3>{record?.hash ? "Original transaction" : "Submission outcome uncertain"}</h3>
     <p>Keep the original context and hash. Do not resend. Reviewed contexts are retained locally for 24 hours.</p>
     {state.stage === "pending" && !state.contextUnavailable && <p role="status">Waiting for the original transaction. Click Check original transaction to read its receipt; this will not send another transaction.</p>}

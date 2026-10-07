@@ -9,7 +9,7 @@ export function testnetAmount(raw: string, token: string, chainId: TestnetChainI
   return `${formatUnits(BigInt(raw), usdc ? 6 : 18)} ${usdc ? "USDC" : "WETH"}`;
 }
 const eth = (raw: string) => `${formatUnits(BigInt(raw), 18)} test ETH`;
-export function TestnetWalletReview({ state, compact = false }: { state: TestnetWalletSnapshot; compact?: boolean }) {
+export function TestnetWalletReview({ state, compact = false, showQuote = true, showTransaction = true, modal = false }: { state: TestnetWalletSnapshot; compact?: boolean; showQuote?: boolean; showTransaction?: boolean; modal?: boolean }) {
   const config = testnetChainConfig(state.quote?.quote.chainId ?? state.action?.chainId ?? 84532), P = config.policy;
   const amount = (raw: string, token: string) => testnetAmount(raw, token, P.chainId);
   const q = state.quote?.quote; const study = state.review; const a = state.action;
@@ -19,10 +19,11 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
     <div><dt>L1 fee upper bound</dt><dd>{eth(study.gas.l1FeeUpperBound)}</dd></div>
     <div><dt>Operator fee upper bound</dt><dd>{eth(study.gas.operatorFeeUpperBound)}</dd></div></>;
   return <>
-    {q && <section className="testnet-review" aria-label="Wallet quote">
+    {q && showQuote && <section className="testnet-review" aria-label="Wallet quote">
       {!compact && <h3>Quote · {config.label}</h3>}<dl className="demo-preview">
-        {!compact && <><div><dt>Input</dt><dd>{amount(q.amountIn, q.tokenIn)}</dd></div>
+        {(!compact || modal) && <><div><dt>Input</dt><dd>{amount(q.amountIn, q.tokenIn)}</dd></div>
         <div><dt>Estimated received</dt><dd>{amount(q.amountOut, q.tokenOut)}</dd></div></>}
+        {modal && <div><dt>Recipient</dt><dd className="mono">{q.wallet}</dd></div>}
         <div><dt>Minimum received</dt><dd>{amount(q.minimumAmountOut, q.tokenOut)}</dd></div>
         <div><dt>Pool fee</dt><dd>{q.feeTier / 10000}%</dd></div>
         <div><dt>Slippage</dt><dd>{q.slippageBps / 100}%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
@@ -37,7 +38,7 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
             <dd>{c.status === "qualified" ? amount(c.amountOut, q.tokenOut) : "Unavailable / did not qualify"}</dd></div>)}</dl></>}
       </details>
     </section>}
-    {study && <section className="testnet-review" aria-label="Transaction review">
+    {study && showTransaction && <section className="testnet-review" aria-label="Transaction review">
       <h3>{a ? `${a.kind === "reset" ? "Reset allowance to zero" : a.kind === "approve" ? "Exact token approval" : "Simulated swap"}` : "Action needs review"}</h3>
       {study.reason && <p role="status">{study.reason === "TESTNET_INPUT_BALANCE_LOW" ? "Insufficient input tokens. Fund this wallet with testnet tokens." : "Insufficient test ETH for the complete fee budget."}</p>}
       {study.status === "allowance-ready" && <p>Allowance is ready. Review swap next.</p>}
@@ -52,7 +53,7 @@ export function TestnetWalletReview({ state, compact = false }: { state: Testnet
         {study.gas && <>{!compact && feeDetails}
           <div><dt>Complete snapshot fee budget</dt><dd>{eth(study.gas.totalFeeBudget)}</dd></div></>}
       </dl><p className="form-help">Fee budget includes a buffer for L1 and operator fees. It is an estimate, not the final charged fee.</p>
-      {compact && (a || study.gas) && <details className="quote-provenance"><summary>Transaction and fee details</summary><dl className="demo-preview">{a && <div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div>}{feeDetails}</dl></details>}
+      {compact && (a || study.gas) && <details className="quote-provenance"><summary>Transaction and fee details</summary><dl className="demo-preview">{a && <><div><dt>Nonce</dt><dd>{a.transaction.nonce}</dd></div><div><dt>Transaction sender</dt><dd className="mono">{a.transaction.from}</dd></div><div><dt>Calldata</dt><dd className="mono">{a.transaction.data}</dd></div></>}{feeDetails}</dl></details>}
     </section>}
   </>;
 }

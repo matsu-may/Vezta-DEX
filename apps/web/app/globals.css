@@ -691,3 +691,95 @@ body:has(.product-page) main, .product-page.recording-page { background: #101010
 
 .product-swap-page .swap-output-long { font-size: 20px; }
 .product-position-form > section > .button { width: 100%; margin-top: 16px; min-height: 52px; border-radius: 16px; }
+
+/* Original assets and compact Uniswap reference layout in Vezta colors. */
+.product-token-icon, .product-token-icon.weth { background: transparent; overflow: hidden; }
+.product-token-icon img { width: 100%; height: 100%; object-fit: contain; }
+.product-network-icon { flex: 0 0 auto; border-radius: 50%; object-fit: contain; }
+.testnet-network-control { position: relative; }
+.testnet-network-control > .product-network-icon { position: absolute; top: 12px; left: 12px; pointer-events: none; }
+body:has(.product-page) .testnet-network-control > select { padding-left: 40px; }
+body:has(.product-page) .demo-top-nav > a[aria-current] { color: #f4f4f4; background: #252525; border-radius: 24px; }
+.product-nav-dropdown { width: 220px; border-radius: 16px; padding: 8px; }
+.product-nav-dropdown a { min-height: 46px; padding: 12px; background: transparent; font-weight: 500; }
+.product-table th { background: transparent; padding: 12px 16px; border-bottom: 1px solid #282828; }
+.product-table td { padding: 18px 16px; }
+.product-table th:nth-child(n+3), .product-table td:nth-child(n+3) { text-align: right; }
+.product-overview { margin-bottom: 32px; }
+.product-page-heading { margin-bottom: 24px; }
+.product-swap-page { padding-top: 62px; }
+.product-swap-page .product-page-heading { margin-bottom: 12px; max-width: 500px; }
+.product-swap-page .product-page-heading > .product-subtle { display: none; }
+.product-swap-page .product-page-heading h1 { display: inline-block; padding: 10px 16px; border-radius: 24px; background: #292929; font-size: 16px; }
+.product-swap-page .recording-grid { max-width: 500px; }
+.product-swap-page .testnet-mode { font-size: 11px; color: #999; margin: 0 0 12px; }
+.product-swap-page .testnet-wallet > .form-help { font-size: 11px; margin: 8px 0; }
+.product-swap-page .swap-token-block { min-height: 150px; padding: 22px; }
+.product-swap-page .swap-token-line { margin: 14px 0; gap: 16px; }
+.product-swap-page .swap-token-line > input { font-size: 40px; font-family: var(--font-display), sans-serif; }
+.product-swap-page .swap-output { font-size: 30px; font-family: var(--font-display), sans-serif; }
+.product-swap-page .swap-output-long { font-size: 21px; }
+.product-swap-page .swap-block-caption { font-size: 11px; color: #969696; }
+.product-swap-page .swap-primary-action { min-height: 58px; font-size: 17px; }
+.product-swap-page .testnet-review[aria-label="Wallet quote"] { margin: 12px 0; padding: 8px 0; border: 0; }
+.product-swap-page .testnet-review[aria-label="Wallet quote"] .demo-preview { gap: 10px; }
+.product-swap-page .testnet-review[aria-label="Wallet quote"] .demo-preview dd { font-size: 12px; }
+.product-swap-page .testnet-review[aria-label="Wallet quote"] .quote-provenance { margin-top: 10px; }
+.product-swap-page .swap-secondary-actions { margin-top: 8px; }
+.product-swap-page .testnet-wallet > .archived-history { margin-top: 24px; }
+.product-deposit-cards { gap: 12px; }
+.product-position-form { padding: 28px; background: #141414; }
+.product-page .lp-position-list { border: 0; background: transparent; padding: 0; }
+.product-dialog { width: min(520px, calc(100vw - 32px)); max-height: 85dvh; margin: auto; overflow-y: auto; overscroll-behavior: contain; padding: 24px; background: #191919; color: #f4f4f4; border: 1px solid #353535; border-radius: 24px; box-shadow: 0 24px 80px #0009; }
+.product-dialog::backdrop { background: #0009; backdrop-filter: blur(4px); }
+.product-dialog-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.product-dialog-heading h2 { margin: 0; font-size: 22px; font-weight: 500; }
+.product-dialog-heading button { width: 34px; height: 34px; flex: 0 0 34px; background: #272727; color: #ccc; border: 0; border-radius: 50%; font-size: 24px; cursor: pointer; }
+.product-dialog-note { color: #999; font-size: 12px; line-height: 1.6; }
+.product-dialog .testnet-review { border: 0; background: transparent; padding: 0; margin: 18px 0; }
+.product-dialog .testnet-review h3 { font-size: 18px; font-weight: 500; }
+.product-dialog .demo-preview { display: grid; gap: 13px; }
+.product-dialog .demo-preview > div { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; }
+.product-dialog .demo-preview dt { color: #aaa; font-size: 12px; }
+.product-dialog .demo-preview dd { max-width: 66%; margin: 0; text-align: right; font-size: 13px; overflow-wrap: anywhere; }
+.product-dialog .form-help { color: #aaa; font-size: 12px; line-height: 1.6; }
+.product-dialog .quote-provenance { padding: 12px 0; border-top: 1px solid #303030; font-size: 12px; }
+.product-dialog .quote-provenance summary { color: #bbb; cursor: pointer; }
+.product-dialog .mono { overflow-wrap: anywhere; }
+.product-dialog .testnet-submit, .product-dialog-submit { width: 100%; min-height: 52px; border-radius: 16px; justify-content: center; }
+.product-transaction-progress { display: flex; gap: 8px; list-style: none; padding: 0; margin: 18px 0 22px; }
+.product-transaction-progress li { flex: 1; font-size: 11px; color: #aaa; }
+.product-transaction-progress span { display: inline-flex; width: 21px; height: 21px; align-items: center; justify-content: center; background: #303030; border-radius: 50%; margin-right: 6px; }
+.product-transaction-progress [aria-current] { color: #eee; }
+.product-transaction-progress [aria-current] span { background: var(--accent); color: #101010; }
+.product-token-search { margin: 8px 0; border-radius: 15px; }
+.product-token-network { display: flex; align-items: center; gap: 8px; color: #ccc; font-size: 12px; margin: 18px 0; }
+.product-token-network > span { margin-left: auto; font-size: 11px; color: #aaa; }
+.product-token-list { display: grid; gap: 4px; }
+.product-token-list > button { display: flex; align-items: center; gap: 12px; width: 100%; border: 0; border-radius: 14px; padding: 14px 10px; text-align: left; background: transparent; color: #eee; font: inherit; cursor: pointer; }
+.product-token-list > button:hover, .product-token-list > button:focus-visible { background: #292929; }
+.product-token-list strong { font-weight: 500; font-size: 15px; }
+.product-token-list small { display: block; color: #999; font-size: 12px; margin-top: 4px; }
+.product-token-list > button > span:last-child { margin-left: auto; font-size: 12px; color: #aaa; }
+.product-page .product-recovery-card { border: 1px solid #353535; border-radius: 20px; background: #181818; padding: 22px; }
+.product-recovery-card.status-confirmed { border-color: #477331; }
+.product-page .product-recovery-card > h3 { font-size: 21px; }
+.product-page .product-recovery-card > p { font-size: 13px; line-height: 1.7; color: #bbb; }
+.product-page .product-recovery-card .button { width: 100%; margin: 10px 0; justify-content: center; border-radius: 14px; }
+@media (max-width: 600px) {
+ .product-dialog { padding: 20px; }
+ .product-dialog .demo-preview > div { gap: 12px; }
+ .product-swap-page .swap-token-line > input { font-size: 32px; }
+ .product-swap-page .swap-output-long { font-size: 17px; }
+ .product-deposit-cards { grid-template-columns: 1fr; }
+}
+
+/* Keep financial review readable within the desktop transaction dialog. */
+.product-swap-page .testnet-wallet > .testnet-review { margin: 10px 0; padding: 8px 0; }
+.product-swap-page .testnet-wallet .quote-provenance { margin: 6px 0; padding: 4px 0; }
+.product-swap-page .testnet-wallet .swap-action-stack { margin-top: 12px; }
+.recording-page .product-dialog .testnet-review { margin: 12px 0; padding: 0; }
+.recording-page .product-dialog .quote-provenance { margin: 8px 0; padding: 8px 0; }
+.recording-page .product-dialog .demo-preview { gap: 9px; }
+.recording-page .product-dialog .demo-preview dd.mono { font-size: 11px; }
+.product-dialog .testnet-submit, .product-dialog .product-dialog-submit { position: sticky; bottom: 0; box-shadow: 0 -10px 12px #191919; }

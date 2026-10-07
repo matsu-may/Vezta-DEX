@@ -17,7 +17,7 @@ it('revalidates an authorized signer across swap, LP list and detail without new
  const tree=render(ui('swap'));await screen.findAllByRole('button',{name:'Connect wallet'});
  expect(methods).toHaveLength(0);fireEvent.click(screen.getAllByRole('button',{name:'Connect wallet'})[0]);fireEvent.click(screen.getByRole('button',{name:/MetaMask/}));
  await screen.findByRole('button',{name:'Wallet 0x1111…1111'});
- tree.rerender(ui('list'));await screen.findByRole('button',{name:'Use connected wallet'});expect(screen.getByRole('button',{name:'Wallet 0x1111…1111'})).toBeTruthy();
+ tree.rerender(ui('list'));await screen.findByRole('button',{name:'Use connected wallet'});expect(await screen.findByRole('button',{name:'Wallet 0x1111…1111'})).toBeTruthy();
  tree.rerender(ui('detail'));await screen.findByRole('button',{name:'Use connected wallet'});expect((screen.getByLabelText('Position owner address') as HTMLInputElement).value).toBe('0x2222222222222222222222222222222222222222');
  expect(methods.filter(m=>m==='eth_requestAccounts')).toHaveLength(1);expect(methods).not.toContain('eth_sendTransaction');expect(fetcher).not.toHaveBeenCalled();
 });

@@ -101,3 +101,40 @@ it("clears a rejected network switch notice after explicit successful connection
   await screen.findByText(/Connected:/);
   expect(screen.queryByText(/Network switch rejected/)).toBeNull();
 });
+it("keeps prepared demo submission inside a review modal, supports close/reopen and expiry", async () => {
+  const f = await fixture(true);
+  HTMLDialogElement.prototype.showModal ??= function() {}; HTMLDialogElement.prototype.close ??= function() {};
+  vi.spyOn(HTMLDialogElement.prototype, "showModal").mockImplementation(function(this: HTMLDialogElement) { this.setAttribute("open", ""); });
+  vi.spyOn(HTMLDialogElement.prototype, "close").mockImplementation(function(this: HTMLDialogElement) { this.removeAttribute("open"); });
+  render(<DemoWalletProvider><DemoWalletHeader /><TestnetWalletPanel executionEnabled presentation="demo" /></DemoWalletProvider>);
+  fireEvent.click(await screen.findByRole("button",{name:"Connect wallet"}));fireEvent.click(screen.getByRole("button",{name:/MetaMask/}));
+  await screen.findByRole("button",{name:/^Wallet 0x/});fireEvent.click(screen.getByRole("button",{name:"Get wallet quote"}));await screen.findByText("Minimum received");
+  fireEvent.click(screen.getByRole("button",{name:"Review swap"}));
+  const modal=await screen.findByRole("dialog",{name:"Review transaction"});
+  expect(modal.contains(screen.getByRole("button",{name:"Submit reviewed testnet transaction"}))).toBe(true);
+  expect(f.methods).not.toContain("eth_sendTransaction");
+  fireEvent.click(screen.getByRole("button",{name:"Close Review transaction"}));
+  expect(screen.queryByRole("button",{name:"Submit reviewed testnet transaction"})).toBeNull();
+  fireEvent.click(screen.getByRole("button",{name:"Review prepared transaction"}));
+  await screen.findByRole("dialog",{name:"Review transaction"});
+  vi.spyOn(Date,"now").mockReturnValue(fixtures["forward-swap"].now+60000);
+  await screen.findByText("Review expired. Request a fresh quote and review before continuing.");
+  expect(screen.getByRole("button",{name:"Submit reviewed testnet transaction"}).hasAttribute("disabled")).toBe(true);
+  fireEvent.click(screen.getByRole("button",{name:"Close Review transaction"}));fireEvent.click(screen.getByRole("button",{name:"Reverse token pair"}));
+  expect(screen.queryByText("Minimum received")).toBeNull();
+});
+it.each([false,true])("does not reopen a submitted swap review after acknowledgement/rejection (reject=%s)",async reject=>{
+ const f=await fixture(true),raw=fixtures["forward-swap"],hash=`0x${"11".repeat(32)}`;
+ HTMLDialogElement.prototype.showModal ??= function(){};HTMLDialogElement.prototype.close ??= function(){};
+ vi.spyOn(HTMLDialogElement.prototype,"showModal").mockImplementation(function(this:HTMLDialogElement){this.setAttribute("open","");});
+ vi.spyOn(HTMLDialogElement.prototype,"close").mockImplementation(function(this:HTMLDialogElement){this.removeAttribute("open");});
+ vi.stubGlobal("ethereum",{isMetaMask:true,async request({method}:{method:string}){f.methods.push(method);if(method==="eth_sendTransaction"){if(reject)throw {code:4001};return hash;}return method==="eth_getCode"?"0x":method==="eth_chainId"?"0x14a34":[raw.intent.wallet];}});
+ vi.stubGlobal("fetch",async(url:string,init:RequestInit)=>url.endsWith("receipt")?Response.json({observation:{contextId:raw.checked.action.contextId,hash,kind:"swap",chainId:84532,source:"base-sepolia-rpc",observedAt:new Date(raw.now).toISOString(),executionEnabled:false,status:"confirmed",confirmations:"2",blockNumber:"124",blockHash:`0x${"cd".repeat(32)}`,execution:{status:"verified",amountIn:raw.intent.amountIn,amountOut:raw.quote.quote.amountOut,l2GasCost:"123",actualTotalFeeQualified:false,balances:{USDC:"0",WETH:"0",ETH:"100"},tokenAllowance:"0",allowanceMatchesExpected:true,stateBlockNumber:"125",stateBlockHash:`0x${"ef".repeat(32)}`}}}):f.fetcher(url,init));
+ render(<DemoWalletProvider><DemoWalletHeader/><TestnetWalletPanel executionEnabled presentation="demo"/></DemoWalletProvider>);
+ fireEvent.click(await screen.findByRole("button",{name:"Connect wallet"}));fireEvent.click(screen.getByRole("button",{name:/MetaMask/}));await screen.findByRole("button",{name:/^Wallet 0x/});
+ fireEvent.click(screen.getByRole("button",{name:"Get wallet quote"}));await screen.findByText("Minimum received");fireEvent.click(screen.getByRole("button",{name:"Review swap"}));
+ fireEvent.click(await screen.findByRole("button",{name:"Submit reviewed testnet transaction"}));
+ if(!reject){fireEvent.click(await screen.findByRole("button",{name:"Check original transaction"}));fireEvent.click(await screen.findByRole("button",{name:"Acknowledge verified result"}));await screen.findByRole("button",{name:"Get wallet quote"});}
+ else {await screen.findByRole("alert");}
+ expect(screen.queryByRole("dialog",{name:"Review transaction"})).toBeNull();
+});

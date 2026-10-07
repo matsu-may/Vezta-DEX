@@ -58,7 +58,7 @@ export function TestnetLpPanel({ walletControls, onSelectAction, walletBusy = fa
         <p className="form-help">{page.totalOwned} owner NFTs across all pools · scanned {BigInt(page.cursor) + BigInt(page.scanned)}/{page.totalOwned}</p>
         {positions.length === 0 && <div className="demo-empty" role="status"><strong>{page.totalOwned === "0" ? "No positions owned" : "No matching positions scanned"}</strong><p>{page.incomplete ? "More owner NFTs remain. Continue scanning this block." : "This scan covers the fixed USDC/WETH 0.3% pool."}</p></div>}
         <div className="lp-position-cards">{positions.filter(p=>!selectedTokenId || p.tokenId===selectedTokenId).map(p => <article className="lp-position-card" key={p.tokenId}>
-          <header>{productMode && <ProductPair/>}<h3>Position #{p.tokenId}</h3><span className={p.state === "active" ? "badge badge-fresh" : "badge badge-warning"}>{p.state === "empty" ? "No active liquidity" : p.inRange ? "In range" : "Out of range"}</span></header>
+          <header>{productMode && <ProductPair chainId={chainId}/>}<h3>Position #{p.tokenId}</h3><span className={p.state === "active" ? "badge badge-fresh" : "badge badge-warning"}>{p.state === "empty" ? "No active liquidity" : p.inRange ? "In range" : "Out of range"}</span></header>
           <p className="mono form-help">Ticks {p.tickLower} → {p.tickUpper} · pool tick {page.poolTick}</p>
           <dl className="demo-preview"><div><dt>Current principal</dt><dd>{tokenAmount(p.currentAmounts.USDC, "USDC")}<br />{tokenAmount(p.currentAmounts.WETH, "WETH")}</dd></div>
             <div><dt>New fees since checkpoint</dt><dd>{tokenAmount(p.newFeesSinceCheckpoint.USDC, "USDC")}<br />{tokenAmount(p.newFeesSinceCheckpoint.WETH, "WETH")}</dd></div>

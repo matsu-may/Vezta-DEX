@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import {ProductNetworkIcon} from "./product-token";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { testnetChainConfig } from "@vezta-dex/core";
@@ -19,7 +20,7 @@ function TestnetNetworkSelectorControl() {
   return ()=>{clearInterval(timer);window.removeEventListener("storage",update);};
  },[]);
  return <div className="testnet-network-control"><label className="sr-only" htmlFor="workspace-chain">Testnet network</label>
- <select id="workspace-chain" className="field" value={chainId} disabled={unavailable || pending.length>0} onChange={event=>{
+ <ProductNetworkIcon chainId={chainId}/><select id="workspace-chain" className="field" value={chainId} disabled={unavailable || pending.length>0} onChange={event=>{
   try {if(pendingTestnetWorkspaces(window.localStorage).length) return; } catch {setUnavailable(true);return;}
   router.push(switchProductNetwork(pathname,Number(event.target.value) as 84532|1301));
  }}><option value={84532}>Base Sepolia</option><option value={1301}>Unichain Sepolia · EOA</option></select>

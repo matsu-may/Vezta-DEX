@@ -1,4 +1,6 @@
 "use client";
+import { ProductDialog } from "./product-dialog";
+import { ProductTransactionProgress } from "./product-transaction-progress";
 import { TestnetActivity } from "./testnet-activity";
 import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId } from "@vezta-dex/core";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -17,6 +19,7 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
   const wallet = useRef<TestnetWallet | null>(null);
   const [state, setState] = useState<TestnetWalletSnapshot | null>(null);
   const [recoveryController, setRecoveryController] = useState<TestnetWalletController | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
   const [startup, setStartup] = useState("Loading wallet interface…");
   const openWallet = useProductWalletDialog();
   const [direction, setDirection] = useState<"forward" | "reverse">("forward");
@@ -73,10 +76,15 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
       amountIn: parsedAmount!, slippageBps: slippageBps!,
       ...(routing === "best-direct" ? { routing: "best-direct" } : routing === "legacy" ? {} : { poolFeeTier: Number(routing) }) }));
   }
-  function changeDirection(next: "forward" | "reverse") {
-    controller.current?.invalidateInput(); setDirection(next); setAmount(next === "forward" ? "1" : "0.0001");
+  async function review(kind: "swap" | "approval") {
+    if (presentation === "demo") setReviewOpen(true);
+    await controller.current?.review(kind);
   }
-  function changeAmount(next: string) { controller.current?.invalidateInput(); setAmount(next); }
+  function submitReviewed() { setReviewOpen(false); void controller.current?.submit(); }
+  function changeDirection(next: "forward" | "reverse") {
+    setReviewOpen(false); controller.current?.invalidateInput(); setDirection(next); setAmount(next === "forward" ? "1" : "0.0001");
+  }
+  function changeAmount(next: string) { setReviewOpen(false); controller.current?.invalidateInput(); setAmount(next); }
   return <div className={`testnet-demo-grid ${presentation === "demo" ? "recording-grid" : ""}`}>
     {presentation !== "demo" && <aside className="section-card testnet-explore" aria-label="Demo pool">
       <span className="eyebrow">EXPLORE · {config.label.toUpperCase()}</span><h2>USDC / WETH</h2>
@@ -93,13 +101,13 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
       <p className="testnet-mode">{presentation === "demo" ? executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled" : executionEnabled ? "Local testnet acceptance enabled · MetaMask signs every transaction" : "Read-only preview · run pnpm dev:testnet for wallet acceptance"}</p>
       {startup && <p role="status">{startup}</p>}
       {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to request a quote.</p>}
-      {!state && presentation === "demo" && <DemoSwapInputs direction={direction} amount={amount} disabled onDirection={changeDirection} onAmount={changeAmount} />}
+      {!state && presentation === "demo" && <DemoSwapInputs chainId={chainId} direction={direction} amount={amount} disabled onDirection={changeDirection} onAmount={changeAmount} />}
       {state && <>
         {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
         {!recovering && <>
           {!headerWallet && <div className="testnet-actions"><button className="button" disabled={busy} onClick={() => void connect()}>Connect {config.label} wallet</button>
             <button className="button demo-reset" disabled={busy} onClick={() => void switchChain()}>Switch to {config.label}</button></div>}
-          <DemoSwapInputs direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} inputBalance={state.review?.inputBalance} onDirection={changeDirection} onAmount={changeAmount} />
+          <DemoSwapInputs chainId={chainId} direction={direction} amount={amount} disabled={busy} amountOut={state.quote?.quote.amountOut} inputBalance={state.review?.inputBalance} onDirection={changeDirection} onAmount={changeAmount} />
           <details className="swap-review-options"><summary>Swap settings · {slippage}% slippage</summary>
             <label className="form-label" htmlFor="testnet-routing">Routing preference</label>
             <select className="field" id="testnet-routing" value={routing} disabled={busy} onChange={e => { controller.current?.invalidateInput(); setRouting(e.target.value); }}>
@@ -117,17 +125,29 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
           {!inputValid && <p role="alert" className="form-error">Enter a positive amount within the testnet cap, using at most {direction === "forward" ? 6 : 18} decimals, and slippage from 0.05% to 1%.</p>}
           {slippageBps !== null && slippageBps > P.slippageBps && <p className="form-help">Your selected slippage allows more price movement than the default 0.5%.</p>}
           {presentation !== "demo" && <button className="button testnet-quote-button" disabled={busy || !state.account || !inputValid} onClick={() => void quote()}>Get wallet quote</button>}
-          <TestnetWalletReview state={state} compact={presentation === "demo"} />
+          <TestnetWalletReview state={state} compact={presentation === "demo"} showTransaction={presentation !== "demo"} />
           {state.quote && <><p className="form-help" role="status">{fresh ? `Quote expires in ${Math.max(0, Math.ceil((expiry - now) / 1000))}s. Review and confirm before expiry.` : "Quote expired. Request a fresh quote before continuing."}</p>
             {presentation !== "demo" && <div className="testnet-actions"><button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("approval")}>Review approval</button>
               <button className="button demo-reset" disabled={busy || !fresh} onClick={() => void controller.current!.review("swap")}>Review swap</button></div>}</>}
-          {state.action && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. {chainId === 84532 ? "MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer." : "Use a standard EOA wallet on Unichain; smart account execution is not qualified."}</p>
+          {state.action && presentation !== "demo" && <><p className="form-help">Review network, recipient and fees in MetaMask. Review the requested token amount. {chainId === 84532 ? "MetaMask may relay the exact reviewed call using its supported smart account; the receipt shows the actual gas payer." : "Use a standard EOA wallet on Unichain; smart account execution is not qualified."}</p>
             {!reviewFresh && <p role="status">Review expired. Request a fresh quote and review before continuing.</p>}
-            {presentation !== "demo" && <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={() => void controller.current!.submit()}>Submit reviewed testnet transaction</button>}</>}
-          {presentation === "demo" && <DemoSwapActions state={state} busy={busy || (!!state.account && !inputValid)} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onConnect={openWallet} onQuote={() => void quote()} onReview={kind => void controller.current!.review(kind)} onSubmit={() => void controller.current!.submit()} />}
+            <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={submitReviewed}>Submit reviewed testnet transaction</button></>}
+          {presentation === "demo" && <DemoSwapActions state={state} busy={busy || (!!state.account && !inputValid)} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onConnect={openWallet} onQuote={() => void quote()} onReview={kind => void review(kind)} onSubmit={submitReviewed} onOpenReview={() => setReviewOpen(true)} />}
         </>}
-        {busy && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
-        {state.message && <p role="alert" className="form-error">{state.message}</p>}
+        {presentation === "demo" && <ProductDialog open={reviewOpen&&!recovering} title="Review transaction" onClose={()=>setReviewOpen(false)}>
+          <p className="product-dialog-note">{config.label} · Testnet</p>
+          <ProductTransactionProgress approval={state.action?.kind!=="swap" && state.review?.status!=="allowance-ready"}/>
+          <TestnetWalletReview state={state} compact modal/>
+          {busy&&<p role="status">Checking the current wallet and chain state…</p>}
+          {state.message&&<p role="alert" className="form-error">{state.message}</p>}
+          {state.action ? <><p className="form-help">Confirm the account, network and reviewed amount in MetaMask.</p>
+            {!reviewFresh||!fresh?<p role="status">Review expired. Request a fresh quote and review before continuing.</p>:<p className="form-help" role="status">Quote expires in {Math.max(0,Math.ceil((expiry-now)/1000))}s.</p>}
+            <button className="button product-dialog-submit" disabled={busy||!canSubmit} onClick={submitReviewed}>Submit reviewed testnet transaction</button></>
+            :state.review?.status==="allowance-ready"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("swap")}>Review swap</button>
+            :state.review?.status==="approval-required"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("approval")}>Review approval</button>:null}
+        </ProductDialog>}
+        {busy && !(presentation === "demo" && reviewOpen && !recovering) && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
+        {state.message && !(presentation === "demo" && reviewOpen && !recovering) && <p role="alert" className="form-error">{state.message}</p>}
         {!!state.archived?.length && <details className="archived-history"><summary>Original approvals awaiting manual review ({state.archived.length})</summary>
           <p>Base Sepolia history preserved. These wallets are blocked pending manual review.</p>
           {state.archived.map(record => <p key={record.hash}><a className="mono" href={`https://sepolia.basescan.org/tx/${record.hash}`} target="_blank" rel="noreferrer">{record.hash}</a> <button className="button demo-reset" disabled={busy} onClick={() => void controller.current!.reconcileHistoricalApproval(record.hash!)}>Verify historical approval</button></p>)}

@@ -36,3 +36,9 @@ it('retains explicit execution gating on the sole submit action', () => {
   const f = fixtures['forward-swap']; mount({ action: f.checked.action as unknown as TestnetWalletSnapshot['action'] }, { canSubmit: false });
   expect(screen.getByRole('button', { name: 'Submit reviewed testnet transaction' }).hasAttribute('disabled')).toBe(true);
 });
+it('reopens prepared review without submitting and leaves execution gating to its modal', () => {
+  const f = fixtures['forward-swap']; const open = vi.fn();
+  const calls = mount({action:f.checked.action as unknown as TestnetWalletSnapshot['action']}, {onOpenReview:open,canSubmit:false});
+  fireEvent.click(screen.getByRole('button',{name:'Review prepared transaction'}));
+  expect(open).toHaveBeenCalledOnce();expect(calls.submit).not.toHaveBeenCalled();
+});

@@ -2,14 +2,14 @@
 
 ## Start the right checkout
 
-The UI changes are in the isolated development checkout, not the original `vezta-dex` directory:
+The UI changes have been integrated locally into the original `vezta-dex` checkout:
 
 ```bash
-cd /Users/thongtran/Vezta/.worktrees/vezta-dex-testnet-product
+cd /Users/thongtran/Vezta/vezta-dex
 pnpm dev:testnet
 ```
 
-Use this checkout's existing server configuration. If it does not yet have local env files, copy the appropriate examples and configure the same RPC/API credentials privately. Never copy values into reports or commits.
+Use the original checkout's existing local server configuration. Credentials and recovery files are preserved; never copy values into reports or commits.
 
 Ports are web `3020`, API `3021`. If occupied, use your existing session only if it runs this checkout. Preserve an API that is still tracking an unresolved swap; finish recovery before changing servers. The browser preview used for this session was separately owned on `3120` and has been stopped.
 
@@ -35,9 +35,9 @@ Open `http://127.0.0.1:3020/networks/base-sepolia/swap` at desktop width 1280–
 ## 3. Swap regression
 
 1. Connect; get a quote in each direction with a small allowed amount. Verify token symbols, minimum, slippage and selected network.
-2. Open the token picker or reverse the pair after review. The old quote/action must disappear; fresh review is required.
+2. Search USDC/WETH by name or address in the token modal. Open the token picker or reverse the pair after review. The old quote/action must disappear; fresh review is required.
 3. Complete one small testnet swap with the familiar approval/reset → review → submit → original receipt → acknowledge flow. Minimum and exact authorization remain visible.
-4. If approval is already ready, proceed to swap review. Use a fresh quote when expired.
+4. Closing a transaction review must not submit. Reopen it with Review prepared transaction; expired quotes disable submit. Acknowledge/reject must not reopen an empty review. If approval is already ready, proceed to swap review. Use a fresh quote when expired.
 5. After receiving a hash, optionally navigate to Explore and return using the recovery link; reload must retain that original hash and never send again. Wallet/network selection stays locked while recovery is pending.
 
 No need to repeat compiler rebuilds or old diagnostic/fork suites for this UI check. Preserve an unverified/uncertain record and report its safe diagnostic rather than resending.

@@ -88,3 +88,24 @@ it("previews actual custom price bounds, binds them to study and invalidates rev
   expect(screen.getByRole("button",{name:"Study LP action"}).hasAttribute("disabled")).toBe(true);
   expect(screen.getByText("Lower price must be below upper price")).toBeTruthy();
 });
+it.each([false,true])("does not reopen a submitted LP review after acknowledgement/rejection (reject=%s)", async reject => {
+ const {lpWalletFixture,LP_NOW,LP_HASH}=await import("../lib/testnet-lp-wallet.test-helper");const f=lpWalletFixture("approve");vi.spyOn(Date,"now").mockReturnValue(LP_NOW);
+ HTMLDialogElement.prototype.showModal ??= function(){};HTMLDialogElement.prototype.close ??= function(){};
+ vi.spyOn(HTMLDialogElement.prototype,"showModal").mockImplementation(function(this:HTMLDialogElement){this.setAttribute("open","");});
+ vi.spyOn(HTMLDialogElement.prototype,"close").mockImplementation(function(this:HTMLDialogElement){this.removeAttribute("open");});
+ const methods:string[]=[];
+ vi.stubGlobal("ethereum",{isMetaMask:true,async request({method}:{method:string}){methods.push(method);if(method==="eth_sendTransaction"){if(reject)throw {code:4001};return LP_HASH;}return method==="eth_chainId"?"0x14a34":method==="eth_getCode"?"0x":[f.intent.wallet];}});
+ vi.stubGlobal("navigator",{locks:{request:async(_key:unknown,_options:unknown,fn:(lock:unknown)=>Promise<void>)=>fn({})}});
+ vi.stubGlobal("fetch",async(url:string)=>Response.json(url.endsWith("receipt")?{observation:f.observation}:{study:f.study}));
+ render(<TestnetLpWalletPanel executionEnabled presentation="demo"/>);
+ fireEvent.click(await screen.findByRole("button",{name:"Create position"}));fireEvent.click(screen.getByRole("button",{name:"Connect Base Sepolia wallet"}));await screen.findByText(`Connected: ${f.intent.wallet}`);
+ fireEvent.click(screen.getByRole("button",{name:"Study LP action"}));
+ const modal=await screen.findByRole("dialog",{name:"Review liquidity transaction"});
+ expect(modal.contains(screen.getByRole("button",{name:"Submit reviewed LP transaction"}))).toBe(true);expect(methods).not.toContain("eth_sendTransaction");
+ fireEvent.click(screen.getByRole("button",{name:"Close Review liquidity transaction"}));expect(screen.queryByRole("button",{name:"Submit reviewed LP transaction"})).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Review prepared LP action"}));await screen.findByRole("heading",{name:"Review approve USDC"});expect(methods).not.toContain("eth_sendTransaction");
+ fireEvent.click(screen.getByRole("button",{name:"Submit reviewed LP transaction"}));
+ if(!reject){fireEvent.click(await screen.findByRole("button",{name:"Check original LP transaction"}));fireEvent.click(await screen.findByRole("button",{name:"Acknowledge verified LP result"}));await screen.findByRole("button",{name:"Study LP action"});}
+ else {await screen.findByRole("alert");}
+ expect(screen.queryByRole("dialog",{name:"Review liquidity transaction"})).toBeNull();
+});
