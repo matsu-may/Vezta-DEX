@@ -1,4 +1,4 @@
-import { testnetBrowserAllowed, testnetApiTarget } from "../../../lib/hosted-boundary";
+import { testnetBrowserRejection, testnetApiTarget } from "../../../lib/hosted-boundary";
 import { historicalTestnetApprovalRequestSchema, parseHistoricalTestnetApprovalResponse } from "./testnet-wallet-historical";
 import { z } from "zod";
 import { createTestnetSwapDomain, testnetChainConfig, type TestnetChainId, testnetRouteComparisonSchema } from "@vezta-dex/core";
@@ -23,7 +23,9 @@ export function createTestnetWalletProxy(env: Record<string, string | undefined>
     if (request.method !== "POST") return json({ error: "POST required" }, 405);
     const url = new URL(request.url);
     if (url.search) return json({ error: "Query parameters are not supported" }, 400);
-    if (!testnetBrowserAllowed(request, env)) return json({ error: "Local same-origin JSON required", code: "TESTNET_BROWSER_ORIGIN" }, 403);
+    const diagnostic = testnetBrowserRejection(request, env);
+    if (diagnostic === "hosted-configuration-invalid") return json({ error: "Hosted API configuration unavailable", code: "TESTNET_BROWSER_CONFIG", diagnostic }, 503);
+    if (diagnostic) return json({ error: "Same-origin JSON required", code: "TESTNET_BROWSER_ORIGIN", diagnostic }, 403);
     if (env.DEX_HOSTED_MODE === "1" && action === "recheck" && !testnetDemoEnabled(env))
       return json({ error: "Hosted testnet writes are disabled", code: "TESTNET_BROWSER_UNAVAILABLE" }, 403);
     let body: unknown;

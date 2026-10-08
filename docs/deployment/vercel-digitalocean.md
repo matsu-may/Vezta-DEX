@@ -130,6 +130,19 @@ hiện **No positions owned**; submit bị tắt. API ngoài allowlist Base Sepo
 404, browser Origin/Host sai bị từ chối, token không xuất hiện trong Network response.
 Nếu 429, chờ và tránh nhiều tab gọi đồng thời; API nhận tối đa 2 request hoạt động.
 
+### Chẩn đoán hosted quote bị từ chối
+
+Response quote có `diagnostic` là nhãn cố định, không chứa secret/header values.
+`hosted-configuration-invalid` cần kiểm tra biến Production và redeploy;
+`host-mismatch`/`origin-mismatch` cần đối chiếu domain đang mở với
+`DEX_PUBLIC_ORIGIN`. Các nhãn `forwarded-*` hoặc `https-required` cần kiểm tra
+request qua reverse proxy, không tắt kiểm tra origin để bỏ qua lỗi.
+
+Vercel CLI `env pull` có thể thay Secret bằng placeholder. Không suy ra độ dài
+hoặc tính hợp lệ của token thật từ placeholder đó. `GET /api/testnet-depth` trả
+200 xác nhận request đọc đã đi qua BFF, backend auth và RPC; nó không xác nhận
+kiểm tra origin của các POST hoặc quyền gửi giao dịch.
+
 ## 6. Bật và nghiệm thu testnet writes
 
 Chỉ khi bước 4–5 đạt:

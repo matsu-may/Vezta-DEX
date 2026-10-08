@@ -27,6 +27,24 @@ it("requires hosted HTTPS config and only sends server token to the fixed API", 
   expect(() => testnetApiTarget({ ...env, DEX_API_URL: "http://127.0.0.1:3021" })).toThrow();
   expect(() => testnetApiTarget({ DEX_HOSTED_MODE: "1" })).toThrow();
 });
+it("reports a safe rejection reason without exposing configuration or request headers", async () => {
+  let fetched = false;
+  const fetcher: typeof fetch = async () => { fetched = true; throw new Error("Unexpected upstream request"); };
+  for (const [headers, diagnostic] of [
+    [{ origin: "https://other.example.com" }, "origin-mismatch"],
+    [{ "x-forwarded-host": "other.example.com" }, "forwarded-host-mismatch"],
+    [{ "x-forwarded-proto": "http" }, "forwarded-protocol-mismatch"],
+    [{ forwarded: "for=192.0.2.1;host=dex.example.com;proto=https" }, "forwarded-header-present"],
+  ] as [Record<string, string>, string][]) {
+    const response = await createTestnetWalletProxy(env, fetcher)(request({}, headers), "quote");
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ error: "Same-origin JSON required", code: "TESTNET_BROWSER_ORIGIN", diagnostic });
+  }
+  const response = await createTestnetWalletProxy({ ...env, DEX_BFF_TOKEN: "" }, fetcher)(request({}), "quote");
+  expect(response.status).toBe(503);
+  expect(await response.json()).toEqual({ error: "Hosted API configuration unavailable", code: "TESTNET_BROWSER_CONFIG", diagnostic: "hosted-configuration-invalid" });
+  expect(fetched).toBe(false);
+});
 it("passes production quote through existing validators with writes off and no secret response", async () => {
   const f = await reviewedFixture(); let sent: RequestInit | undefined;
   const response = await createTestnetWalletProxy(env, async (_url, init) => { sent = init; return Response.json({ ...f.f.quoted,

@@ -1,19 +1,28 @@
 import { readHostedConfig, type HostedEnv } from "@vezta-dex/core";
 
-export function testnetBrowserAllowed(request: Request, env: HostedEnv): boolean {
+/** Returns only fixed diagnostic labels, never credentials or header values. */
+export function testnetBrowserRejection(request: Request, env: HostedEnv): string | null {
+  let hosted: ReturnType<typeof readHostedConfig>;
+  try { hosted = readHostedConfig(env); }
+  catch { return "hosted-configuration-invalid"; }
   try {
-    const hosted = readHostedConfig(env);
     const url = new URL(request.url), host = request.headers.get("host") ?? url.host;
     const origin = hosted?.publicOrigin ?? "http://127.0.0.1:3020";
     const expected = new URL(origin);
-    return host === expected.host && request.headers.get("origin") === origin
-      && request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() === "application/json"
-      && (!hosted || url.protocol === "https:")
-      && (!request.headers.has("x-forwarded-host") || request.headers.get("x-forwarded-host") === host)
-      && (!request.headers.has("x-forwarded-proto") || request.headers.get("x-forwarded-proto") === expected.protocol.slice(0, -1))
-      && (Boolean(hosted) || !request.headers.has("x-forwarded-for") || ["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.headers.get("x-forwarded-for")!))
-      && !request.headers.has("forwarded");
-  } catch { return false; }
+    if (host !== expected.host) return "host-mismatch";
+    if (request.headers.get("origin") !== origin) return "origin-mismatch";
+    if (request.headers.get("content-type")?.split(";")[0].trim().toLowerCase() !== "application/json") return "content-type-invalid";
+    if (hosted && url.protocol !== "https:") return "https-required";
+    if (request.headers.has("x-forwarded-host") && request.headers.get("x-forwarded-host") !== host) return "forwarded-host-mismatch";
+    if (request.headers.has("x-forwarded-proto") && request.headers.get("x-forwarded-proto") !== expected.protocol.slice(0, -1)) return "forwarded-protocol-mismatch";
+    if (!hosted && request.headers.has("x-forwarded-for") && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.headers.get("x-forwarded-for")!)) return "local-forwarded-client";
+    if (request.headers.has("forwarded")) return "forwarded-header-present";
+    return null;
+  } catch { return "request-invalid"; }
+}
+
+export function testnetBrowserAllowed(request: Request, env: HostedEnv): boolean {
+  return testnetBrowserRejection(request, env) === null;
 }
 
 /** Used only by server BFFs, never by browser fetch clients. */
