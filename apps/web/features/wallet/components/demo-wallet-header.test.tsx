@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { afterEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { DemoWalletHeader, DemoWalletProvider, useDemoWalletBinding } from "./demo-wallet-header";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { DemoWalletHeader, DemoWalletProvider, useDemoWalletBinding, useProductWalletNetwork } from "./demo-wallet-header";
 const account = "0x1111111111111111111111111111111111111111";
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 function mount() {
@@ -88,4 +88,22 @@ it('keeps wallet selection locked on discovery routes while an original record n
  try {const request=vi.fn();vi.stubGlobal('ethereum',{isMetaMask:true,request});render(<DemoWalletProvider><DemoWalletHeader/></DemoWalletProvider>);
  const trigger=await screen.findByRole('button',{name:'Wallet · tracking'});expect(trigger.hasAttribute('disabled')).toBe(true);expect(request).not.toHaveBeenCalled();}
  finally {localStorage.clear();}
+});
+
+it("reports the bound wallet network and preserves it across account changes until disconnect", async () => {
+  mount(); const listeners = new Map<string, (value?:unknown)=>void>();
+  const request = vi.fn(async () => "0x1");
+  vi.stubGlobal("ethereum", { isMetaMask:true, request, on(event:string, listener:(value?:unknown)=>void){listeners.set(event,listener);}, removeListener(){} });
+  const connect = vi.fn(async () => ({account:null,error:"Select the correct network"}));
+  function Bound() { useDemoWalletBinding({account:null,busy:false,blocked:false,connect}); const chain=useProductWalletNetwork();return <output aria-label="Observed wallet chain">{chain ?? "Unknown"}</output>; }
+  render(<DemoWalletProvider><DemoWalletHeader/><Bound/></DemoWalletProvider>);
+  fireEvent.click(screen.getByRole("button",{name:"Connect wallet"}));fireEvent.click(screen.getByRole("button",{name:/MetaMask/}));
+  await screen.findByText(/Wallet chain 1 does not match/);
+  expect(request.mock.calls).toHaveLength(1);
+  act(()=>listeners.get("accountsChanged")?.([account]));
+  expect(screen.getByLabelText("Observed wallet chain").textContent).toBe("1");
+  act(()=>listeners.get("chainChanged")?.("0x14a34"));
+  expect(screen.getByLabelText("Observed wallet chain").textContent).toBe("84532");
+  act(()=>listeners.get("disconnect")?.());
+  expect(screen.getByLabelText("Observed wallet chain").textContent).toBe("Unknown");
 });

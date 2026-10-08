@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
+import "./product.css";
 import { ProductBrand } from "../components/layout/product-brand";
 import { DemoWalletWorkspace } from "../features/wallet/components/demo-wallet-workspace";
 import { DemoNavigation } from "../components/layout/demo-navigation";

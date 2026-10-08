@@ -2,7 +2,8 @@
 import { afterEach, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, cleanup, waitFor } from "@testing-library/react";
 import { DemoNavigation } from "./demo-navigation";
-vi.mock("next/navigation", () => ({ usePathname: () => "/explore/tokens", useSearchParams: () => new URLSearchParams("network=unichain-sepolia") }));
+const route = vi.hoisted(() => ({path:"/explore/tokens"}));
+vi.mock("next/navigation", () => ({ usePathname: () => route.path, useSearchParams: () => new URLSearchParams("network=unichain-sepolia") }));
 afterEach(cleanup);
 it("opens both menus by hover or click and closes with Escape without navigating", () => {
   render(<DemoNavigation />);
@@ -25,4 +26,10 @@ it("keeps hover-open menus available on click and moves keyboard focus into them
  expect(explore.getAttribute("aria-expanded")).toBe("true");
  fireEvent.keyDown(explore,{key:"Escape"});fireEvent.keyDown(explore,{key:"ArrowDown"});
  await waitFor(()=>expect(document.activeElement).toBe(screen.getByRole("link",{name:"Tokens"})));
+});
+
+it.each(["/explore", "/pools", "/pool"])("marks the Explore group active for alias %s",path=>{
+ route.path=path;render(<DemoNavigation/>);
+ expect(screen.getByRole("button",{name:"Explore"}).classList.contains("is-active")).toBe(true);
+ route.path="/explore/tokens";
 });

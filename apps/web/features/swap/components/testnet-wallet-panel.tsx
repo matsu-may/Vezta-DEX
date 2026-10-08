@@ -100,8 +100,8 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
       {presentation !== "demo" && <span className="eyebrow">SWAP · TESTNET</span>}<h2>{presentation === "demo" ? "Swap tokens" : "Review a small testnet swap"}</h2>
       <p className="testnet-mode">{presentation === "demo" ? executionEnabled ? "Test tokens only · every transaction is signed in your wallet" : "Read-only preview · wallet submission is disabled" : executionEnabled ? "Local testnet acceptance enabled · MetaMask signs every transaction" : "Read-only preview · run pnpm dev:testnet for wallet acceptance"}</p>
       {startup && <p role="status">{startup}</p>}
-      {headerWallet && !state?.account && !recovering && <p className="form-help">Connect your wallet in the top-right corner to request a quote.</p>}
-      {!state && presentation === "demo" && <DemoSwapInputs chainId={chainId} direction={direction} amount={amount} disabled onDirection={changeDirection} onAmount={changeAmount} />}
+
+      {!state && presentation === "demo" && <DemoSwapInputs chainId={chainId} direction={direction} amount={amount} disabled onDirection={changeDirection} onAmount={changeAmount} />}{!state && presentation === "demo" && <button className="button swap-primary-action" aria-label="Connect wallet for swap" onClick={openWallet}>Connect wallet</button>}
       {state && <>
         {state.account && !headerWallet && <p className="mono testnet-connected">Connected: {state.account}</p>}
         {!recovering && <>
@@ -134,17 +134,17 @@ export function TestnetWalletPanel({ executionEnabled, presentation = "technical
             <button className="button testnet-submit" disabled={busy || !canSubmit} onClick={submitReviewed}>Submit reviewed testnet transaction</button></>}
           {presentation === "demo" && <DemoSwapActions state={state} busy={busy || (!!state.account && !inputValid)} fresh={fresh} reviewFresh={reviewFresh} canSubmit={!!canSubmit} onConnect={openWallet} onQuote={() => void quote()} onReview={kind => void review(kind)} onSubmit={submitReviewed} onOpenReview={() => setReviewOpen(true)} />}
         </>}
-        {presentation === "demo" && <ProductDialog open={reviewOpen&&!recovering} title="Review transaction" onClose={()=>setReviewOpen(false)}>
+        {presentation === "demo" && <ProductDialog open={reviewOpen&&!recovering} title="Review transaction" onClose={()=>setReviewOpen(false)} footer={state.action ? <><p className="form-help">Confirm the account, network and reviewed amount in MetaMask.</p>
+            {!reviewFresh||!fresh?<p role="status">Review expired. Request a fresh quote and review before continuing.</p>:<p className="form-help" role="status">Quote expires in {Math.max(0,Math.ceil((expiry-now)/1000))}s.</p>}
+            <button className="button product-dialog-submit" disabled={busy||!canSubmit} onClick={submitReviewed}>Submit reviewed testnet transaction</button></>
+            :state.review?.status==="allowance-ready"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("swap")}>Review swap</button>
+            :state.review?.status==="approval-required"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("approval")}>Review approval</button>:null}>
           <p className="product-dialog-note">{config.label} · Testnet</p>
           <ProductTransactionProgress approval={state.action?.kind!=="swap" && state.review?.status!=="allowance-ready"}/>
           <TestnetWalletReview state={state} compact modal/>
           {busy&&<p role="status">Checking the current wallet and chain state…</p>}
           {state.message&&<p role="alert" className="form-error">{state.message}</p>}
-          {state.action ? <><p className="form-help">Confirm the account, network and reviewed amount in MetaMask.</p>
-            {!reviewFresh||!fresh?<p role="status">Review expired. Request a fresh quote and review before continuing.</p>:<p className="form-help" role="status">Quote expires in {Math.max(0,Math.ceil((expiry-now)/1000))}s.</p>}
-            <button className="button product-dialog-submit" disabled={busy||!canSubmit} onClick={submitReviewed}>Submit reviewed testnet transaction</button></>
-            :state.review?.status==="allowance-ready"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("swap")}>Review swap</button>
-            :state.review?.status==="approval-required"?<button className="button product-dialog-submit" disabled={busy||!fresh} onClick={()=>void review("approval")}>Review approval</button>:null}
+
         </ProductDialog>}
         {busy && !(presentation === "demo" && reviewOpen && !recovering) && <p role="status">{recovering ? "Checking the original transaction…" : "Checking the current wallet and chain state…"}</p>}
         {state.message && !(presentation === "demo" && reviewOpen && !recovering) && <p role="alert" className="form-error">{state.message}</p>}

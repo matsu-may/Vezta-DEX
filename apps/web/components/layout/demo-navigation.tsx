@@ -2,6 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { productWorkspaceChain, testnetNetworkHref } from "../../lib/testnet-network-selection";
 import Link from "next/link";
+import {ProductIcon} from "../ui/product-icon";
 import { usePathname, useSearchParams } from "next/navigation";
 
 function NavGroup({label,items,active}:{label:string;items:{label:string;href:string;unsupported?:boolean}[];active:boolean}) {
@@ -11,7 +12,7 @@ function NavGroup({label,items,active}:{label:string;items:{label:string;href:st
   return <div ref={root} className="product-nav-group" onMouseEnter={()=>setOpen(true)} onMouseLeave={()=>setOpen(false)}
     onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget as Node))setOpen(false);}}
     onKeyDown={e=>{if(e.key==="Escape"){setOpen(false);trigger.current?.focus();}if(e.key==="ArrowDown"){e.preventDefault();if(open)root.current?.querySelector<HTMLAnchorElement>("a")?.focus();else {focusMenu.current=true;setOpen(true);}}}}>
-    <button ref={trigger} className={`product-nav-trigger ${active?"is-active":""}`} aria-expanded={open} aria-controls={id} onClick={()=>setOpen(true)}>{label}<span aria-hidden="true">⌄</span></button>
+    <button ref={trigger} className={`product-nav-trigger ${active?"is-active":""}`} aria-expanded={open} aria-controls={id} onClick={()=>setOpen(true)}>{label}<ProductIcon name="chevron" size={14}/></button>
     <div id={id} className="product-nav-dropdown" hidden={!open}>{items.map(item=><Link key={item.href} href={item.href} onClick={()=>setOpen(false)}>{item.label}{item.unsupported&&<small>Not supported</small>}</Link>)}</div>
   </div>;
 }
@@ -19,10 +20,10 @@ export function DemoNavigation() {
   const pathname=usePathname() ?? "", network=productWorkspaceChain(pathname,useSearchParams().get("network"));
   if(network){const href=(view:string)=>testnetNetworkHref(network,view);return <nav className="demo-top-nav product-navigation" aria-label="DEX navigation">
     <Link href={href("swap")} aria-current={pathname.endsWith("/swap")?"page":undefined}>Swap</Link>
-    <NavGroup label="Explore" active={pathname.includes("/explore/")||pathname.includes("/pools/")} items={[
+    <NavGroup label="Explore" active={/\/(explore|pools?)(?:\/|$)/.test(pathname)} items={[
       {label:"Tokens",href:href("explore/tokens")},{label:"Auctions",href:href("explore/auctions"),unsupported:true},{label:"Pools",href:href("explore/pools")},{label:"Transactions",href:href("explore/transactions")},
     ]}/>
-    <NavGroup label="Pool" active={pathname.includes("/positions")} items={[
+    <NavGroup label="Pool" active={pathname.includes("/positions")||pathname.includes("/liquidity/launch-auction")} items={[
       {label:"View positions",href:href("positions")},{label:"Create position",href:href("positions/create")},{label:"Launch auction",href:href("liquidity/launch-auction"),unsupported:true},
     ]}/>
   </nav>;}

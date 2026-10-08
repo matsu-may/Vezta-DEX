@@ -3,13 +3,13 @@ import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { TestnetLpWalletPanel } from "./testnet-lp-wallet-panel";
 afterEach(()=>{cleanup();vi.unstubAllGlobals();vi.restoreAllMocks();});
-it("opens the create wizard without wallet prompts and requires selecting its supported pool",()=>{
+it("opens the create wizard without wallet prompts and requires selecting its supported pool",async()=>{
   const request=vi.fn();vi.stubGlobal("ethereum",{isMetaMask:true,request});
   render(<TestnetLpWalletPanel chainId={1301} executionEnabled={false} presentation="demo" productMode="create"/>);
   expect(screen.getByRole("heading",{name:"Choose a pool"})).toBeTruthy();
   fireEvent.click(screen.getByRole("button",{name:"Select USDC / WETH pool"}));
   expect(screen.getByRole("heading",{name:"Set your position"})).toBeTruthy();
-  expect(screen.getByText(/No historical chart/)).toBeTruthy();
+  expect(await screen.findByText(/No historical chart/)).toBeTruthy();
   expect(request).not.toHaveBeenCalled();
 });
 it('shows only the selected NFT and distinguishes an unscanned ID from a missing completed scan',async()=>{

@@ -37,7 +37,7 @@ async page => {
  await page.screenshot({path:'.playwright-cli/unichain-swap-desktop.png'});
  await page.getByRole('button',{name:'Submit reviewed testnet transaction',exact:true}).click();
  await page.getByRole('button',{name:'Check original transaction',exact:true}).waitFor();
- check(await page.getByLabel('Testnet network',{exact:true}).isDisabled(),'Pending original transaction locks chain selection');
+ check(await page.getByRole('button',{name:/Testnet network/}).isDisabled(),'Pending original transaction locks chain selection');
  check(await page.evaluate(()=>window.__dexChainMock.sends[0][0].chainId==='0x515'),'Mock send uses Unichain chain');
  await page.reload();await page.getByRole('button',{name:'Check original transaction',exact:true}).waitFor();
  check((await page.evaluate(()=>window.__dexChainMock.methods)).length===0,'Reload recovers without wallet prompt');

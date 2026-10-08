@@ -1,6 +1,7 @@
 "use client";
 import {testnetChainConfig, type TestnetChainId} from "@vezta-dex/core";
 import Image from "next/image";
+import {ProductIcon} from "../../../components/ui/product-icon";
 
 import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import {pendingTestnetWorkspaces} from "../../../lib/testnet-network-selection";
@@ -8,7 +9,7 @@ import type { TestnetWallet } from "../../swap/lib/testnet-wallet-controller";
 
 type Connection = { account: string | null; error?: string };
 type Binding = { account: string | null; busy: boolean; blocked: boolean; connect: () => Promise<Connection> };
-type Registry = { chainId: TestnetChainId; enabled: boolean; account: string | null; setAccount: (account: string | null) => void; walletDialogOpen: boolean; setWalletDialogOpen: (open: boolean) => void; binding: Binding | null; register: (id: symbol, value: Binding | null) => void };
+type Registry = { walletChainId:number|null;setWalletChainId:(chainId:number|null)=>void;chainId: TestnetChainId; enabled: boolean; account: string | null; setAccount: (account: string | null) => void; walletDialogOpen: boolean; setWalletDialogOpen: (open: boolean) => void; binding: Binding | null; register: (id: symbol, value: Binding | null) => void };
 const Context = createContext<Registry | null>(null);
 
 // Select the same injected provider for the header and the guarded action controllers.
@@ -19,15 +20,17 @@ export function injectedDemoWallet(): TestnetWallet | undefined {
 
 export function DemoWalletProvider({ children, enabled = true, chainId = 84532 }: { children: ReactNode; enabled?: boolean; chainId?: TestnetChainId }) {
   const [entry, setEntry] = useState<{ id: symbol; value: Binding } | null>(null);
+  const [walletChainId,setWalletChainId]=useState<number|null>(null);
   const [account,setAccount]=useState<string|null>(null);
   const [walletDialogOpen,setWalletDialogOpen]=useState(false);
   const register = useCallback((id: symbol, value: Binding | null) => {
     setEntry(current => value ? { id, value } : current?.id === id ? null : current);
   }, []);
-  return <Context.Provider value={{ chainId, enabled, account, setAccount, walletDialogOpen, setWalletDialogOpen, binding: entry?.value ?? null, register }}>{children}</Context.Provider>;
+  return <Context.Provider value={{ walletChainId,setWalletChainId,chainId, enabled, account, setAccount, walletDialogOpen, setWalletDialogOpen, binding: entry?.value ?? null, register }}>{children}</Context.Provider>;
 }
 
 export function useProductWalletAccount() { const context=useContext(Context); return context?.binding?.account ?? context?.account ?? null; }
+export function useProductWalletNetwork(){return useContext(Context)?.walletChainId??null;}
 export function useProductWalletSession() { return useContext(Context)?.account ?? null; }
 export function useProductWalletDialog() { const context=useContext(Context); return context?.enabled ? () => context.setWalletDialogOpen(true) : undefined; }
 
@@ -51,7 +54,7 @@ export function DemoWalletHeader() {
 function DemoWalletHeaderControl() {
   const context = useContext(Context);
   const config = testnetChainConfig(context?.chainId ?? 84532), chainHex = `0x${config.policy.chainId.toString(16)}`;
-  const account=context?.account ?? null, setAccount=context!.setAccount;
+  const account=context?.account ?? null, setAccount=context!.setAccount, setWalletChainId=context!.setWalletChainId;
   const open=context!.walletDialogOpen, setOpen=context!.setWalletDialogOpen;
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(""); const [switching, setSwitching] = useState(false);
@@ -65,10 +68,13 @@ function DemoWalletHeaderControl() {
   const blocked = !!active?.blocked || pending; const busy = connecting || switching || !!active?.busy;
   useEffect(() => {
     alive.current = true;
-    const wallet = injectedDemoWallet(); const clear = () => { generation.current++; setAccount(null); };
-    for (const event of ["accountsChanged", "chainChanged", "disconnect"]) wallet?.on?.(event, clear);
-    return () => { alive.current = false; setOpen(false); for (const event of ["accountsChanged", "chainChanged", "disconnect"]) wallet?.removeListener?.(event, clear); };
-  }, [setAccount, setOpen]);
+    const wallet = injectedDemoWallet();
+    const clearAccount = () => { generation.current++; setAccount(null); };
+    const changeChain = (value:unknown) => { clearAccount(); setWalletChainId(typeof value === "string" && /^0x[0-9a-f]+$/i.test(value) ? Number(BigInt(value)) : null); };
+    const disconnect = () => { clearAccount(); setWalletChainId(null); };
+    wallet?.on?.("accountsChanged", clearAccount); wallet?.on?.("chainChanged", changeChain); wallet?.on?.("disconnect", disconnect);
+    return () => { alive.current = false; setOpen(false); wallet?.removeListener?.("accountsChanged", clearAccount); wallet?.removeListener?.("chainChanged", changeChain); wallet?.removeListener?.("disconnect", disconnect); };
+  }, [setAccount, setOpen,setWalletChainId]);
   useEffect(() => {
     const element = dialog.current;
     if (!element) return;
@@ -79,7 +85,15 @@ function DemoWalletHeaderControl() {
     if (busy || blocked) return; setError(""); setConnecting(true);
     try {
       let result: Connection;
-      if (active) result = await active.connect();
+      if (active) {
+        result = await active.connect();
+        // Observe a failed explicit connection without changing controller authority.
+        const selectedGeneration = generation.current;
+        if (!result.account) try {
+          const actualChain = await injectedDemoWallet()?.request({ method: "eth_chainId" });
+          if (alive.current && selectedGeneration === generation.current && typeof actualChain === "string" && /^0x[0-9a-f]+$/i.test(actualChain)) setWalletChainId(Number(BigInt(actualChain)));
+        } catch { /* The controller's connection error remains the actionable result. */ }
+      }
       else {
         const wallet = injectedDemoWallet();
         if (!wallet) { setError("Install MetaMask in this browser, then reload this page."); return; }
@@ -87,7 +101,9 @@ function DemoWalletHeaderControl() {
         const owner = Array.isArray(accounts) ? accounts[0] : null;
         if (typeof owner !== "string" || !/^0x[\da-f]{40}$/i.test(owner)) throw new Error("No account selected");
         const selectedGeneration = generation.current;
-        if (await wallet.request({ method: "eth_chainId" }) !== chainHex) {
+        const actualChain=await wallet.request({ method: "eth_chainId" });
+        if(typeof actualChain==="string"&&/^0x[0-9a-f]+$/i.test(actualChain))setWalletChainId(Number(BigInt(actualChain)));
+        if (actualChain !== chainHex) {
           setError(`Select ${config.label} in MetaMask or use the network switch below, then select MetaMask again.`); return;
         }
         const current: unknown = await wallet.request({ method: "eth_accounts" });
@@ -95,7 +111,7 @@ function DemoWalletHeaderControl() {
         result = { account: owner };
       }
       if (!alive.current) return;
-      if (result.account) { setAccount(result.account); setOpen(false); }
+      if (result.account) { setWalletChainId(config.policy.chainId);setAccount(result.account); setOpen(false); }
       else setError(result.error || `Connection unavailable. Check the selected wallet and ${config.label} network, then try again.`);
     } catch (cause) {
       if (alive.current) setError((cause as { code?: number })?.code === 4001 ? "Connection rejected. Select MetaMask to try again." : `Connection unavailable. Check MetaMask and the ${config.label} network.`);
@@ -107,7 +123,7 @@ function DemoWalletHeaderControl() {
       const wallet = injectedDemoWallet();
       if (!wallet) { setError("Install MetaMask in this browser, then reload this page."); return; }
       await wallet.request({ method: "wallet_switchEthereumChain", params: [{ chainId: chainHex }] });
-      if (alive.current) setError(`${config.label} selected. Select MetaMask to connect.`);
+      if (alive.current) {setWalletChainId(config.policy.chainId);setError(`${config.label} selected. Select MetaMask to connect.`);}
     } catch { if (alive.current) setError(`Network switch rejected or unavailable. Add ${config.label} in MetaMask using the owner guide.`); }
     finally { if (alive.current) setSwitching(false); }
   }
@@ -126,18 +142,22 @@ function DemoWalletHeaderControl() {
       aria-haspopup="dialog" onClick={() => { setError(""); setOpen(true); }}>
       <span aria-hidden="true" className="wallet-status-dot" />{blocked ? "Wallet · tracking" : currentAccount ? short : "Connect wallet"}
     </button>
-    <dialog ref={dialog} className="wallet-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
+    <dialog ref={dialog} className="wallet-dialog product-dialog" aria-labelledby={titleId} aria-describedby={descriptionId}
       onCancel={() => setOpen(false)} onClose={() => setOpen(false)} onKeyDown={keepDialogFocus}>
-      <div className="wallet-dialog-heading"><h2 id={titleId}>{currentAccount ? "Your wallet" : "Connect wallet"}</h2>
-        <button className="wallet-dialog-close" aria-label="Close wallet dialog" onClick={() => setOpen(false)}>×</button></div>
+      <div className="wallet-dialog-heading product-dialog-heading"><h2 id={titleId}>{currentAccount ? "Your wallet" : "Connect wallet"}</h2>
+        <button className="wallet-dialog-close" aria-label="Close wallet dialog" onClick={() => setOpen(false)}><ProductIcon name="close"/></button></div>
+      <div className="product-dialog-body">
       <p id={descriptionId}>Connect with MetaMask on {config.label}. Test tokens only.</p>
+      <div className="wallet-network-summary"><span>App network</span><strong>{config.label} · {config.policy.chainId}</strong></div>
+      {context.walletChainId!==null&&context.walletChainId!==config.policy.chainId&&<p className="wallet-dialog-message" role="status">Wallet chain {context.walletChainId} does not match. Switch to {config.label} before connecting.</p>}
       {currentAccount && <div className="wallet-account"><span>Connected account</span><p className="mono">{currentAccount}</p></div>}
       <button className="wallet-option" disabled={busy || blocked} onClick={() => void connect()}>
         <span className="wallet-option-icon" aria-hidden="true"><Image src="/wallets/metamask.svg" alt="" width={32} height={32} unoptimized /></span><span><strong>MetaMask</strong><small>{connecting ? "Waiting for wallet…" : currentAccount ? "Reconnect or select another account" : "Browser extension"}</small></span><span aria-hidden="true">↗</span>
       </button>
       {error && <p className="wallet-dialog-message" role="status">{error}</p>}
+      </div><footer className="product-dialog-footer">
       <button className="wallet-network-switch" disabled={busy || blocked} onClick={() => void switchChain()}>{switching ? "Switching network…" : `Switch to ${config.label}`}</button>
-      <p className="wallet-dialog-note">Connecting does not approve tokens or send a transaction.</p>
+      <p className="wallet-dialog-note">Connecting does not approve tokens or send a transaction.</p></footer>
     </dialog>
   </div>;
 }
