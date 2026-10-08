@@ -138,6 +138,12 @@ Response quote có `diagnostic` là nhãn cố định, không chứa secret/hea
 `DEX_PUBLIC_ORIGIN`. Các nhãn `forwarded-*` hoặc `https-required` cần kiểm tra
 request qua reverse proxy, không tắt kiểm tra origin để bỏ qua lỗi.
 
+Hosted mode chấp nhận một phần tử `Forwarded` có host/proto khớp origin HTTPS
+đã cấu hình, kể cả giá trị quoted. Header thiếu/sai host hoặc proto, tham số lặp,
+chuỗi nhiều proxy, escape hoặc quá 2KB bị từ chối. `Origin`, `Host`, HTTPS và
+`X-Forwarded-*` vẫn được kiểm tra riêng; `Forwarded` không quyết định API URL.
+Local mode tiếp tục từ chối header này.
+
 Vercel CLI `env pull` có thể thay Secret bằng placeholder. Không suy ra độ dài
 hoặc tính hợp lệ của token thật từ placeholder đó. `GET /api/testnet-depth` trả
 200 xác nhận request đọc đã đi qua BFF, backend auth và RPC; nó không xác nhận

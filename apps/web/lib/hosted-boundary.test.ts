@@ -34,7 +34,7 @@ it("reports a safe rejection reason without exposing configuration or request he
     [{ origin: "https://other.example.com" }, "origin-mismatch"],
     [{ "x-forwarded-host": "other.example.com" }, "forwarded-host-mismatch"],
     [{ "x-forwarded-proto": "http" }, "forwarded-protocol-mismatch"],
-    [{ forwarded: "for=192.0.2.1;host=dex.example.com;proto=https" }, "forwarded-header-present"],
+    [{ forwarded: "for=192.0.2.1;host=other.example.com;proto=https" }, "forwarded-header-invalid"],
   ] as [Record<string, string>, string][]) {
     const response = await createTestnetWalletProxy(env, fetcher)(request({}, headers), "quote");
     expect(response.status).toBe(403);
@@ -45,10 +45,35 @@ it("reports a safe rejection reason without exposing configuration or request he
   expect(await response.json()).toEqual({ error: "Hosted API configuration unavailable", code: "TESTNET_BROWSER_CONFIG", diagnostic: "hosted-configuration-invalid" });
   expect(fetched).toBe(false);
 });
+it("accepts a single matching hosted Forwarded element and keeps local/proxy forgery blocked", () => {
+  for (const forwarded of [
+    "for=192.0.2.1;host=dex.example.com;proto=https",
+    'for="[2001:db8::1]:1234"; host="dex.example.com"; proto="https"',
+    "For=unknown;Host=DEX.EXAMPLE.COM;Proto=HTTPS",
+  ]) expect(testnetBrowserAllowed(request({}, { forwarded }), env)).toBe(true);
+  for (const forwarded of [
+    "host=other.example.com;proto=https", "host=dex.example.com;proto=http",
+    "for=192.0.2.1", "host=dex.example.com", "proto=https",
+    "host=dex.example.com;host=other.example.com;proto=https",
+    "host=dex.example.com;proto=https;PROTO=http",
+    "host=dex.example.com;proto=https,host=other.example.com;proto=https",
+    'host="dex.example.com;proto=https', 'host="dex.example.com\\";proto=https',
+    "", "host=dex.example.com;proto=https;for=" + "x".repeat(2048),
+  ]) expect(testnetBrowserAllowed(request({}, { forwarded }), env)).toBe(false);
+  expect(testnetBrowserAllowed(request({}, { forwarded: "host=dex.example.com;proto=https", origin: "https://other.example.com" }), env)).toBe(false);
+  expect(testnetBrowserAllowed(new Request("http://dex.example.com/api/testnet-wallet/quote", { method: "POST", headers: request({}, { forwarded: "host=dex.example.com;proto=https" }).headers }), env)).toBe(false);
+  const local = new Request("http://127.0.0.1:3020/api/testnet-wallet/quote", { method: "POST", headers: {
+    host: "127.0.0.1:3020", origin: "http://127.0.0.1:3020", "content-type": "application/json",
+    forwarded: "host=127.0.0.1:3020;proto=http",
+  } });
+  expect(testnetBrowserAllowed(local, {})).toBe(false);
+});
 it("passes production quote through existing validators with writes off and no secret response", async () => {
   const f = await reviewedFixture(); let sent: RequestInit | undefined;
   const response = await createTestnetWalletProxy(env, async (_url, init) => { sent = init; return Response.json({ ...f.f.quoted,
-    qualification: { ...f.f.quoted.qualification, executionEnabled: true } }); }, f.f.clock)(request(f.f.request.intent), "quote");
+    qualification: { ...f.f.quoted.qualification, executionEnabled: true } }); }, f.f.clock)(request(f.f.request.intent, {
+      forwarded: "for=192.0.2.1;host=dex.example.com;proto=https",
+    }), "quote");
   expect(response.status).toBe(200); expect((await response.clone().json()).qualification.executionEnabled).toBe(false);
   expect(await response.text()).not.toContain(env.DEX_BFF_TOKEN);
   expect(new Headers(sent?.headers).get("authorization")).toBe(`Bearer ${env.DEX_BFF_TOKEN}`);
@@ -57,9 +82,10 @@ it("supports depth and LP HTTPS boundaries with the same host/auth rules", async
   const depth = await createTestnetDepthProxy(env, async () => Response.json({ depth: depthFixture() }))(new Request("https://dex.example.com/api/testnet-depth"));
   expect(depth.status).toBe(200);
   const f = lpWalletFixture();
-  const lp = await createTestnetLpWalletProxy(env, async () => Response.json({ study: f.study }), () => LP_NOW)(request({ intent: f.intent }), "study");
+  const proxyHeaders = { forwarded: "for=192.0.2.1;host=dex.example.com;proto=https" };
+  const lp = await createTestnetLpWalletProxy(env, async () => Response.json({ study: f.study }), () => LP_NOW)(request({ intent: f.intent }, proxyHeaders), "study");
   expect(lp.status).toBe(200); expect((await lp.json()).study.executionEnabled).toBe(false);
-  const positions = await createTestnetLpProxy(env, async () => Response.json({ code: "TESTNET_LP_RPC_UNAVAILABLE" }, { status: 503 }))(request({ chainId: 84532, owner: f.intent.wallet, cursor: "0", limit: 1 }));
+  const positions = await createTestnetLpProxy(env, async () => Response.json({ code: "TESTNET_LP_RPC_UNAVAILABLE" }, { status: 503 }))(request({ chainId: 84532, owner: f.intent.wallet, cursor: "0", limit: 1 }, proxyHeaders));
   expect(positions.status).toBe(503); expect((await positions.json()).code).toBe("TESTNET_LP_RPC_UNAVAILABLE");
 });
 it("denies final recheck before fetching when writes are off while retaining LP receipt recovery", async () => {
