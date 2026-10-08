@@ -1,20 +1,5 @@
 import { readHostedConfig, type HostedEnv } from "@vezta-dex/core";
 
-/** Bounded single-proxy profile; these fields never determine the API target. */
-function hostedForwardedMatches(value: string, expected: URL): boolean {
-  if (value.length > 2048 || value.includes(",")) return false;
-  const fields = new Map<string, string>();
-  for (const pair of value.split(";")) {
-    const match = /^([a-z][a-z0-9_-]*)=(?:"([^"\\\r\n]*)"|([a-z0-9!#$%&'*+.^_|~-]+))$/i.exec(pair.trim());
-    if (!match) return false;
-    const key = match[1].toLowerCase();
-    if (fields.has(key)) return false;
-    fields.set(key, match[2] ?? match[3]);
-  }
-  return fields.get("host")?.toLowerCase() === expected.host
-    && fields.get("proto")?.toLowerCase() === expected.protocol.slice(0, -1);
-}
-
 /** Returns only fixed diagnostic labels, never credentials or header values. */
 export function testnetBrowserRejection(request: Request, env: HostedEnv): string | null {
   let hosted: ReturnType<typeof readHostedConfig>;
@@ -31,11 +16,10 @@ export function testnetBrowserRejection(request: Request, env: HostedEnv): strin
     if (request.headers.has("x-forwarded-host") && request.headers.get("x-forwarded-host") !== host) return "forwarded-host-mismatch";
     if (request.headers.has("x-forwarded-proto") && request.headers.get("x-forwarded-proto") !== expected.protocol.slice(0, -1)) return "forwarded-protocol-mismatch";
     if (!hosted && request.headers.has("x-forwarded-for") && !["127.0.0.1", "::1", "::ffff:127.0.0.1"].includes(request.headers.get("x-forwarded-for")!)) return "local-forwarded-client";
-    const forwarded = request.headers.get("forwarded");
-    if (forwarded !== null) {
-      if (!hosted) return "forwarded-header-present";
-      if (!hostedForwardedMatches(forwarded, expected)) return "forwarded-header-invalid";
-    }
+    // Vercel adds Forwarded metadata whose format is not an authority contract.
+    // Never read it for origin, routing or credentials; those checks remain above.
+    // The platform profile comes from server env, never an incoming header.
+    if (request.headers.has("forwarded") && !(hosted && env.VERCEL === "1")) return "forwarded-header-present";
     return null;
   } catch { return "request-invalid"; }
 }
