@@ -21,10 +21,10 @@ export function TestnetWalletReview({ state, compact = false, showQuote = true, 
   return <>
     {q && showQuote && <section className="testnet-review" aria-label="Wallet quote">
       {!compact && <h3>Quote · {config.label}</h3>}<dl className="demo-preview">
-        {(!compact || modal) && <><div><dt>Input</dt><dd>{amount(q.amountIn, q.tokenIn)}</dd></div>
-        <div><dt>Estimated received</dt><dd>{amount(q.amountOut, q.tokenOut)}</dd></div></>}
+        {(!compact || modal) && <div><dt>Input</dt><dd>{amount(q.amountIn, q.tokenIn)}</dd></div>}
+        <div><dt>Estimated received</dt><dd>{amount(q.amountOut, q.tokenOut)}</dd></div>
         {modal && <div><dt>Recipient</dt><dd className="mono">{q.wallet}</dd></div>}
-        <div><dt>Minimum received</dt><dd>{amount(q.minimumAmountOut, q.tokenOut)}</dd></div>
+        <div className="quote-minimum"><dt>Minimum received</dt><dd>{amount(q.minimumAmountOut, q.tokenOut)}</dd></div>
         <div><dt>Pool fee</dt><dd>{q.feeTier / 10000}%</dd></div>
         <div><dt>Slippage</dt><dd>{q.slippageBps / 100}%</dd></div>{!compact && <><div><dt>Observed</dt><dd>{q.observedAt}</dd></div>
         <div><dt>Block</dt><dd>{q.blockNumber}</dd></div></>}
