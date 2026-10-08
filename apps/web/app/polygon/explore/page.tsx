@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { PoolList } from "../../../components/pool-list";
-import { DataUnavailable } from "../../../components/data-unavailable";
-import { createDexApi } from "../../../lib/api";
+import { PoolList } from "../../../features/legacy/polygon/components/pool-list";
+import { DataUnavailable } from "../../../components/ui/data-unavailable";
+import { createDexApi } from "../../../features/legacy/polygon/lib/api";
 
 export const dynamic = "force-dynamic";
 

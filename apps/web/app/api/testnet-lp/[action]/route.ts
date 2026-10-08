@@ -1,4 +1,4 @@
-import { createTestnetLpWalletProxy } from "../../../../lib/testnet-lp-wallet-proxy";
+import { createTestnetLpWalletProxy } from "../../../../features/liquidity/lib/testnet-lp-wallet-proxy";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 const proxy = createTestnetLpWalletProxy();

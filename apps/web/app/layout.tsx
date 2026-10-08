@@ -3,11 +3,11 @@ import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 import localFont from "next/font/local";
 import "./globals.css";
-import { ProductBrand } from "../components/product-brand";
-import { DemoWalletWorkspace } from "../components/demo-wallet-workspace";
-import { DemoNavigation } from "../components/demo-navigation";
-import {TestnetNetworkSelector} from "../components/testnet-network-selector";
-import { DemoWalletHeader } from "../components/demo-wallet-header";
+import { ProductBrand } from "../components/layout/product-brand";
+import { DemoWalletWorkspace } from "../features/wallet/components/demo-wallet-workspace";
+import { DemoNavigation } from "../components/layout/demo-navigation";
+import {TestnetNetworkSelector} from "../components/layout/testnet-network-selector";
+import { DemoWalletHeader } from "../features/wallet/components/demo-wallet-header";
 
 const displayFont = localFont({ src: "../public/fonts/SpaceGrotesk[wght].ttf", variable: "--font-display", weight: "300 700", display: "swap", preload: false });
 const dataFont = localFont({ src: "../public/fonts/JetBrainsMono[wght].ttf", variable: "--font-data", weight: "100 800", display: "swap", preload: false });

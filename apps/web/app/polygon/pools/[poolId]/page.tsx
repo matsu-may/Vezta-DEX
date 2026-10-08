@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { DataUnavailable } from "../../../../components/data-unavailable";
-import { createDexApi, DexApiError, isStale } from "../../../../lib/api";
+import { DataUnavailable } from "../../../../components/ui/data-unavailable";
+import { createDexApi, DexApiError, isStale } from "../../../../features/legacy/polygon/lib/api";
 
 export const dynamic = "force-dynamic";
 

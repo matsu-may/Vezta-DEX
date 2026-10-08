@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { DemoDex } from "../../components/demo-dex";
+import { DemoDex } from "../../features/workspace/components/demo-dex";
 
 export default function DemoPage() {
   return <div className="page-stack demo-page">

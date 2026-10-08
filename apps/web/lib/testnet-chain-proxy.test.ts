@@ -1,8 +1,8 @@
 import { it, expect, vi } from "vitest";
 import { testnetChainConfig } from "@vezta-dex/core";
-import { createTestnetWalletProxy } from "./testnet-wallet-proxy";
-import { createTestnetLpWalletProxy } from "./testnet-lp-wallet-proxy";
-import { createTestnetLpProxy } from "./testnet-lp";
+import { createTestnetWalletProxy } from "../features/swap/lib/testnet-wallet-proxy";
+import { createTestnetLpWalletProxy } from "../features/liquidity/lib/testnet-lp-wallet-proxy";
+import { createTestnetLpProxy } from "../features/liquidity/lib/testnet-lp";
 const config = testnetChainConfig(1301);
 const request = (body: unknown) => new Request("http://127.0.0.1:3020/api/testnet-chains/unichain-sepolia/wallet/quote", { method:"POST", headers:{host:"127.0.0.1:3020",origin:"http://127.0.0.1:3020","content-type":"application/json"}, body:JSON.stringify(body) });
 it("routes selected-chain intents only to their namespace and rejects Base before upstream", async () => {

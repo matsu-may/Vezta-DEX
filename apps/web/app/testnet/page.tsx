@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { TestnetDiscovery } from "../../components/testnet-discovery";
+import { TestnetDiscovery } from "../../features/explore/components/testnet-discovery";
 export const metadata: Metadata = { title: "Vezta DEX — Base Sepolia testnet" };
-import { TestnetWalletPanel } from "../../components/testnet-wallet-panel";
+import { TestnetWalletPanel } from "../../features/swap/components/testnet-wallet-panel";
 import { testnetDemoEnabled } from "../../lib/testnet-demo-gate";
 export const dynamic = "force-dynamic";
 export default function TestnetPage() { return <div className="demo-page testnet-page">

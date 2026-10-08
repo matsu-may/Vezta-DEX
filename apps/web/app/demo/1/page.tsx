@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { TestnetWalletPanel } from "../../../components/testnet-wallet-panel";
+import { TestnetWalletPanel } from "../../../features/swap/components/testnet-wallet-panel";
 import { testnetDemoEnabled } from "../../../lib/testnet-demo-gate";
-import { resolveTestnetRoutingSelection } from "../../../lib/testnet-routing-selection";
+import { resolveTestnetRoutingSelection } from "../../../features/swap/lib/testnet-routing-selection";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vezta DEX — Testnet swap demo" };
 export default async function RecordingDemoPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

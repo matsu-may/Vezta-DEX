@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
-import { rehearsalEnabled } from "../../lib/rehearsal-gate";
-import { RehearsalPanelHost } from "../../components/rehearsal-panel";
+import { rehearsalEnabled } from "../../features/legacy/rehearsal/lib/rehearsal-gate";
+import { RehearsalPanelHost } from "../../features/legacy/rehearsal/components/rehearsal-panel";
 export const dynamic="force-dynamic";
 export default function RehearsalPage(){
   if(!rehearsalEnabled())notFound();

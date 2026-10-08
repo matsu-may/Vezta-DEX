@@ -1,8 +1,8 @@
 import Link from "next/link";
 import type { Address } from "@vezta-dex/core";
-import { DataUnavailable } from "../../../components/data-unavailable";
-import { LpPositionList } from "../../../components/lp-position-list";
-import { createDexApi } from "../../../lib/api";
+import { DataUnavailable } from "../../../components/ui/data-unavailable";
+import { LpPositionList } from "../../../features/liquidity/components/lp-position-list";
+import { createDexApi } from "../../../features/legacy/polygon/lib/api";
 
 export const dynamic = "force-dynamic";
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;

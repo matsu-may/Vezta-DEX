@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DemoPoolDiscovery } from "../../../components/demo-pool-discovery";
+import { DemoPoolDiscovery } from "../../../features/explore/components/demo-pool-discovery";
 export const metadata: Metadata = { title: "Vezta DEX — Base Sepolia USDC / WETH pool" };
 export default async function PoolDetailDemoPage({ searchParams }: { searchParams: Promise<{ fee?: string | string[]; pool?: string | string[] }> }) {
   const query = await searchParams;

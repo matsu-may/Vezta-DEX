@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { testnetDemoEnabled } from "../../../lib/testnet-demo-gate";
-import { TestnetLpWalletPanel } from "../../../components/testnet-lp-wallet-panel";
+import { TestnetLpWalletPanel } from "../../../features/liquidity/components/testnet-lp-wallet-panel";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Vezta DEX — Testnet liquidity demo" };
 export default function LiquidityRecordingPage() {

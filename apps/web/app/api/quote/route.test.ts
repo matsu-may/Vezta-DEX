@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { TOKENS, V3_POOL_500, type SwapQuote } from "@vezta-dex/core";
-import { createQuoteHandler } from "../../../lib/quote-route";
+import { createQuoteHandler } from "../../../features/legacy/polygon/lib/quote-route";
 
 const quote: SwapQuote = {
   chainId: 137, protocol: "v3", pool: V3_POOL_500, feeTier: 500,

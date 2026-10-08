@@ -1,5 +1,5 @@
 import { type TestnetChainId, testnetChainConfig } from "@vezta-dex/core";
-import { TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
+import { TESTNET_SUBMISSION_KEY } from "../features/swap/lib/testnet-wallet-storage";
 export const TESTNET_LP_SUBMISSION_KEY = "vezta-dex:base-sepolia-lp-submission:v1";
 export class OtherTestnetSubmissionError extends Error {
   constructor(readonly other: "swap" | "lp") {

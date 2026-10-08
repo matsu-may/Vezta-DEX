@@ -1,11 +1,11 @@
-import {testnetLpMessage} from "./testnet-lp-wallet-errors";
+import {testnetLpMessage} from "../features/liquidity/lib/testnet-lp-wallet-errors";
 import { expect, it } from "vitest";
 import { encodeFunctionData, erc20Abi } from "viem";
 import { createTestnetLpDomain, testnetChainConfig } from "@vezta-dex/core";
-import { lpWalletFixture } from "./testnet-lp-wallet.test-helper";
-import { memoryStorage } from "./testnet-wallet.test-helper";
-import { TestnetLpWalletController } from "./testnet-lp-wallet-controller";
-import { createTestnetLpStorageDomain } from "./testnet-lp-wallet-storage";
+import { lpWalletFixture } from "../features/liquidity/lib/testnet-lp-wallet.test-helper";
+import { memoryStorage } from "../features/swap/lib/testnet-wallet.test-helper";
+import { TestnetLpWalletController } from "../features/liquidity/lib/testnet-lp-wallet-controller";
+import { createTestnetLpStorageDomain } from "../features/liquidity/lib/testnet-lp-wallet-storage";
 const cfg = testnetChainConfig(1301), domain = createTestnetLpDomain(1301);
 it("reviews exact LP approval and retains original Unichain recovery across reload", async () => {
   const b = lpWalletFixture("approve"), intent = {...b.intent, chainId: 1301};

@@ -1,4 +1,4 @@
-import {ProductEntry,type ProductSearch} from "../../../components/product-entry";
+import {ProductEntry,type ProductSearch} from "../../../features/workspace/components/product-entry";
 export const dynamic="force-dynamic";
 export default async function Page({params,searchParams}:{params:Promise<{position:string}>;searchParams:Promise<ProductSearch>}) {
  const {position}=await params;

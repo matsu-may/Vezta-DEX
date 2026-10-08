@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { DemoPoolDiscovery } from "../../../components/demo-pool-discovery";
+import { DemoPoolDiscovery } from "../../../features/explore/components/demo-pool-discovery";
 export const metadata: Metadata = { title: "Vezta DEX — Base Sepolia Explore" };
 export default function ExploreDemoPage() {
   return <div className="demo-page testnet-page recording-page discovery-page">

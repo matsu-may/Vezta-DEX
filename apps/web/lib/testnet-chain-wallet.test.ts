@@ -1,9 +1,9 @@
 import { expect, it } from "vitest";
 import { createTestnetSwapDomain, testnetChainConfig } from "@vezta-dex/core";
-import { TestnetWalletController } from "./testnet-wallet-controller";
-import { createTestnetWalletContracts } from "./testnet-wallet-contracts";
-import { createTestnetSubmissionStorageDomain, TESTNET_SUBMISSION_KEY } from "./testnet-wallet-storage";
-import { memoryStorage, reviewedFixture } from "./testnet-wallet.test-helper";
+import { TestnetWalletController } from "../features/swap/lib/testnet-wallet-controller";
+import { createTestnetWalletContracts } from "../features/swap/lib/testnet-wallet-contracts";
+import { createTestnetSubmissionStorageDomain, TESTNET_SUBMISSION_KEY } from "../features/swap/lib/testnet-wallet-storage";
+import { memoryStorage, reviewedFixture } from "../features/swap/lib/testnet-wallet.test-helper";
 const cfg = testnetChainConfig(1301), domain = createTestnetSwapDomain(1301);
 async function fixture() {
   const b = await reviewedFixture(), intent = domain.parseTestnetSwapIntent({...b.f.request.intent, chainId: 1301,

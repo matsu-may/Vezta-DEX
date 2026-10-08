@@ -1,13 +1,13 @@
 import { expect, it } from "vitest";
 import { testnetBrowserAllowed, testnetApiTarget } from "./hosted-boundary";
 import { testnetDemoEnabled } from "./testnet-demo-gate";
-import { createTestnetWalletProxy } from "./testnet-wallet-proxy";
-import { createTestnetLpWalletProxy } from "./testnet-lp-wallet-proxy";
-import { createTestnetDepthProxy } from "./testnet-depth";
-import { createTestnetLpProxy } from "./testnet-lp";
-import { reviewedFixture } from "./testnet-wallet.test-helper";
-import { lpWalletFixture, LP_NOW } from "./testnet-lp-wallet.test-helper";
-import { depthFixture } from "../../../packages/core/src/testnet-depth.test-helper";
+import { createTestnetWalletProxy } from "../features/swap/lib/testnet-wallet-proxy";
+import { createTestnetLpWalletProxy } from "../features/liquidity/lib/testnet-lp-wallet-proxy";
+import { createTestnetDepthProxy } from "../features/explore/lib/testnet-depth";
+import { createTestnetLpProxy } from "../features/liquidity/lib/testnet-lp";
+import { reviewedFixture } from "../features/swap/lib/testnet-wallet.test-helper";
+import { lpWalletFixture, LP_NOW } from "../features/liquidity/lib/testnet-lp-wallet.test-helper";
+import { depthFixture } from "../../../packages/core/src/discovery/testnet-depth.test-helper";
 const env = { NODE_ENV: "production", DEX_HOSTED_MODE: "1", DEX_PUBLIC_ORIGIN: "https://dex.example.com",
   DEX_API_URL: "https://api.example.com", DEX_BFF_TOKEN: "cd".repeat(32) };
 const request = (body: unknown, headers: Record<string, string> = {}) => new Request("https://dex.example.com/api/testnet-wallet/quote", {

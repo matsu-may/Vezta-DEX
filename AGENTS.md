@@ -2,20 +2,22 @@
 
 ## Project Structure
 
-This is a standalone DEX project, separate from `vezta-fe` and `vezta-be`. `packages/core/src/` owns Polygon token and pool identities; `apps/api/src/` reads Uniswap v3 contracts and proxies validated Trading API quotes; `apps/web/app/` renders `/explore`, `/pools`, pool detail, and a read-only `/swap` preview. Tests sit beside the code as `*.test.ts` or `*.test.tsx`. Research and implementation plans live in `docs/`.
+This standalone pnpm workspace is independent of `vezta-fe` and `vezta-be`. Read `docs/architecture.md` and `docs/maintenance/source-layout.md` first. `apps/web` is the Next.js frontend; `apps/api` is the Node API; `packages/core` contains shared policies, schemas, and chain identities.
+
+Routes stay in `apps/web/app`; product code lives in `features/{swap,liquidity,explore,wallet,activity,workspace}`. Shared components live in `components/`; historical flows live in `features/legacy`. Backend runtime code lives in `http/`, `modules/`, and `infrastructure/`; studies use `cli/` and `tooling/`. Tests remain beside their code. Scripts are grouped by purpose.
 
 ## Development Commands
 
-Use Node 24 and pnpm 10.33.2. `pnpm install` installs the workspace; `pnpm dev` runs the API on port 3021 and Next.js on port 3020. Set `POLYGON_RPC_URL` and server-only `UNISWAP_API_KEY` in `apps/api/.env`, and `DEX_API_URL` in `apps/web/.env.local` using the examples. `pnpm test` runs Vitest, `pnpm typecheck` checks all packages, `pnpm lint` runs ESLint, and `pnpm build` builds the web app.
+Use Node 24 and pnpm 10.33.2. `pnpm dev` runs web/API on 3020/3021; `pnpm dev:testnet` explicitly enables local wallet flows. Configure server credentials in `apps/api/.env` and the API origin in `apps/web/.env.local` using the examples. `pnpm test`, `pnpm typecheck`, `pnpm lint`, and `pnpm build` are the quality gates. Existing `pnpm testnet:*` command names remain stable.
 
-## Code and Data Rules
+## Coding and Transaction Rules
 
-Use strict TypeScript and two-space indentation. Name files in kebab case and React components in PascalCase. Token identity is `chainId + address`; pool identity is `chainId + protocol + reference`. Keep native USDC distinct from bridged USDC.e. Read contract addresses from the curated registry and official deployment references. Never turn v3 `liquidity()` into USD TVL, fees, or APR. Include `source`, `observedAt`, and block number with pool data. The server holds RPC/API credentials; the browser never signs through the server.
+Use strict TypeScript, two-space indentation, kebab-case files, and PascalCase components. Keep core browser-safe; secrets, RPC transport, and persistence belong on the server. Tokens use `chainId + address`; pools include chain/protocol identity. Preserve provenance, freshness, exact approvals, simulation, and original-hash recovery. The user's wallet signs/submits; the server never signs or broadcasts user transactions. Never derive USD TVL/APR from raw `liquidity()`.
 
-## Testing and Change Review
+## Testing Guidelines
 
-Write a failing test before behavior changes, then run the full suite, typecheck, lint, and build. Test malformed IDs, wrong chain, token order, missing pools, provider failure, stale data, and transaction payload validation when writes are added. Browser checks are required for responsive changes. Wallet writes require live Trading API, approval, Permit2 and receipt gates in `docs/specs/2026-09-27-trading-api-swap.md` and `docs/roadmap.md`.
+Use Vitest (`*.test.ts[x]`) and Node's test runner (`scripts/**/*.test.mjs`). Add regression tests before behavior changes. For file moves, preserve assertions and verify imports, fixtures, env loading, workers, and subprocess setup. Run full gates once after targeted checks. Browser checks are required for UI changes; structural refactors do not require funded transactions or repeated public RPC probes.
 
-## Commits and Pull Requests
+## Commits and Deployment
 
-Keep commits scoped by feature or layer; use messages such as `feat(dex): add Polygon pool reader` or `docs(dex): record pool evidence`. PRs should link the relevant spec, summarize user-facing behavior, list actual verification commands, and include screenshots for page changes. Never commit `.env` files or credentials.
+Use scoped messages such as `refactor(dex): organize source modules`. PRs link the plan and list verification; UI changes include screenshots. Never commit credentials or private recovery/evidence. Vercel's root stays `apps/web`; the API entrypoint stays `apps/api/src/main.ts`. Mainnet activation and Vezta integration remain separate work.

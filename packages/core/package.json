@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./swap-calldata": "./src/swap-calldata.ts",
-    "./swap-abi": "./src/swap-abi.ts",
-    "./permit-signature": "./src/permit-signature.ts",
-    "./transaction-receipt": "./src/transaction-receipt.ts",
+    "./swap-calldata": "./src/swap/swap-calldata.ts",
+    "./swap-abi": "./src/swap/swap-abi.ts",
+    "./permit-signature": "./src/swap/permit-signature.ts",
+    "./transaction-receipt": "./src/transaction/transaction-receipt.ts",
     ".": "./src/index.ts"
   },
   "scripts": {
